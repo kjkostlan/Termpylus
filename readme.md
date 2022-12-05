@@ -2,7 +2,7 @@
 
 **You write Python:** Need a def? And if statement? A list comprehension? No need to be familiar with the bash flow-control. *anytime a variable is created you see it's printout*.
 
-**Bash2python:** (**TODO**) As amazing as Python is, bash one-liners are *extremely* concise. Simple bash commands such as "cd path/to/dir" are converted into python commands. Allows setting python variables in the same line such as "x = ls". There must be a Python library out there somewhere that implements "ls", "grep", "touch", etc...
+**Bash2python:** (**TODO**) As amazing as Python is, bash one-liners are *extremely* concise. Simple bash commands such as "cd path/to/dir" are converted into python commands. Allows setting python variables in the same line such as "x = ls". *This works even on windows* for the more common bash commands. There must be a Python library out there somewhere that implements "ls", "grep", "touch", etc...
 
 **Multiline input:** Input multiline Python code all at once. Define multiple defs in a single command. Test that SSCCE with a single Ctrl+V!
 

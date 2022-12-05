@@ -1,6 +1,7 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
-import sys
+import sys, re
+import pybashlib
 
 def str1(x):
     sx = str(x)
@@ -12,6 +13,92 @@ def _module_strs():
     modl = sys.modules[__name__]
     return dict(zip(modl.__dict__.keys(), [str(x) for x in modl.__dict__.values()]))
 
+py_kwds = {'import','from','def','lambda','class', 'try','except','raise','assert','finally',\
+           'await','async','yield', 'if','or','not','elif','else','and','is', \
+           'while','for','in','return','pass','break','continue', \
+           'global','with','as','nonlocal',  'del',\
+           'False','None','True'}
+
+pybashlib.splat_here(__name__)
+
+def run(cmd, sys_args):
+    # Single-shot run, return result.
+    TODO
+
+def tail_arg_deep_assess(tail):
+    # Is this bashy or a Python arg?
+    tail = tail.strip()
+
+    if tail in pybashlib.top_25():
+        return True
+    py_vars = set(sys.modules[__name__].__dict__.keys())
+    return tail not in py_vars
+
+def attempt_shell_parse(txt):
+    # Attempts a shell parse as a series of tokens.
+    # Returns [python_var, f, args]
+
+    def bashy(token):
+        # More likely to be bash than Python.
+        if len(token)>=2:
+            if token[0]=='"' and token[-1]=='"':
+                return True
+        if token in {'.','*','|','&'}:
+            return True
+        return re.fullmatch('[-a-zA-Z0-9_]+', token)
+
+    txt = txt.strip()
+    if '\n' in txt: # Does this restriction make sense?
+        return None
+
+    var_name = None
+    pieces = re.split('[ \t\n]+', txt)
+
+    if len(pieces) < 2:
+        return None
+
+    if pieces[0] in py_kwds:
+        return None # Python code.
+
+    # Equal index.
+    eq_ix = -1
+    for i in range(len(pieces)):
+        if pieces[i]=='=':
+            eq_ix = i
+
+    after_eq = pieces[eq_ix:]
+    all_bashy = len(list(filter(bashy, after_eq)))==len(after_eq)
+    if not all_bashy: # too much of a hair trigger?
+        return None
+
+    if len(pieces) < eq_ix+2: # too stubby!
+        return None
+
+    if len(pieces) == eq_ix+2 and eq_ix>0: # a = b format, but is b from Python?
+        if not tail_arg_deep_assess(pieces[-1]):
+            return None
+
+    if eq_ix==-1:
+        return [None, pieces[0], pieces[1:]]
+    else:
+        return [' '.join(pieces[0:eq_ix]), pieces[eq_ix+1], pieces[eq_ix+2:]]
+
+def bashyparse2pystr(out_var, cmd, args):
+    # Equivalent python command.
+    cmd_builtin = True # TODO: turn false when shell.
+    if out_var is None:
+        out_var = 'ans' # Default.
+    def quote_if_needed(x):
+        if '"' in x or "'" in x:
+            return x
+        return '"'+x+'"'
+
+    arg_str = '['+','.join([quote_if_needed(a) for a in args])+']'
+    if not cmd_builtin:
+        return '%s = run(%s, %s)'%(str(out_var), str(cmd), arg_str)
+    else:
+        return '%s = %s(%s)'%(str(out_var), str(cmd), arg_str)
+
 class Shell:
     def __init__(self):
 
@@ -22,11 +109,15 @@ class Shell:
 
     def autocorrect(self, input):
         # TODO: simple shell commands with the path.
+        x = attempt_shell_parse(input)
+        if x is not None:
+            return bashyparse2pystr(*x)
         return input
 
     def send(self, input, include_newline=True):
         input = input.strip()
         if len(input)>0:
+            pybashlib.shell = self # So that fns from pybashlib works properly.
             strs0 = _module_strs()
             err = ''
             try:
@@ -57,4 +148,3 @@ class Shell:
 
     def add_update_listener(self, f, dt=0.0625):
         self.listenerf = f
-
