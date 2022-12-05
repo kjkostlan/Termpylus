@@ -6,7 +6,7 @@ import tkinter as tk
 import traceback
 import layout
 import sys
-import shellnative, shellpython
+import shellnative, shellpython, evt_check
 
 debug_show_keypress = True
 
@@ -24,14 +24,11 @@ def set_text_text(tkinter_txt, str_txt):
     tkinter_txt.insert('1.0', str_txt)
 
 def debug_keypress(evt):
-    mods = []; modint = evt.state # 4 = ctrl, 1 = shift, 131072 = alt.
-    if modint%2==1:
-        mods.append('S+'); modint = modint-1
-    if modint%8==4:
-        mods.append('C+'); modint = modint-4
-    if modint%(2*131072)==131072:
-        mods.append('M+'); modint=modint-131072
-    print('Keypress:', ' '.join(mods), evt.keysym)
+    mods = evt_check.get_mods(evt)
+    if len(mods)>0:
+        print('Keypress:', mods, '+', evt.keysym)#, hex(evt.state))
+    else:
+        print('Keypress:', evt.keysym)#, hex(evt.state))
 
 class GUI(tk.Frame):
     def __init__(self, shell, root=root):
@@ -68,7 +65,7 @@ class GUI(tk.Frame):
                 w.bind('<KeyPress>', debug_keypress,  add='+')
 
     def maybe_click_history(self, evt):
-        evt_trigger =  evt.keysym =='??' or evt.keysym=='Return' and evt.state==0
+        evt_trigger = evt.keysym =='??' or evt.keysym=='Return' and len(evt_check.get_mods(evt))==0
         if evt_trigger and len(self.historybox.curselection())==1:
             #https://www.tutorialspoint.com/how-do-i-get-the-index-of-an-item-in-tkinter-listbox
             #https://www.geeksforgeeks.org/how-to-get-selected-value-from-listbox-in-tkinter/
@@ -106,10 +103,9 @@ class GUI(tk.Frame):
 
     def shell_output_keypresses(self, *args):
         evt = args[0]
-        mod_state = evt.state # 4 = ctrl, 1 = shift, 131072 = alt.
         char = evt.char
         keysym = evt.keysym
-        if keysym=='k' and mod_state==4:
+        if evt_check.emacs(evt, 'C-k'):
             self.shell.outputs = []
             self.set_shell_output()
 
@@ -118,16 +114,15 @@ class GUI(tk.Frame):
         #print('Event: ', args[0].__dict__)
         #https://stackoverflow.com/questions/19861689/check-if-modifier-key-is-pressed-in-tkinter
         evt = args[0]
-        mod_state = evt.state # 4 = ctrl, 1 = shift, 131072 = alt.
-        char = evt.char
-        if len(char)==1 and ord(char) == 13 and mod_state==1: # Shift enter = send command.
+        char = evt.char; char = (char+' ')[0]
+
+        if evt_check.emacs(evt, 'S+enter'): # Shift enter = send command.
             input_to_shell=self.text_input.get("1.0","end-1c")
 
             autocorrected_input = self.shell.autocorrect(input_to_shell)
             if autocorrected_input != input_to_shell:
                 input_to_shell = autocorrected_input
                 set_text_text(self.text_input, autocorrected_input)
-
             self.shell.send(input_to_shell) # The shell listener should activie and change the output text soon.
             self.shell.input_ix += 1
             if len(input_to_shell)>0 and input_to_shell[-1] == '\n':

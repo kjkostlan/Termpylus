@@ -1,5 +1,6 @@
 # Widget layout.
 # Based on simple priority stuff.
+import evt_check
 
 def normalize_widget_sizes(widgets):
     # Creates the want_size attribute, and sum to one.
@@ -22,15 +23,14 @@ def place_all(window_x, window_y, widgets):
 def add_bigsmall_fns(widgets):
     # Alt + and Alt -
     def maybe_change_sz(widget_ix, evt):
-        mod_state = evt.state # 4 = ctrl, 1 = shift, 131072 = alt.
         char = evt.char
         fac = 1.0
-        if mod_state == 131072 or mod_state==131072+1:
+        if evt_check.emacs(evt, ['M+-', 'M+=', 'SM+-', 'SM+=']):
             if char=='-' or char == '_':
                 fac = 7.0/8.0
             elif char=='=' or char == '+':
                 fac = 8.0/7.0
-            if mod_state==131072+1:
+            if evt_check.emacs(evt, ['SM+-', 'SM+=']):
                 fac = fac**0.25
         if fac != 1.0:
             normalize_widget_sizes(widgets)
@@ -45,16 +45,18 @@ def add_fontsize_fns(widgets):
         w.lovely_font = ['Courier', 12]
         w.config(font=w.lovely_font)
     def maybe_change_font(w, evt):
-        mod_state = evt.state # 4 = ctrl, 1 = shift, 131072 = alt.
         char = evt.char
         keysym = evt.keysym
         delta = 0
-        if (mod_state==4 or mod_state==5) and keysym=='equal':
+        if evt_check.emacs(evt,['C+=']):
             delta = 1
-        elif (mod_state==4 or mod_state==5) and keysym=='minus':
+        elif evt_check.emacs(evt,['C+-']):
             delta = -1
-        if mod_state==5:
-            delta = delta*4
+        elif evt_check.emacs(evt,['CS+=']):
+            delta = 4
+        elif evt_check.emacs(evt,['CS+-']):
+            delta = -4
+
         if delta != 0:
             w.lovely_font[1] = max(1,int(w.lovely_font[1]+delta+0.5))
             w.config(font=w.lovely_font)
@@ -71,7 +73,6 @@ def focus_cycle(root, widgets):
         return -1
 
     def maybe_cycle_focus(evt):
-        mod_state = evt.state # 4 = ctrl, 1 = shift, 131072 = alt.
         char = evt.char
         keysym = evt.keysym
         if keysym=='grave' or keysym=='asciitilde':
@@ -79,14 +80,13 @@ def focus_cycle(root, widgets):
             #print('Current focus:', focus, 'mod_state:', mod_state)
             if focus==-1:
                 focus = 0
-            if mod_state==4:
+            if evt_check.emacs(evt, 'C+~'):
                 focus = (focus+1)%len(widgets)
-            elif mod_state==5:
+            elif evt_check.emacs(evt, 'CS+~'):
                 focus = (focus-1)%len(widgets)
-            if mod_state == 4 or mod_state == 5:
+            if evt_check.emacs(evt, ['C+~', 'CS+~']):
                 #print('Set focus:', focus)
                 widgets[focus].focus_set()
 
     for w in widgets:
         w.bind('<KeyPress>', maybe_cycle_focus, add='+')
-
