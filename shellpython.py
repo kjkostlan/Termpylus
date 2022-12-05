@@ -2,6 +2,7 @@
 # It holds a current working directory to feel shell-like.
 import sys, re
 import pybashlib
+import traceback
 
 def str1(x):
     sx = str(x)
@@ -99,6 +100,19 @@ def bashyparse2pystr(out_var, cmd, args):
     else:
         return '%s = %s(%s)'%(str(out_var), str(cmd), arg_str)
 
+def exc_to_str(e):
+    # Includes stack trace.
+    err = str(repr(e))
+    tr = traceback.format_exc()
+    lines = tr.split('\n')
+    mod_ix = -1
+    for i in range(len(lines)): # Remove the head part of the trace.
+        if 'in <module>' in lines[i]:
+            mod_ix = i
+    if mod_ix>-1:
+        lines = lines[mod_ix+1:]
+    return (err+'\nTraceback:\n'+'\n'.join(lines)).strip()
+
 class Shell:
     def __init__(self):
 
@@ -125,7 +139,7 @@ class Shell:
                 exec(input, globals(), globals())
                 #print('Exed input:', input, 'dict:', sys.modules[__name__].__dict__.keys())
             except Exception as e:
-                err = str(repr(e))
+                err = exc_to_str(e)
 
             strs1 = _module_strs()
             vars_set = ''
