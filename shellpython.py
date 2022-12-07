@@ -14,11 +14,7 @@ def _module_strs():
     modl = sys.modules[__name__]
     return dict(zip(modl.__dict__.keys(), [str(x) for x in modl.__dict__.values()]))
 
-py_kwds = {'import','from','def','lambda','class', 'try','except','raise','assert','finally',\
-           'await','async','yield', 'if','or','not','elif','else','and','is', \
-           'while','for','in','return','pass','break','continue', \
-           'global','with','as','nonlocal',  'del',\
-           'False','None','True'}
+################################ Running bash commands #########################
 
 pybashlib.splat_here(__name__)
 
@@ -26,69 +22,11 @@ def run(cmd, sys_args):
     # Single-shot run, return result.
     TODO
 
-def tail_arg_deep_assess(tail):
-    # Is this bashy or a Python arg?
-    tail = tail.strip()
-
-    if tail in pybashlib.top_25():
-        return True
-    py_vars = set(sys.modules[__name__].__dict__.keys())
-    return tail not in py_vars
-
-def attempt_shell_parse(txt):
-    # Attempts a shell parse as a series of tokens.
-    # Returns [python_var, f, args]
-
-    def bashy(token):
-        # More likely to be bash than Python.
-        if len(token)>=2:
-            if token[0]=='"' and token[-1]=='"':
-                return True
-        if token in {'.','*','|','&'}:
-            return True
-        return re.fullmatch('[-a-zA-Z0-9_]+', token)
-
-    txt = txt.strip()
-    if '\n' in txt: # Does this restriction make sense?
-        return None
-
-    var_name = None
-    pieces = re.split('[ \t\n]+', txt)
-
-    if len(pieces) < 2:
-        return None
-
-    if pieces[0] in py_kwds:
-        return None # Python code.
-
-    # Equal index.
-    eq_ix = -1
-    for i in range(len(pieces)):
-        if pieces[i]=='=':
-            eq_ix = i
-
-    after_eq = pieces[eq_ix:]
-    all_bashy = len(list(filter(bashy, after_eq)))==len(after_eq)
-    if not all_bashy: # too much of a hair trigger?
-        return None
-
-    if len(pieces) < eq_ix+2: # too stubby!
-        return None
-
-    if len(pieces) == eq_ix+2 and eq_ix>0: # a = b format, but is b from Python?
-        if not tail_arg_deep_assess(pieces[-1]):
-            return None
-
-    if eq_ix==-1:
-        return [None, pieces[0], pieces[1:]]
-    else:
-        return [' '.join(pieces[0:eq_ix]), pieces[eq_ix+1], pieces[eq_ix+2:]]
-
 def bashyparse2pystr(out_var, cmd, args):
     # Equivalent python command.
     cmd_builtin = True # TODO: turn false when shell.
-    if out_var is None:
-        out_var = 'ans' # Default.
+    if cmd not in pybashlib.top_25():
+        cmd_builtin = False
     def quote_if_needed(x):
         if '"' in x or "'" in x:
             return x
@@ -96,9 +34,92 @@ def bashyparse2pystr(out_var, cmd, args):
 
     arg_str = '['+','.join([quote_if_needed(a) for a in args])+']'
     if not cmd_builtin:
-        return '%s = run(%s, %s)'%(str(out_var), str(cmd), arg_str)
+        return '%s = run("%s", %s)'%(str(out_var), str(cmd), arg_str)
     else:
         return '%s = %s(%s)'%(str(out_var), str(cmd), arg_str)
+
+#################################Determining if bash############################
+
+py_kwds = {'import','from','def','lambda','class', 'try','except','raise','assert','finally',\
+           'await','async','yield', 'if','or','not','elif','else','and','is', \
+           'while','for','in','return','pass','break','continue', \
+           'global','with','as','nonlocal',  'del',\
+           'False','None','True'}
+
+def numeric_str(x):
+    try:
+        _ = float(str(x))
+        return True
+    except:
+        return False
+
+def is_quoted(x):
+    # Double quotes only, since they are bashy.
+    if len(x)>=2:
+        if x[0]=='"' and x[-1]=='"':
+            return True
+    return False
+
+def bashy(token):
+    # More likely to be bash than Python. Excludes ()[] unless in a quote.
+    # Includes numbers.
+    if len(token)>=2:
+        if token[0]=='"' and token[-1]=='"':
+            return True
+    if ',' in token: # , is more Pythonic.
+        return False
+    if token in {'.','*','|','&'}:
+        return True
+    return re.fullmatch('[-a-zA-Z0-9_]+', token)
+
+def is_pyvar(token):
+    # Is this a python var we already set? Overriden by the "top 25" bashy commands.
+    token = token.strip()
+
+    if token in py_kwds:
+        return True
+
+    if token in pybashlib.top_25():
+        return False
+    py_vars = set(sys.modules[__name__].__dict__.keys())
+    return token in py_vars
+
+def split_by_eq(txt):
+    # Splits a = b + c  => [a, [b,c]]. _ans if there is no eq.
+    pieces = re.split('[ \t\n]+', txt)
+
+    eq_ix = -1
+    for i in range(len(pieces)):
+        if pieces[i]=='=':
+            eq_ix = i
+
+    if eq_ix==-1:
+        return ['_ans', pieces]
+    else:
+        return [' '.join(pieces[0:eq_ix]), pieces[eq_ix+1:]]
+
+def attempt_shell_parse(txt):
+    # Attempts a shell parse as a series of tokens.
+    # Returns [python_var, f, args]
+
+    txt = txt.strip()
+    if '\n' in txt: # Does this restriction make sense?
+        return None
+
+    x = split_by_eq(txt)
+    #print('Split x:', x)
+    b4_eq = x[0]
+    after_eq = x[1]
+    all_bashy = len(list(filter(bashy, after_eq)))==len(after_eq)
+    if not all_bashy: # exit criterian 1: Non-bashy args.
+        return None
+    if is_pyvar(after_eq[0]):  # Exit criterian 2: Python var that is not in the top 25 bash vars.
+        return None
+    if len(after_eq)==1 and numeric_str(after_eq[-1]) or is_quoted(after_eq[-1]): # Exit criterion 3: Single var set.
+        return None
+    return [b4_eq, after_eq[0], after_eq[1:]]
+
+################################################################################
 
 def exc_to_str(e):
     # Includes stack trace.
@@ -147,7 +168,7 @@ class Shell:
                 if strs1[ky] != strs0.get(ky, None):
                     vars_set = vars_set+'\n'+ky+' = '+str1(eval(ky))
             if len(vars_set)==0 and len(err)==0:
-                vars_set = 'Command succeeded'
+                vars_set = 'Command succeeded, no vars changed'
 
             if len(vars_set)>0:
                 self.outputs.append([vars_set+'\n', False, self.input_ix])

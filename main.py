@@ -8,7 +8,7 @@ import layout
 import sys
 import shellnative, shellpython, evt_check
 
-debug_show_keypress = True
+debug_show_keypress = False
 
 root = tk.Tk()
 root.geometry("1024x768")
@@ -40,7 +40,7 @@ class GUI(tk.Frame):
         root.bind("<Configure>", self.resize, add='+')
         self.text_input.pack() #fill=tk.BOTH
 
-        # DOesn't work: , selectbackground="red", inactiveselectbackground="green"
+        # Doesn't work: , selectbackground="red", inactiveselectbackground="green"
         self.shell_output = tk.Text(root, yscrollcommand=scrollbar.set, bg = "#EEEEFF")
         self.shell_output.bind('<KeyPress>', self.shell_output_keypresses, add='+')
         self.shell_output.pack()
