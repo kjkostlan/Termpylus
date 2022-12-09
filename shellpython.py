@@ -1,6 +1,6 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
-import sys, re
+import sys, re, os
 import pybashlib
 import traceback
 
@@ -18,9 +18,13 @@ def _module_strs():
 
 pybashlib.splat_here(__name__)
 
-def run(cmd, sys_args):
-    # Single-shot run, return result.
-    TODO
+def run(cmd, cmd_args):
+    # Single-shot run, returns result and sets last_run_err
+    # https://stackoverflow.com/questions/89228/how-do-i-execute-a-program-or-call-a-system-command
+    result = subprocess.run([cmd]+cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    out = result.stdout.decode('utf-8')
+    err = result.edterr.decode('utf-8')
+    return out, err
 
 def bashyparse2pystr(out_var, cmd, args):
     # Equivalent python command.
@@ -34,7 +38,7 @@ def bashyparse2pystr(out_var, cmd, args):
 
     arg_str = '['+','.join([quote_if_needed(a) for a in args])+']'
     if not cmd_builtin:
-        return '%s = run("%s", %s)'%(str(out_var), str(cmd), arg_str)
+        return '%s, _err = run("%s", %s)'%(str(out_var), str(cmd), arg_str)
     else:
         return '%s = %s(%s)'%(str(out_var), str(cmd), arg_str)
 
@@ -150,6 +154,7 @@ class Shell:
         return input
 
     def send(self, input, include_newline=True):
+        self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
         input = input.strip()
         if len(input)>0:
             pybashlib.shell = self # So that fns from pybashlib works properly.

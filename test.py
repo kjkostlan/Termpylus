@@ -48,28 +48,35 @@ def text_py2_bash():
 
     return True
 
+def test_matching():
+    #Wildcard matches.
+    return False
+
 def test_cd():
-    TODO
+    return False
 
 def test_grep():
-    TODO
+    return False
 
 def test_ls():
-    TODO
+    return False
 
 def test_others():
     # Other bash scripts.
-    TODO
+    return False
 
 def run_tests():
     d = sys.modules[__name__].__dict__
     vars = list(d.keys())
     vars.sort()
+    failed_tests = []
     for v in vars:
         v_obj = d[v]
         x = var_obj()
         if not x:
-            raise Exception('Test failed:'+str(v))
+            failed_tests.append(v)
+    if len(failed_tests)>0:
+        raise Exception('Test failed:'+str(v))
     return True
 
 if __name__ == __main__:
