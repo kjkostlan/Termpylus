@@ -67,14 +67,16 @@ def is_quoted(x):
 def bashy(token):
     # More likely to be bash than Python. Excludes ()[] unless in a quote.
     # Includes numbers.
-    if len(token)>=2:
-        if token[0]=='"' and token[-1]=='"':
-            return True
+    if len(token)>=2 and is_quoted(token):
+        return True
     if ',' in token: # , is more Pythonic.
         return False
     if token in {'.','*','|','&'}:
         return True
-    return re.fullmatch('[-a-zA-Z0-9_]+', token)
+    out = re.fullmatch('[-a-zA-Z0-9_]+', token)
+    if out:
+        return True
+    return False
 
 def is_pyvar(token):
     # Is this a python var we already set? Overriden by the "top 25" bashy commands.
@@ -115,11 +117,11 @@ def attempt_shell_parse(txt):
     b4_eq = x[0]
     after_eq = x[1]
     all_bashy = len(list(filter(bashy, after_eq)))==len(after_eq)
-    if not all_bashy: # exit criterian 1: Non-bashy args.
+    if not all_bashy: # Exit criterian 1: Non-bashy args.
         return None
     if is_pyvar(after_eq[0]):  # Exit criterian 2: Python var that is not in the top 25 bash vars.
         return None
-    if len(after_eq)==1 and numeric_str(after_eq[-1]) or is_quoted(after_eq[-1]): # Exit criterion 3: Single var set.
+    if len(after_eq)==1 and (numeric_str(after_eq[-1]) or is_quoted(after_eq[-1])): # Exit criterion 3: Single var set.
         return None
     return [b4_eq, after_eq[0], after_eq[1:]]
 

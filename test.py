@@ -1,5 +1,7 @@
 # Tests.
+import sys
 import tkinter.messagebox
+import shellpython
 
 def manual_tests():
     # We are using Tkinter directly and therefore lack an easy way to "abstract" the GUI to test it.
@@ -18,7 +20,6 @@ These following manual tests should pass:
 6. Doubleclick on x = 1 and x=2 in the command history. The command should be put into the command window.
 7. Same as (4) but with keyboard and enter.
 8. The Python program should quit when closed, unless there is a running shell command.
-
 '''
     tkinter.messagebox.showinfo(title="Manual tests", message=msg)
     return True
@@ -33,18 +34,21 @@ def text_py2_bash():
     pairs = []
     pairs.append(['ls -a','_ans = ls(["-a"])'])
     pairs.append(['x = ls -a','x = ls(["-a"])'])
-    pairs.append(['blender','run("blender",[])'])
-    pairs.append(['blender -foo','run("blender",["foo"])'])
-    pairs.append(['blender "foo"','run("blender",["foo"])'])
+    pairs.append(['blender','_ans, _err = run("blender", [])'])
+    pairs.append(['blender -foo','_ans, _err = run("blender", ["-foo"])'])
+    pairs.append(['blender "foo"','_ans, _err = run("blender", ["foo"])'])
+    pairs.append(['x = blender "foo"','x, _err = run("blender", ["foo"])'])
+
+    sh = shellpython.Shell()
 
     for x in unchanged:
-        if x != sh.autocorrect(x):
+        if x.strip() != sh.autocorrect(x).strip():
             raise Exception('This should not be bash-i-fied, but it was:' + str(x) + str(sh.autocorrect(x)))
 
     for p in pairs:
         p0 = p[0]; p1 = p[1]; p1g = sh.autocorrect(p[0])
         if p1g != p1:
-            raise Exception('Bashification incorrect:'+'X0:'+p0+'Gold:'+p1+' Green:'+p1g)
+            raise Exception('Bashification incorrect, '+'X0: '+p0+' Gold: '+p1+' Green: '+p1g)
 
     return True
 
@@ -71,13 +75,18 @@ def run_tests():
     vars.sort()
     failed_tests = []
     for v in vars:
+        if '__' in v:
+            continue
+        if 'run_tests' in v:
+            continue
         v_obj = d[v]
-        x = var_obj()
-        if not x:
-            failed_tests.append(v)
+        if type(v_obj) is not type(sys):
+            x = v_obj()
+            if not x:
+                failed_tests.append(v)
     if len(failed_tests)>0:
-        raise Exception('Test failed:'+str(v))
+        raise Exception('Tests failed:'+str(failed_tests))
     return True
 
-if __name__ == __main__:
+if __name__ == "__main__":
     run_tests() # python test.py
