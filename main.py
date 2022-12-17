@@ -6,7 +6,7 @@ import tkinter as tk
 import traceback
 import layout
 import sys
-import shellnative, shellpython, evt_check
+import shellpython, evt_check
 
 debug_show_keypress = False
 

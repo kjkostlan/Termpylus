@@ -21,7 +21,16 @@ pybashlib.splat_here(__name__)
 def run(cmd, cmd_args):
     # Single-shot run, returns result and sets last_run_err
     # https://stackoverflow.com/questions/89228/how-do-i-execute-a-program-or-call-a-system-command
-    result = subprocess.run([cmd]+cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    dir = pybashlib.absolute_path('.') # Cd to this, which depends on the global singleton shell.
+    #https://stackoverflow.com/questions/17742789/running-multiple-bash-commands-with-subprocess
+    cmd = 'cd '+dir+'\n'+cmd+' '+' '.join(cmd_args)
+    #result = subprocess.run([cmd]+cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    x = '/bin/bash'
+    if os.name == 'nt':
+        x = 'cmd'
+    process = subprocess.Popen(x, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    out, err = process.communicate(commands)
+
     out = result.stdout.decode('utf-8')
     err = result.edterr.decode('utf-8')
     return out, err
