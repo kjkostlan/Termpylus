@@ -1,6 +1,6 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
-import sys, re, os
+import sys, re, os, importlib
 import pybashlib
 import traceback
 
@@ -50,6 +50,32 @@ def bashyparse2pystr(out_var, cmd, args):
         return '%s, _err = run("%s", %s)'%(str(out_var), str(cmd), arg_str)
     else:
         return '%s = %s(%s)'%(str(out_var), str(cmd), arg_str)
+
+#################################Binding to Python##############################
+
+
+
+def python(args):
+    # Runs python, but in the same python process (i.e it does not run another python program in the terminal).
+    P = pybashlib.option_parse(args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    if len(x)==0:
+        raise Exception('Must specify filename to run.')
+    pyfname = pybashlib.absolute_path(x[0])
+    if not pyfname.endswith('.py') and not pyfname.endswith('.txt'):
+        pyfname = pyfname+'.py'
+
+    if '-m' in kv:
+        modulename = kv['-m']
+    else: # Assume we are calling the root module name.
+        leaf = pyfname.split('/')[-1]
+        modulename = leaf.split('.')[0] # Remove the extension if any.
+
+    #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
+    spec = importlib.util.spec_from_file_location(modulename, pyfname)
+    foo = importlib.util.module_from_spec(spec)
+    sys.modules[modulename] = foo
+    spec.loader.exec_module(foo)
+    return foo
 
 #################################Determining if bash############################
 
