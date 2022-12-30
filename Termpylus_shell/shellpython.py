@@ -1,8 +1,7 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
-import sys, re, os, importlib
-import pybashlib
-import traceback
+import sys, re, os, importlib, traceback
+from . import pybashlib
 
 def str1(x):
     sx = str(x)
@@ -52,7 +51,6 @@ def bashyparse2pystr(out_var, cmd, args):
         return '%s = %s(%s)'%(str(out_var), str(cmd), arg_str)
 
 #################################Binding to Python##############################
-
 
 
 def python(args):

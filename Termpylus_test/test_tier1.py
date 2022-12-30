@@ -1,7 +1,7 @@
 # Tests.
 import sys, os, shutil
 import tkinter.messagebox
-import shellpython, pybashlib
+from Termpylus_shell import shellpython, pybashlib
 
 def _alltrue(x):
     for xi in x:
@@ -177,12 +177,13 @@ def test_others():
 def test_py_import():
     # Requires a syster folder so it can't really run as a standalone test.
     folder = os.path.dirname(os.path.realpath(__file__)).replace('\\','/')
-    folder = folder.replace('Termpylus','')+'/simplypyimport/'
+    folder = folder.replace('Termpylus','')+'/../simplypyimport/'
     if not os.path.exists(folder):
         print('WARNING: cant run test_py_import due to lack of folder outside our folder. Will return True without testing.')
         return True
-    #mdleo = shellpython.python([folder+"soutside.py", "-m", "soutside"])
-    mdleo = shellpython.python([folder+"soutside.py"]) # Outer level pyhton filenames are automatically set.
+    mdleo = shellpython.python([folder+"soutside.py", "-m", "soutside"])
+    # If out of order we get: ModuleNotFoundError: No module named 'soutside'
+    #mdleo = shellpython.python([folder+"soutside.py"]) # Outer level pyhton filenames are automatically set.
     mdle = shellpython.python([folder+"smain.py", "-m", "smain"])
 
     # Import ... as ... does not change the name.
@@ -214,4 +215,4 @@ def run_tests():
     return True
 
 if __name__ == "__main__":
-    run_tests() # python test.py
+    run_tests()

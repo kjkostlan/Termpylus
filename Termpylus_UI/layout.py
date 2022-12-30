@@ -1,6 +1,6 @@
 # Widget layout.
 # Based on simple priority stuff.
-import evt_check
+from . import evt_check
 
 def normalize_widget_sizes(widgets):
     # Creates the want_size attribute, and sum to one.

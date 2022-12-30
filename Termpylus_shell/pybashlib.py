@@ -2,8 +2,9 @@
 # os.chdir
 # https://ss64.com/bash/
 import sys, os, fnmatch, re, pathlib, operator
-import extern.RonenNess_grepfunc as grep_core
 from tkinter import messagebox
+import Termpylus_extern.RonenNess_grepfunc as grep_core
+
 shell = None # This has the current directory in it.
 debug_only_these_folders = None # Restrict all file writes and deletes to this folder b/c in case files are deleted. Use GLOBAL paths here.
 
@@ -301,6 +302,14 @@ def touch(args):
 def mkdir(args):
     TODO
 
+def utest(args):
+    # Unitests.
+    print('**Running unit tests**')
+    from Termpylus_test import test_tier1
+    if not test_tier1.run_tests():
+        return False
+    return True
+
 ################################################################################
 
 def splat_here(modulename): # modulename = __name__ from within a module.
@@ -316,4 +325,5 @@ def top_25():
     out = {'ls', 'echo', 'touch', 'mkdir', 'grep', 'man', 'pwd', 'cd', 'mv',\
            'rm', 'locate', 'less', 'compgen', '>', 'cat', '|', 'head', \
             'tail', 'chmod', 'exit', 'history', 'clear', 'cp', 'kill', 'sleep'}
+    out.add('utest') # Not a bash command but allows us to run unit tests.
     return out

@@ -3,10 +3,9 @@
 #https://www.geeksforgeeks.org/build-a-basic-text-editor-using-tkinter-in-python/
 #https://stackoverflow.com/questions/58417529/how-do-i-get-the-tkinter-event-listener-to-work
 import tkinter as tk
-import traceback
-import layout
-import sys
-import shellpython, evt_check
+import traceback, sys
+from Termpylus_shell import shellpython
+from Termpylus_UI import evt_check, layout
 
 debug_show_keypress = False
 
