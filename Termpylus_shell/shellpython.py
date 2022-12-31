@@ -5,13 +5,13 @@ from . import pybashlib
 
 def str1(x):
     sx = str(x)
-    if len(sx)>512:
+    if len(sx)>65536:
         sx = '<big thing>'
     return sx
 
-def _module_strs():
+def _module_vars():
     modl = sys.modules[__name__]
-    return dict(zip(modl.__dict__.keys(), [str(x) for x in modl.__dict__.values()]))
+    return modl.__dict__.copy()
 
 ################################ Running bash commands #########################
 
@@ -193,7 +193,7 @@ class Shell:
         input = input.strip()
         if len(input)>0:
             pybashlib.shell = self # So that fns from pybashlib works properly.
-            strs0 = _module_strs()
+            vars0 = _module_vars()
             err = ''
             try:
                 #https://stackoverflow.com/questions/23168282/setting-variables-with-exec-inside-a-function
@@ -202,11 +202,11 @@ class Shell:
             except Exception as e:
                 err = exc_to_str(e)
 
-            strs1 = _module_strs()
+            vars1 = _module_vars()
             vars_set = ''
-            for ky in strs1.keys():
-                if strs1[ky] != strs0.get(ky, None):
-                    vars_set = vars_set+'\n'+ky+' = '+str1(eval(ky))
+            for ky in vars1.keys():
+                if vars1[ky] is not vars0.get(ky, None):
+                    vars_set = vars_set+'\n'+ky+' = '+str1(vars1[ky])
             if len(vars_set)==0 and len(err)==0:
                 vars_set = 'Command succeeded, no vars changed'
 

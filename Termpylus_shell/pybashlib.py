@@ -4,6 +4,7 @@
 import sys, os, fnmatch, re, pathlib, operator
 from tkinter import messagebox
 import Termpylus_extern.RonenNess_grepfunc as grep_core
+from Termpylus_py import mload
 
 shell = None # This has the current directory in it.
 debug_only_these_folders = None # Restrict all file writes and deletes to this folder b/c in case files are deleted. Use GLOBAL paths here.
@@ -308,7 +309,15 @@ def utest(args):
     from Termpylus_test import test_tier1
     if not test_tier1.run_tests():
         return False
+    from Termpylus_test import test_shell
+    if not test_shell.run_tests():
+        return False
     return True
+
+def utest0(args):
+    # Unit tests, but scratchwork.
+    return mload.module_dict()
+
 
 ################################################################################
 
@@ -325,5 +334,5 @@ def top_25():
     out = {'ls', 'echo', 'touch', 'mkdir', 'grep', 'man', 'pwd', 'cd', 'mv',\
            'rm', 'locate', 'less', 'compgen', '>', 'cat', '|', 'head', \
             'tail', 'chmod', 'exit', 'history', 'clear', 'cp', 'kill', 'sleep'}
-    out.add('utest') # Not a bash command but allows us to run unit tests.
+    out.add('utest'); out.add('utest0') # Not a bash command but allows us to run unit tests.
     return out
