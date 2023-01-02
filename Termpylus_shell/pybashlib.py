@@ -306,8 +306,8 @@ def mkdir(args):
 def utest(args):
     # Unitests.
     print('**Running unit tests**')
-    from Termpylus_test import test_tier1
-    if not test_tier1.run_tests():
+    from Termpylus_test import test_pyrun # Better to not have circular dependencies.
+    if not test_pyrun.run_tests():
         return False
     from Termpylus_test import test_shell
     if not test_shell.run_tests():
@@ -315,8 +315,10 @@ def utest(args):
     return True
 
 def utest0(args):
-    # Unit tests, but scratchwork.
-    return mload.module_dict()
+    # Scratchwork tests go here. Reset to 'return True' when git commiting.
+    import Termpylus_test.test_pyrun
+    Termpylus_test.test_pyrun.test_py_import0()
+    return mload.module_file('smain')
 
 
 ################################################################################

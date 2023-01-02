@@ -3,6 +3,12 @@
 import sys, re, os, importlib, traceback
 from . import pybashlib
 
+# Extra imports to make the command line easier to use:
+from Termpylus_py import *
+from Termpylus_shell import *
+from Termpylus_test import *
+from Termpylus_UI import *
+
 def str1(x):
     sx = str(x)
     if len(sx)>65536:
@@ -54,7 +60,15 @@ def bashyparse2pystr(out_var, cmd, args):
 
 
 def python(args):
-    # Runs python, but in the same python process (i.e it does not run another python program in the terminal).
+    # Runs a Python file much like a bash python command, except that it is ran in the current process.
+    # What does this mean?
+    # The file's folder is taken to be in the root of said python project (TODO: allow other options).
+    # This root folder is prepended to sys.path, so that all imports within the project can work.
+    # Our module names will almost certanly not conflict with the project.
+    # However, multible projects may generate namespace collisions.
+    #    I.e. if boh projects have a folder called 'extern'.
+    #    (thus it is not recommended to work on multible projects, unless you decollide them).
+
     P = pybashlib.option_parse(args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     if len(x)==0:
         raise Exception('Must specify filename to run.')
@@ -68,11 +82,21 @@ def python(args):
         leaf = pyfname.split('/')[-1]
         modulename = leaf.split('.')[0] # Remove the extension if any.
 
+    # https://docs.python.org/3/library/sys.html#sys.path
+    folder_name = os.path.dirname(pyfname)
+    sys.path = [os.path.realpath(folder_name)]+sys.path
+
     #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
     spec = importlib.util.spec_from_file_location(modulename, pyfname)
+    if spec is None:
+        raise Exception('None spec')
     foo = importlib.util.module_from_spec(spec)
     sys.modules[modulename] = foo
     spec.loader.exec_module(foo)
+
+    if '-rmph' in fl: # Remove path (don't make permement changes to path).
+        sys.path = sys.path[1:]
+
     return foo
 
 #################################Determining if bash############################
@@ -170,7 +194,8 @@ def exc_to_str(e):
         if 'in <module>' in lines[i]:
             mod_ix = i
     if mod_ix>-1:
-        lines = lines[mod_ix+1:]
+        lines = lines[mod_ix:]
+    lines[0] = lines[0].replace('File "<string>"','Commandbox').replace('in <module>','').strip()
     return (err+'\nTraceback:\n'+'\n'.join(lines)).strip()
 
 class Shell:
