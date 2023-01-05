@@ -2,6 +2,7 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, os, importlib, traceback
 from . import pybashlib
+from Termpylus_py import mload
 
 # Extra imports to make the command line easier to use:
 from Termpylus_py import *
@@ -82,20 +83,12 @@ def python(args):
         leaf = pyfname.split('/')[-1]
         modulename = leaf.split('.')[0] # Remove the extension if any.
 
-    # https://docs.python.org/3/library/sys.html#sys.path
     folder_name = os.path.dirname(pyfname)
-    sys.path = [os.path.realpath(folder_name)]+sys.path
-
-    #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
-    spec = importlib.util.spec_from_file_location(modulename, pyfname)
-    if spec is None:
-        raise Exception('None spec')
-    foo = importlib.util.module_from_spec(spec)
-    sys.modules[modulename] = foo
-    spec.loader.exec_module(foo)
+    mload.add_to_path(folder_name)
+    foo = mload.module_from_file(modulename, pyfname)
 
     if '-rmph' in fl: # Remove path (don't make permement changes to path).
-        sys.path = sys.path[1:]
+        mload.pop_from_path()
 
     return foo
 
@@ -217,6 +210,7 @@ class Shell:
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
         input = input.strip()
         if len(input)>0:
+            mload.update_all_modules()
             pybashlib.shell = self # So that fns from pybashlib works properly.
             vars0 = _module_vars()
             err = ''
@@ -231,7 +225,8 @@ class Shell:
             vars_set = ''
             for ky in vars1.keys():
                 if vars1[ky] is not vars0.get(ky, None):
-                    vars_set = vars_set+'\n'+ky+' = '+str1(vars1[ky])
+                    if str(vars1[ky]) != str(vars0.get(ky, None)):
+                        vars_set = vars_set+'\n'+ky+' = '+str1(vars1[ky])
             if len(vars_set)==0 and len(err)==0:
                 vars_set = 'Command succeeded, no vars changed'
 

@@ -14,7 +14,6 @@ try:
 except NameError:
     _basestring = str
 
-
 def __fix_args(kwargs):
     """
     Set all named arguments shortcuts and flags.

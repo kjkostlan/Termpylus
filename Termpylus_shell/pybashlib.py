@@ -320,7 +320,6 @@ def utest0(args):
     Termpylus_test.test_pyrun.test_py_import0()
     return mload.module_file('smain')
 
-
 ################################################################################
 
 def splat_here(modulename): # modulename = __name__ from within a module.
