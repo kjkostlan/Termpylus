@@ -1,8 +1,8 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
 import sys, re, os, importlib, traceback
-from . import pybashlib
-from Termpylus_py import mload
+from . import pybashlib, hotcmds1
+from Termpylus_py import mload, usetrack
 
 # Extra imports to make the command line easier to use:
 from Termpylus_py import *
@@ -23,6 +23,8 @@ def _module_vars():
 ################################ Running bash commands #########################
 
 pybashlib.splat_here(__name__)
+hotcmds1.splat_here(__name__)
+
 
 def run(cmd, cmd_args):
     # Single-shot run, returns result and sets last_run_err
@@ -44,7 +46,8 @@ def run(cmd, cmd_args):
 def bashyparse2pystr(out_var, cmd, args):
     # Equivalent python command.
     cmd_builtin = True # TODO: turn false when shell.
-    if cmd not in pybashlib.top_25():
+    cmds = pybashlib.top_bash().union(set(hotcmds1.cmds1().keys()))
+    if cmd not in cmds:
         cmd_builtin = False
     def quote_if_needed(x):
         if '"' in x or "'" in x:
@@ -135,7 +138,7 @@ def is_pyvar(token):
     if token in py_kwds:
         return True
 
-    if token in pybashlib.top_25():
+    if token in pybashlib.top_bash() or token in set(hotcmds1.cmds1().keys()):
         return False
     py_vars = set(sys.modules[__name__].__dict__.keys())
     return token in py_vars
@@ -210,7 +213,11 @@ class Shell:
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
         input = input.strip()
         if len(input)>0:
-            mload.update_all_modules()
+            module2fname_contents = mload.update_all_modules()
+            for k in module2fname_contents.keys():
+                name_old_new_triple = module2fname_contents[k]
+                if name_old_new_triple[1] is not None:
+                    usetrack.record_updates(k, *name_old_new_triple)
             pybashlib.shell = self # So that fns from pybashlib works properly.
             vars0 = _module_vars()
             err = ''

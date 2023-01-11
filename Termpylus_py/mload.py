@@ -46,11 +46,34 @@ except NameError:
     mglobals['filemodified'] = {} # Alternative to checking contents.
     mglobals['pathprepends'] = set() # keep track of what is added to the import path.
 
-def _contents(fname):
-    with io.open(fname, mode="r", encoding="utf-8") as file_obj:
-        return file_obj.read().replace('\r\n','\n')
+def is_user(modulename, filename):
+    # user files.
+    filename = filename.replace('\\','/')
+    #print('Stuff:', modulename, filename)
+    if 'syspyfolderlist' not in mglobals: # what modules
+        test_modules = ['os', 'importlib', 'io']
+        folders = set()
+        for t in test_modules:
+            folders.add(sys.modules[t].__file__.replace('\\','/').replace(t+'.py','').replace('__init__.py',''))
+        mglobals['syspyfolderlist'] = folders
+    no_list = mglobals['syspyfolderlist']
+    #print('No list:', no_list)
+    if filename.endswith('.pyd'):
+        return False # User files don't use .pyd
+    for n in no_list:
+        if n in filename:
+            return False
+    return True
 
-def _date_mod(fname):
+def contents(fname):
+    with io.open(fname, mode="r", encoding="utf-8") as file_obj:
+        try:
+            x = file_obj.read()
+        except UnicodeDecodeError:
+            raise Exception('No UTF-8 for:', fname)
+        return x.replace('\r\n','\n')
+
+def date_mod(fname):
     return os.path.getmtime(fname)
 
 def module_dict():
@@ -65,17 +88,15 @@ def module_file(m):
 
 def module_fnames(user_only=False):
     # Only modules that have files, and dict values are module names.
+    # Also can restrict to user-only files.
     d = module_dict()
     out = {}
     for k in d.keys():
         if '__file__' in d[k].__dict__:
             fname = d[k].__file__
             if fname is not None:
-                out[k] = fname.replace('\\','/')
-    if user_only:
-        for k in list(out.keys()):
-            if 'Python/Python3' in out[k]:
-                del out[k]
+                if not user_only or is_user(k, fname):
+                    out[k] = fname.replace('\\','/')
     return out
 
 def add_to_path(folder_name):
@@ -94,38 +115,41 @@ def update_one_module(modulename, use_date=False, update_on_first_see=False):
         txt = None; tmod = None
         pass
     elif use_date:
-        tmod = _date_mod(fname); txt = None
+        tmod = date_mod(fname); txt = None
         if tmod == mglobals['filemodified'][fname]:
-            return False
+            return False, None
     else:
-        txt = _contents(fname); tmod = None
+        txt = contents(fname); tmod = None
         if txt == mglobals['filecontents'][fname]:
-            return False
+            return False, None
 
     if txt is None:
-        txt = _contents(fname)
+        txt = contents(fname)
     if tmod is None:
-        tmod = _date_mod(fname)
+        tmod = date_mod(fname)
 
     if update_on_first_see or fname in mglobals['filecontents']:
         if (not use_date and mglobals['filecontents'][fname]!=txt) or (use_date and mglobals['filemodified'][fname]!=tmod):
             if modulename == '__main__' and (not update_on_first_see): # odd case, generates spec not found error.
-                raise Exception('Cannot update the main module for some reason. Need to restart when the main .py file changes.')
+                raise Exception('Cannot update the main module for some reason. Need to restart when the Termpylus_main .py file changes.')
             elif modulename != '__main__':
                 print('Reloading:', modulename)
                 importlib.reload(sys.modules[modulename])
+    old_contents = mglobals['filecontents'].get(fname, None)
     mglobals['filecontents'][fname] = txt
     mglobals['filemodified'][fname] = tmod
-    return True
+    return True, [old_contents, txt]
 
 def update_all_modules(use_date=False, update_on_first_see=False):
     # use_date True should be faster but maybe less accurate.
+    # Returns {mname: [fname, old, new]}
     fnames = module_fnames(True)
-    out = []
+    out = {}
     for k in fnames.keys():
-        tmp = update_one_module(k, use_date, update_on_first_see)
-        if tmp is not None:
-            out.append(k)
+        changed, old_new = update_one_module(k, use_date, update_on_first_see)
+        if changed is not None:
+            out[k] = [fnames[k]]+old_new
+    return out
 
 def module_from_file(modulename, pyfname, exec_module=True):
     # Creates a module from a file.
@@ -137,8 +161,8 @@ def module_from_file(modulename, pyfname, exec_module=True):
         elif pyfname0 is not None:
             pyfname = os.realpath(pyfname).replace('\\','/')
             raise Exception('Shadowing modulename: '+modulename+' Old py.file: '+pyfname0+ 'New py.file '+pyfname)
-    mglobals['filecontents'][pyfname] = _contents(modulename.__file__)
-    mglobals['filemodified'][pyfname] = _date_mod(modulename.__file__)
+    mglobals['filecontents'][pyfname] = contents(modulename.__file__)
+    mglobals['filemodified'][pyfname] = date_mod(modulename.__file__)
     #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
     spec = importlib.util.spec_from_file_location(modulename, pyfname)
     if spec is None:

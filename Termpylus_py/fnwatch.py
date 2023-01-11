@@ -1,0 +1,78 @@
+# When are functions called?
+import sys
+
+# Singleton globals only set up once.
+try:
+    _ = fglobals
+except NameError:
+    fglobals = dict()
+    fglobals['original_fns'] = {} # Name-qual => function.
+    fglobals['logs'] = {} # name-qual => inputs-as-dict.
+
+############################ Var mutation watching #############################
+
+def add_logged_var():
+    # Vars logged on mutation.
+    # (well-written code shouldn't have to hunt down mutations, but should != reality).
+    TODO
+
+################################ Fn watching ###################################
+
+def logged_fn(modulename, var_name, f_obj):
+    # Makes a logged version of the function, which behaves the same but adds to logs.
+    def f(_SYM_name=name, *args, **kwargs):
+        kwargs1 = kwargs.copy()
+        for i in range(len(args)):
+            kwargs1[i] = args[i] # Number args turn into dict keys with numerical values.
+        if _SYM_name not in fglobals:
+            fglobals[_SYM_name] = []
+        time0 = time.time()
+        out = f_obj(*args, **kwargs)
+        kwargs1['_time'] = [time0, time.time()]
+        kwargs1['return'] = out # return is a reserved keyword.
+        fglobals[_SYM_name].append(kwargs1)
+        return out
+    return f
+
+def add_fn_watcher(modulename, var_name, f_code=None):
+    # Changes the function in var_name to record it's inputs and outputs.
+    # Replaces any old watchers.
+    # f_code can change the code passed into f.
+    m = sys.modules[modulename]
+    k = modulename+'.'+var_name
+    if modified_code is None:
+        f_obj = fglobals.get('original_fns', m.__dict__[var_name])
+    else:
+        f_obj = eval(f_code) #TODO: eval in right environment.
+    f = logged_fn(modulename, var_name, f_obj)
+
+    fglobals['original_fns'][modulename+'.'+var_name] = m.__dict__[var_name]
+    m.__dict__[var_name] = f
+    return f
+
+def add_all_watchers():
+    # Is this too many?
+    #sys.modules[]
+    TODO
+
+def rm_fn_watcher(modulename, var_name):
+    name_qual = modulename+'.'+var_name
+    fcache = fglobals['original_fns']
+    if name_qual in fcache:
+        m = sys.modules[modulename]
+        m.__dict__[var_name] = fcache[name_qual]
+        del fcache[name_qual]
+
+def with_watcher(modulename, var_name, args):
+    TODO
+
+def remove_all_watchers(modulename):
+    #sys.modules[]
+    TODO
+
+def get_logs(fn_name_qual):
+    return fglobals['logs']
+    TODO
+
+def remove_all_logs():
+    fglobals['logs'] = {}

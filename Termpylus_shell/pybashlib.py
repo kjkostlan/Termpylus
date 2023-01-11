@@ -303,37 +303,19 @@ def touch(args):
 def mkdir(args):
     TODO
 
-def utest(args):
-    # Unitests.
-    print('**Running unit tests**')
-    from Termpylus_test import test_pyrun # Better to not have circular dependencies.
-    if not test_pyrun.run_tests():
-        return False
-    from Termpylus_test import test_shell
-    if not test_shell.run_tests():
-        return False
-    return True
-
-def utest0(args):
-    # Scratchwork tests go here. Reset to 'return True' when git commiting.
-    import Termpylus_test.test_pyrun
-    Termpylus_test.test_pyrun.test_py_import0()
-    return mload.module_file('smain')
-
 ################################################################################
 
 def splat_here(modulename): # modulename = __name__ from within a module.
     var_dict = sys.modules[__name__].__dict__
     module = sys.modules[modulename]
     for k in var_dict.keys():
-        if '__' not in k and k != 'shell':
+        if '__' not in k and k != 'shell' and k !=debug_only_these_folders:
             setattr(module, k, var_dict[k])
 
-def top_25():
+def top_bash():
     # Top 25 with a couple of changes.
     # https://www.educative.io/blog/bash-shell-command-cheat-sheet
     out = {'ls', 'echo', 'touch', 'mkdir', 'grep', 'man', 'pwd', 'cd', 'mv',\
            'rm', 'locate', 'less', 'compgen', '>', 'cat', '|', 'head', \
             'tail', 'chmod', 'exit', 'history', 'clear', 'cp', 'kill', 'sleep'}
-    out.add('utest'); out.add('utest0') # Not a bash command but allows us to run unit tests.
     return out
