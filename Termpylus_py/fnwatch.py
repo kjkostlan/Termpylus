@@ -68,6 +68,8 @@ def rm_fn_watcher(modulename, var_name):
         set_callable(modulename, var_name, fcache[name_qual])
         del fcache[name_qual]
 
+blockset = {add_fn_watcher, rm_fn_watcher} # Do not add watchers here, even when we add "all" watchers.
+
 ################################ Performance heuristics ###################################
 # TODO (will only TODO when performance becomes a concern).
 
@@ -95,6 +97,9 @@ def get_logs(fn_name_qual):
 
 def remove_all_logs():
     fglobals['logs'] = {}
+
+def set_watchers(bashy_args):
+    TODO
 
 '''
 class Foo():

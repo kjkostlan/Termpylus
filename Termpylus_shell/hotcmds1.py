@@ -26,8 +26,8 @@ def cmds1():
     out = {}
     out['utest'] = utest_this
     out['utest0'] = utest0_this
-    out['watch'] = fnwatch.with_watcher #(modulename, var_name, args)
-    out['find'] = fsearch.generic_find
+    out['pwatch'] = fnwatch.set_watchers
+    out['pfind'] = fsearch.generic_find
     out['changes'] = usetrack.get_edits
     return out
 
