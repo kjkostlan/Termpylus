@@ -8,6 +8,36 @@ Look for  weighted combination of keywords, uses, weights, etc.
 
 ##########################Lower-level fns#############################
 
+class Regexp():
+    #String literal that signales leaf_match to use regexp matching.
+    def __init__(self, val):
+        self.val = val
+    def __str__(self):
+        return self.val
+
+def leaf_match(x, query):
+    # Matches are zero to 1.
+    # Flexible as to what the function matches.
+    if query==x or query is x:
+        return 1.0
+
+    if type(query) is str:
+        # Simple str matching.
+        TODO
+    elif type(query) is Regexp:
+        # Match regexp.
+        TODO
+    elif callable(query):
+        TODO
+    else:
+        return leaf_match(x, str(query))
+
+##########################Walking fns#############################
+
+def to_dict(x, blockset):
+    # Converts something to x. Blockset blocks circular references.
+    TODO
+
 def owalk(x, eval_f, combine_f, blockset, eval_kys=False):
     # Walk through data structures to find something.
     # Runs eval f and combines results with combine_f (which always gets a dict).
@@ -40,27 +70,47 @@ def max_combine(kvs):
 ##############################Match functions##############################
 
 def k_match(x, query, blocklist=None):
-    # Matches dick keys to query. Operates recursively.
-
+    # Matches dict keys to query. Operates recursively.
     TODO
 
 def v_match(x, query, blocklist=None):
     # look for these dict values. Operates recursively.
     TODO
 
-##############################Metrics of functions##############################
+########################Search metrics, individual##############################
 
-def name2source(sym_qual):
-    # Gets the source code txt.
-    TODO
-    return txt, where
-
-def name_metric(sym_qual, query):
+def fnname_metric(sym_qual, query):
+    # These metric functions match query (a string, function, or target object) to sym_qual.
+    # 0 is no match at all and 1 is a perfect match.
+    # This matches the function to the qualified name of the symbol.
     TODO
 
-def input_metric(sym_qual, argf):
-    # How much do we match an input?
+########################Search metrics, module level##############################
+
+def source_mmetric(mname, argf):
+    # Text-based matches to the source code. Naive to the syntax.
+    # Module-level metrics and global-level metrics return a dict from the qualed name to the score.
     TODO
 
-def generic_find(args):
+########################Search metrics, across all functions##############################
+
+def fninputs_gmetric(query):
+    # Matches against inputs to the function.
+    # Requires the function to be watched to be nonzero.
+    TODO
+
+def fnreturn_gmetric(query):
+    # Matches against inputs to the function.
+    # Requires the functions to be watched to be nonzero.
+    TODO
+
+def fcallcount_gmetric():
+    # How many times were the fns used?
+    # Requires the functions to be watched to be nonzero.
+    TODO
+
+########################Putting it all together#################################
+
+def generic_find(arg_map):
+    # Weight these metrics together, and find the symbols.
     TODO
