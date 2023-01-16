@@ -1,5 +1,7 @@
 import sys, os, imp
+from Termpylus_py import usetrack
 from Termpylus_shell import shellpython
+from Termpylus_py import mload
 
 def _alltrue(x):
     for xi in x:
@@ -41,11 +43,52 @@ def test_py_import0():
 
     # Import ... as ... does not change the name.
 
-    print('Py import test',mdle.go1())
-    print('test_py_import All moudles:', list(sys.modules.keys()))
-    print('test_py_import NEW moudles:', set(sys.modules.keys())-set(kys0))
+    #print('Py import test',mdle.go1())
+    #print('test_py_import All moudles:', list(sys.modules.keys()))
+    #print('test_py_import NEW moudles:', set(sys.modules.keys())-set(kys0))
 
     return True
+
+
+def test_py_update():
+    #print('Fullpath:', os.path.realpath(fname).replace('\\','/'))
+
+    #print('TEST edit:', usetrack.txt_edit('foo123bar', 'foo456bar'))
+    #return False
+
+    from . import test_changeme # adds to the sys.modules
+    val0 = test_changeme.mathy_function(1000)
+    mload.update_one_module(test_changeme.__name__)
+    #print('Val00 is:', val0)
+    fname = './Termpylus_test/test_changeme.py'
+    #x0 = mload.update_all_modules(use_date=False, update_on_first_see=False)
+    txt = mload.contents(fname)
+    if '1234' not in txt:
+        txt0 = txt.replace('4321','1234')
+        mload.fsave(fname, txt0)
+        raise Exception('Aborted test_py_update due to file save not bieng reverted. Try again.')
+    eds0 = usetrack.get_edits()
+    T0 = val0==1000+1234
+
+    txt1 = txt.replace('1234','4321')
+    if txt1==txt:
+        raise Exception('The change failed.')
+    mload.fsave(fname, txt1)
+    #x1 = mload.update_all_modules(use_date=False, update_on_first_see=False)
+    val1 = test_changeme.mathy_function(1000)
+    eds1 = usetrack.get_edits()
+    T1 = val1==1000+4321
+    mload.fsave(fname, txt) # revert.
+
+    #print('Values 01:', val0, val1)
+    #print('edits len:', len(eds0), len(eds1))
+    last_ed = eds1[-1]
+    #print('last_ed:', last_ed)
+    ed_len = (len(eds1)==len(eds0)+1)
+    ed_test = last_ed[4] == '1234' and last_ed[5] == '4321'
+    #print('criteria:', T0, T1, ed_len, ed_test)
+    #print('Stuff test_py_update:', val0, val1)
+    return T0 and T1 and ed_len and ed_test
 
 def run_tests():
     d = sys.modules[__name__].__dict__

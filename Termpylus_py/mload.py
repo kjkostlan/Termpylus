@@ -1,5 +1,8 @@
 # Module loading and updating.
-import sys, os, importlib, io
+import sys, os, importlib, io, time
+from Termpylus_py import usetrack
+
+printouts=False
 
 #list(pkgutil.iter_modules()) # even more full.
 '''
@@ -49,7 +52,6 @@ except NameError:
 def is_user(modulename, filename):
     # user files.
     filename = filename.replace('\\','/')
-    #print('Stuff:', modulename, filename)
     if 'syspyfolderlist' not in mglobals: # what modules
         test_modules = ['os', 'importlib', 'io']
         folders = set()
@@ -57,7 +59,6 @@ def is_user(modulename, filename):
             folders.add(sys.modules[t].__file__.replace('\\','/').replace(t+'.py','').replace('__init__.py',''))
         mglobals['syspyfolderlist'] = folders
     no_list = mglobals['syspyfolderlist']
-    #print('No list:', no_list)
     if filename.endswith('.pyd'):
         return False # User files don't use .pyd
     for n in no_list:
@@ -65,7 +66,44 @@ def is_user(modulename, filename):
             return False
     return True
 
+def clear_pycache(filename):
+    # This can intefere with updating.
+    cachefolder = os.path.dirname(filename)+'/__pycache__'
+    leaf = os.path.basename(filename).replace('.py','')
+    if os.path.isdir(cachefolder):
+        leaves = os.listdir(cachefolder)
+        for l in leaves:
+            if leaf in l:
+                if printouts:
+                    print('Deleting cached file:', cachefolder+'/'+l)
+                os.remove(cachefolder+'/'+l)
+
+def module_from_file(modulename, pyfname, exec_module=True):
+    # Creates a module from a file.
+    if modulename in sys.modules: # already exists, just update it.
+        pyfname0 = module_file(modulename)
+        if pyfname0 == pyfname:
+            update_one_module(modulename, False)
+            return sys.modules[modulename]
+        elif pyfname0 is not None:
+            pyfname = os.path.realpath(pyfname).replace('\\','/')
+            if pyfname != pyfname0:
+                raise Exception('Shadowing modulename: '+modulename+' Old py.file: '+pyfname0+ 'New py.file '+pyfname)
+    mglobals['filecontents'][pyfname] = contents(pyfname)
+    mglobals['filemodified'][pyfname] = date_mod(pyfname)
+    #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
+    spec = importlib.util.spec_from_file_location(modulename, pyfname)
+    if spec is None:
+        raise Exception('None spec')
+    foo = importlib.util.module_from_spec(spec)
+    sys.modules[modulename] = foo
+    if exec_module:
+        spec.loader.exec_module(foo)
+    return foo
+
 def contents(fname):
+    if not os.path.isfile(fname):
+        return None
     with io.open(fname, mode="r", encoding="utf-8") as file_obj:
         try:
             x = file_obj.read()
@@ -108,6 +146,21 @@ def pop_from_path():
     mglobals['pathprepends'].remove(sys.path[0])
     sys.path = sys.path[1:]
 
+def _fupdate(fname, modulename):
+    if modulename is not None:
+        clear_pycache(fname)
+        importlib.reload(sys.modules[modulename])
+    txt = contents(fname)
+    if fname in mglobals['filecontents']:
+        old_txt = mglobals['filecontents'][fname]
+        if old_txt != txt and modulename is not None:
+            usetrack.record_updates(modulename, fname, old_txt, txt)
+    else:
+        old_txt = None
+    mglobals['filecontents'][fname] = txt
+    mglobals['filemodified'][fname] = time.time() # Does date modified use the same as our own time?
+    return old_txt, txt
+
 def update_one_module(modulename, use_date=False, update_on_first_see=False):
     # The module must already be in the file.
     fname = os.path.realpath(sys.modules[modulename].__file__).replace('\\','/')
@@ -128,16 +181,17 @@ def update_one_module(modulename, use_date=False, update_on_first_see=False):
     if tmod is None:
         tmod = date_mod(fname)
 
+    mupdate=None
     if update_on_first_see or fname in mglobals['filecontents']:
         if (not use_date and mglobals['filecontents'][fname]!=txt) or (use_date and mglobals['filemodified'][fname]!=tmod):
             if modulename == '__main__' and (not update_on_first_see): # odd case, generates spec not found error.
                 raise Exception('Cannot update the main module for some reason. Need to restart when the Termpylus_main .py file changes.')
             elif modulename != '__main__':
-                print('Reloading:', modulename)
-                importlib.reload(sys.modules[modulename])
-    old_contents = mglobals['filecontents'].get(fname, None)
-    mglobals['filecontents'][fname] = txt
-    mglobals['filemodified'][fname] = tmod
+                if printouts:
+                    print('Reloading:', modulename)
+                mupdate = modulename
+
+    [old_contents, txt] = _fupdate(fname, mupdate)
     return True, [old_contents, txt]
 
 def update_all_modules(use_date=False, update_on_first_see=False):
@@ -147,28 +201,22 @@ def update_all_modules(use_date=False, update_on_first_see=False):
     out = {}
     for k in fnames.keys():
         changed, old_new = update_one_module(k, use_date, update_on_first_see)
-        if changed is not None:
+        if changed:
             out[k] = [fnames[k]]+old_new
     return out
 
-def module_from_file(modulename, pyfname, exec_module=True):
-    # Creates a module from a file.
-    if modulename in sys.modules: # already exists, just update it.
-        pyfname0 = module_file(modulename)
-        if pyfname0 == pyfname:
-            update_one_module(modulename, False)
-            return sys.modules[modulename]
-        elif pyfname0 is not None:
-            pyfname = os.realpath(pyfname).replace('\\','/')
-            raise Exception('Shadowing modulename: '+modulename+' Old py.file: '+pyfname0+ 'New py.file '+pyfname)
-    mglobals['filecontents'][pyfname] = contents(modulename.__file__)
-    mglobals['filemodified'][pyfname] = date_mod(modulename.__file__)
-    #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
-    spec = importlib.util.spec_from_file_location(modulename, pyfname)
-    if spec is None:
-        raise Exception('None spec')
-    foo = importlib.util.module_from_spec(spec)
-    sys.modules[modulename] = foo
-    if exec_module:
-        spec.loader.exec_module(foo)
-    return foo
+def fsave(fname, txt, update_module=True):
+    # Updates modules and records changes if fname corresponds to a module.
+    fname = os.path.abspath(fname).replace('\\','/')
+    old_txt = contents(fname)
+    with io.open(fname, mode="w", encoding="utf-8") as file_obj:
+        file_obj.write(txt)
+    if update_module:
+        f = module_fnames(True)
+        for k in f: # a little inefficient to loop through each modulename.
+            if f[k] == fname and old_txt != txt:
+                if printouts:
+                    print('Saving to module:', k)
+                _fupdate(fname, k)
+                return k
+        raise Exception('Filename not in listed modules:' + fname)

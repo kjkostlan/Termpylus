@@ -1,6 +1,6 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
-import sys, re, os, importlib, traceback
+import sys, re, os, importlib, traceback, subprocess
 from . import pybashlib, hotcmds1
 from Termpylus_py import mload, usetrack
 
@@ -37,7 +37,7 @@ def run(cmd, cmd_args):
     if os.name == 'nt':
         x = 'cmd'
     process = subprocess.Popen(x, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    out, err = process.communicate(commands)
+    out, err = process.communicate(cmd)
 
     out = result.stdout.decode('utf-8')
     err = result.edterr.decode('utf-8')

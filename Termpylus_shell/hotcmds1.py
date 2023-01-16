@@ -21,12 +21,14 @@ def utest0_this(args):
     return mload.module_file('smain')
 
 def cmds1():
+    #These extra cmds are for python editing.
     # Will add many more...
     out = {}
     out['utest'] = utest_this
     out['utest0'] = utest0_this
     out['watch'] = fnwatch.with_watcher #(modulename, var_name, args)
     out['find'] = fsearch.generic_find
+    out['changes'] = usetrack.get_edits
     return out
 
 def splat_here(modulename):
