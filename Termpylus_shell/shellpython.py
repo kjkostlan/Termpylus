@@ -62,7 +62,6 @@ def bashyparse2pystr(out_var, cmd, args):
 
 #################################Binding to Python##############################
 
-
 def python(args):
     # Runs a Python file much like a bash python command, except that it is ran in the current process.
     # What does this mean?
@@ -233,7 +232,7 @@ class Shell:
             for ky in vars1.keys():
                 if vars1[ky] is not vars0.get(ky, None):
                     if str(vars1[ky]) != str(vars0.get(ky, None)):
-                        vars_set = vars_set+'\n'+ky+' = '+str1(vars1[ky])
+                        vars_set = vars_set+'\n'+str(ky)+' = '+str1(vars1[ky])
             if len(vars_set)==0 and len(err)==0:
                 vars_set = 'Command succeeded, no vars changed'
 

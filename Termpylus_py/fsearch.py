@@ -31,35 +31,6 @@ def leaf_match(x, query):
     else:
         return leaf_match(x, str(query))
 
-##########################Walking fns#############################
-
-def to_dict(x, blockset):
-    # Converts something to x. Blockset blocks circular references.
-    TODO
-
-def owalk(x, eval_f, combine_f, blockset, eval_kys=False):
-    # Walk through data structures to find something.
-    # Runs eval f and combines results with combine_f (which always gets a dict).
-    y = {None, eval_f(x)}
-    kvs = {}
-    if has_attr(x, '__dict__'):
-        TODO
-    elif type(x) is dict:
-        TODO
-    elif type(x) is list:
-        TODO
-    elif type(x) is set:
-        TODO
-
-    ys = {}
-    for k in kvs.keys():
-        v = kvs[k]
-        if v in blockset:
-            TODO
-        else:
-            blockset.add(v)
-    TODO
-
 def sum_combine(kvs):
     TODO
 
