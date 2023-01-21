@@ -24,28 +24,34 @@ class ObKey():
         return id(self)
     def __str__(self):
         return '|ob_key|'
-ob_key = ObKey() # Use this to search for things. Dont construct your own ObKeys.
+ob_key = ObKey()
 
 class ObHolder():
     # Holds the original object. Stops the recursive search.
     def __init__(self, val):
         self.val = val
     def __str__(self):
-        return '<'+str(self.val)+'>'
+        return '❮'+str(self.val)+'❯'
+    def __repr__(self):
+        return '❮'+str(self.val)+'❯'
 
 class CircleHolder():
     # Holds circular dependencies. Stops the recursive search.
     def __init__(self, val):
         self.val = val
     def __str__(self):
-        return '!<'+str(self.val)+'>!'
+        return '⸦'+str(self.val)+'⸧'
+    def __repr__(self):
+        return '⸦'+str(self.val)+'⸧'
 
 class MysteryHolder():
     # Holds mysteries. These are not expored deeper for performance. Stops the recursive search.
     def __init__(self, val):
         self.val = val
     def __str__(self):
-        return '?<'+str(self.val)+'>?'
+        return '⟅'+str(self.val)+'⟆'
+    def __repr__(self):
+        return '⟅'+str(self.val)+'⟆'
 
 class Traced():
     # Traces ancestors; used for unwrap. Stops the recursive search (not really needed).
@@ -53,9 +59,9 @@ class Traced():
         self.val = val
         self.line = ancestors.copy()
     def __str__(self):
-        return '<'+str(self.val)+'>'
-    #def __repr__(self):
-    #    return str(self.val)
+        return '⦅'+str(self.val)+'⦆'
+    def __repr__(self):
+        return '⦅'+str(self.val)+'⦆'
 
 def default_blockset(x):
     # Avoid wild goose chases. Returns ids since some objects are unhasable.
@@ -131,10 +137,10 @@ def dfilter(d, usedset=None, blockset=None):
     d1 = d.copy()
     for k in list(d.keys()):
         idi = id(d1[k])
-        if idi in usedset:
-            d1[k] = CircleHolder(d1[k])
-        elif idi in blockset:
+        if idi in blockset:
             d1[k] = MysteryHolder(d1[k])
+        elif idi in usedset and (to_dict1(d1[k], 0) is not None): #Only circlehold non-None dicts.
+            d1[k] = CircleHolder(d1[k])
         else:
             usedset.add(idi)
     return d1
@@ -145,7 +151,6 @@ def is_leaf_type(x):
 ################################# Recursive functions ##########################
 
 def to_dict(x, usedset=None, blockset_fn=default_blockset, level=0):
-
     if usedset is None:
         usedset = set()
     y = to_dict1(x, level)
@@ -156,8 +161,10 @@ def to_dict(x, usedset=None, blockset_fn=default_blockset, level=0):
     z = dfilter(y, usedset=usedset, blockset=blockset_fn(x))
     zk = sorted(list(z.keys()), key=str) # Sort for determinism.
     for k in zk:
+        if str(type(k))==str(ObKey):
+            pass
         z[k] = to_dict(z[k], usedset, blockset_fn, level+1)
-    z[ob_key] = ObHolder(x)
+    z[ob_key] = x
     return z
 
 def dwalk(d, f, combine_f=None, combine_g=None):
@@ -187,8 +194,14 @@ def unwrap(d, head='', ancestry=None):
         ancestry = []
     out = {}
     for k in kys:
-        if type(d[k]) is dict:
+        if type(d[k]) is dict and str(type(k)) != str(ObKey):
             out = {**out, **unwrap(d[k],head+str(k)+'.', ancestry+[d])}
         else:
+            ty_txt = str(type(d[k]))
+            if ty_txt == str(ObHolder) or ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
+                # Splice these holders.
+                v = d[k].val
+            else:
+                v = d[k]
             out[head+str(k)] = Traced(d[k], ancestry)
     return out

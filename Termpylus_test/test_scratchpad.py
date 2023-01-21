@@ -1,6 +1,6 @@
 # TODO: Import lots of modules even those not needed.
 from Termpylus_py import walk, fnwatch
-import sys
+import sys, random
 Termpylus_main = sys.modules['__main__']
 
 def some_test(args): # Call with test1
@@ -16,6 +16,7 @@ def some_test(args): # Call with test1
     #for k in yflat.keys():
     #    if yflat
     #ids = walk.ob_key(find_me_f)
-    ix = 12345
-    return [yfk[ix], yflat[yfk[ix]], len(yfk)]
+    
+    ixs = random.sample(list(range(len(yfk))), 16)
+    return [[yfk[ix], yflat[yfk[ix]], ix] for ix in ixs]
 
