@@ -75,9 +75,25 @@ blockset = {add_fn_watcher, rm_fn_watcher} # Do not add watchers here, even when
 
 ################################ Fn watching mass actions ###################################
 
-def list_callables(modulename):
-    # Includes nesting for classes!
-    TODO
+def _get_vars_core(out, x, subpath, nest, usedids):
+    d = x.__dict__ # Found in both modules and classes.
+    for k in d.keys():
+        if id(d[k]) in usedids:
+            continue # Avoids infinite loops with circular class references.
+        if k.startswith('__') and k.endswith('__'): # Oddball python stuff we do not need.
+            continue
+        out[subpath+k] = d[k]
+        usedids.add(id(d[k]))
+        if nest and type(d[k]) is type: # Classes.
+            _get_vars_core(out, d[k], subpath+k+'.', nest, usedids)
+
+def get_vars(modulename, nest_inside_classes=True):
+    # Map from symbol to name.
+    out = {}
+    usedids = set()
+    x = sys.modules[modulename]
+    _get_vars_core(out, x, '', nest_inside_classes, usedids)
+    return out
 
 def add_all_watchers():
     # Is this too many?

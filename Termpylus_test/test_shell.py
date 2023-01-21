@@ -21,7 +21,7 @@ def _setup_tfiles():
     except FileNotFoundError:
         pass
     except PermissionError:
-        print('Warning: This testbed is having a windoze moment.')
+        print('Warning: Test_shell testbed is having a windoze moment.')
     pybashlib.debug_only_these_folders = [test_folder]
 
     subfiles = ['./foo.txt','./bar.txt']
@@ -192,8 +192,6 @@ def run_tests():
             if not x:
                 failed_tests.append(v)
     if len(failed_tests)>0:
-        raise Exception('Tests failed: '+str(failed_tests))
-    return True
+        print('Tests failed: '+str(failed_tests))
+    return len(failed_tests)==0
 
-if __name__ == "__main__":
-    run_tests()

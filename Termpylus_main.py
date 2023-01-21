@@ -6,6 +6,7 @@ import tkinter as tk
 import traceback, sys
 from Termpylus_shell import shellpython
 from Termpylus_UI import evt_check, layout
+from Termpylus_py import mload
 
 debug_show_keypress = False
 
@@ -150,14 +151,16 @@ class GUI(tk.Frame):
         #https://stackoverflow.com/questions/67957098/python-tkinter-bindmodified-works-only-once
     #    self.text_input.edit_modified(False) # Reset the modified flag for text widget.
 
-#shell = shellnative.Shell()
-shell = shellpython.Shell()
-try:
-    gui = GUI(shell)
-    gui.mainloop()
-except Exception:
-    traceback.print_exc()
-#print('About to exit shell!')
-shell.exit_shell()
-#sys.exit()
-#print('Exited shell!')
+if __name__=='__main__':
+    mload.startup_cache_sources()
+    #shell = shellnative.Shell()
+    shell = shellpython.Shell()
+    try:
+        gui = GUI(shell)
+        gui.mainloop()
+    except Exception:
+        traceback.print_exc()
+    #print('About to exit shell!')
+    shell.exit_shell()
+    #sys.exit()
+    #print('Exited shell!')

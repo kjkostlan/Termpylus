@@ -1,6 +1,6 @@
 # Module loading and updating.
 import sys, os, importlib, io, time
-from Termpylus_py import usetrack
+from Termpylus_py import usetrack, fnwatch
 
 printouts=False
 
@@ -40,6 +40,33 @@ $ python3
 
 '''
 
+class ModuleUpdate:
+    # How to look up var from id:
+    # https://stackoverflow.com/questions/15011674/is-it-possible-to-dereference-variable-ids
+    '''
+    import _ctypes
+
+    def di(obj_id):
+        """ Inverse of id() function. """
+        return _ctypes.PyObj_FromPtr(obj_id)
+
+    # OR this:
+    import ctypes
+    a = "hello world"
+    print ctypes.cast(id(a), ctypes.py_object).value
+    '''
+    # (But this is dangerous, so lets not rely on it unless we really need to).
+    # Stores the module updating.
+    def __init__(self, modulename, old_txt, new_txt, old_vars, new_vars):
+        self.modulename = modulename
+        self.old_txt = old_txt
+        self.new_txt = new_txt
+
+        self.old_new_pairs = {}
+        for k in new_vars.keys():
+            if k in old_vars and old_vars[k] is not new_vars[k]:
+                self.old_new_pairs[k] = [old_vars[k], new_vars[k]]
+
 # Singleton globals only set up once.
 try:
     _ = mglobals
@@ -48,6 +75,39 @@ except NameError:
     mglobals['filecontents'] = {}
     mglobals['filemodified'] = {} # Alternative to checking contents.
     mglobals['pathprepends'] = set() # keep track of what is added to the import path.
+    mglobals['varflush_queue'] = [] # Updating these can be a heavy task.
+
+def _fupdate(fname, modulename):
+    old_vars = fnwatch.get_vars(modulename)
+
+    clear_pycache(fname)
+    importlib.reload(sys.modules[modulename])
+    new_txt = contents(fname)
+    if fname in mglobals['filecontents']:
+        old_txt = mglobals['filecontents'][fname]
+        if old_txt != new_txt:
+            usetrack.record_updates(modulename, fname, old_txt, new_txt)
+    else:
+        old_txt = None
+    mglobals['filecontents'][fname] = new_txt
+    mglobals['filemodified'][fname] = time.time() # Does date modified use the same as our own time?
+
+    new_vars = fnwatch.get_vars(modulename)
+
+    out = ModuleUpdate(modulename, old_txt, new_txt, old_vars, new_vars)
+    mglobals['varflush_queue'].append(out)
+    return out
+
+################################Paths###########################################
+
+def add_to_path(folder_name):
+    # https://docs.python.org/3/library/sys.html#sys.path
+    sys.path = [os.path.realpath(folder_name)]+sys.path
+    mglobals['pathprepends'].add(folder_name)
+
+def pop_from_path():
+    mglobals['pathprepends'].remove(sys.path[0])
+    sys.path = sys.path[1:]
 
 def is_user(modulename, filename):
     # user files.
@@ -65,6 +125,53 @@ def is_user(modulename, filename):
         if n in filename:
             return False
     return True
+
+def module_file(m):
+    if type(m) is str:
+        m = sys.modules[m]
+    if '__file__' not in m.__dict__ or m.__file__ is None:
+        return None
+    return os.path.abspath(m.__file__).replace('\\','/')
+
+def module_fnames(user_only=False):
+    # Only modules that have files, and dict values are module names.
+    # Also can restrict to user-only files.
+    out = {}
+    for k in sys.modules.keys():
+        fname = module_file(sys.modules[k])
+        if fname is not None and (not user_only or is_user(k, fname)):
+            out[k] = fname.replace('\\','/')
+    return out
+
+############################# Files and folders #######################
+
+def contents(fname):
+    if not os.path.isfile(fname):
+        return None
+    with io.open(fname, mode="r", encoding="utf-8") as file_obj:
+        try:
+            x = file_obj.read()
+        except UnicodeDecodeError:
+            raise Exception('No UTF-8 for:', fname)
+        return x.replace('\r\n','\n')
+
+def date_mod(fname):
+    return os.path.getmtime(fname)
+
+def fsave(fname, txt, update_module=True):
+    # Updates modules and records changes if fname corresponds to a module.
+    fname = os.path.abspath(fname).replace('\\','/')
+    old_txt = contents(fname)
+    with io.open(fname, mode="w", encoding="utf-8") as file_obj:
+        file_obj.write(txt)
+    if update_module:
+        f = module_fnames(True)
+        for k in f: # a little inefficient to loop through each modulename.
+            if f[k] == fname and old_txt != txt:
+                if printouts:
+                    print('Saving to module:', k)
+                return _fupdate(fname, k)
+        raise Exception('Filename not in listed modules:' + fname)
 
 def clear_pycache(filename):
     # This can intefere with updating.
@@ -91,6 +198,7 @@ def module_from_file(modulename, pyfname, exec_module=True):
                 raise Exception('Shadowing modulename: '+modulename+' Old py.file: '+pyfname0+ 'New py.file '+pyfname)
     mglobals['filecontents'][pyfname] = contents(pyfname)
     mglobals['filemodified'][pyfname] = date_mod(pyfname)
+
     #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
     spec = importlib.util.spec_from_file_location(modulename, pyfname)
     if spec is None:
@@ -101,122 +209,51 @@ def module_from_file(modulename, pyfname, exec_module=True):
         spec.loader.exec_module(foo)
     return foo
 
-def contents(fname):
-    if not os.path.isfile(fname):
-        return None
-    with io.open(fname, mode="r", encoding="utf-8") as file_obj:
-        try:
-            x = file_obj.read()
-        except UnicodeDecodeError:
-            raise Exception('No UTF-8 for:', fname)
-        return x.replace('\r\n','\n')
+def startup_cache_sources():
+    # Stores the file contents and date-mod to compare against for updating.
+    for fname in module_fnames(True).values():
+        mglobals['filecontents'][fname] = contents(fname)
+        mglobals['filemodified'][fname] = date_mod(fname)
 
-def date_mod(fname):
-    return os.path.getmtime(fname)
+#############################Module updating####################################
 
-def module_dict():
-    return sys.modules
-
-def module_file(m):
-    if type(m) is str:
-        m = sys.modules[m]
-    if '__file__' not in m.__dict__:
-        return None
-    return os.path.abspath(m.__file__).replace('\\','/')
-
-def module_fnames(user_only=False):
-    # Only modules that have files, and dict values are module names.
-    # Also can restrict to user-only files.
-    d = module_dict()
-    out = {}
-    for k in d.keys():
-        if '__file__' in d[k].__dict__:
-            fname = d[k].__file__
-            if fname is not None:
-                if not user_only or is_user(k, fname):
-                    out[k] = fname.replace('\\','/')
-    return out
-
-def add_to_path(folder_name):
-    # https://docs.python.org/3/library/sys.html#sys.path
-    sys.path = [os.path.realpath(folder_name)]+sys.path
-    mglobals['pathprepends'].add(folder_name)
-
-def pop_from_path():
-    mglobals['pathprepends'].remove(sys.path[0])
-    sys.path = sys.path[1:]
-
-def _fupdate(fname, modulename):
-    if modulename is not None:
-        clear_pycache(fname)
-        importlib.reload(sys.modules[modulename])
-    txt = contents(fname)
-    if fname in mglobals['filecontents']:
-        old_txt = mglobals['filecontents'][fname]
-        if old_txt != txt and modulename is not None:
-            usetrack.record_updates(modulename, fname, old_txt, txt)
-    else:
-        old_txt = None
-    mglobals['filecontents'][fname] = txt
-    mglobals['filemodified'][fname] = time.time() # Does date modified use the same as our own time?
-    return old_txt, txt
-
-def update_one_module(modulename, use_date=False, update_on_first_see=False):
-    # The module must already be in the file.
-    fname = os.path.realpath(sys.modules[modulename].__file__).replace('\\','/')
+def needs_update(modulename, update_on_first_see=True, use_date=False):
+    fname = module_file(modulename)
     if fname not in mglobals['filecontents']: # first time seen.
-        txt = None; tmod = None
-        pass
+        return update_on_first_see
     elif use_date:
-        tmod = date_mod(fname); txt = None
-        if tmod == mglobals['filemodified'][fname]:
-            return False, None
+        return mglobals['filemodified'][fname] < date_mod(fname)
     else:
-        txt = contents(fname); tmod = None
-        if txt == mglobals['filecontents'][fname]:
-            return False, None
+        return mglobals['filecontents'][fname] != contents(fname)
 
-    if txt is None:
-        txt = contents(fname)
-    if tmod is None:
-        tmod = date_mod(fname)
+def update_one_module(modulename, fname=None):
+    # The module must already be in the file.
+    print('Updating MODULE:', modulename)
+    if modulename == '__main__' and (not update_on_first_see): # odd case, generates spec not found error.
+        raise Exception('Cannot update the main module for some reason. Need to restart when the Termpylus_main.py file changes.')
+    if fname is None:
+        fname = module_file(modulename)
+    if fname is None:
+        raise Exception('No fname supplied and cannot find the file.')
 
-    mupdate=None
-    if update_on_first_see or fname in mglobals['filecontents']:
-        if (not use_date and mglobals['filecontents'][fname]!=txt) or (use_date and mglobals['filemodified'][fname]!=tmod):
-            if modulename == '__main__' and (not update_on_first_see): # odd case, generates spec not found error.
-                raise Exception('Cannot update the main module for some reason. Need to restart when the Termpylus_main .py file changes.')
-            elif modulename != '__main__':
-                if printouts:
-                    print('Reloading:', modulename)
-                mupdate = modulename
+    return _fupdate(fname, modulename)
 
-    [old_contents, txt] = _fupdate(fname, mupdate)
-    return True, [old_contents, txt]
-
-def update_all_modules(use_date=False, update_on_first_see=False):
+def update_user_changed_modules(update_on_first_see=True, use_date=False):
+    # Updates modules that aren't pip packages or builtin.
     # use_date True should be faster but maybe less accurate.
-    # Returns {mname: [fname, old, new]}
+    # Returns {mname: ModuleUpdate object}
     fnames = module_fnames(True)
+    #print('Updating USER MODULES, '+str(len(mglobals['filecontents']))+' files currently cached,', str(len(fnames)), 'user modules recognized.')
+
     out = {}
-    for k in fnames.keys():
-        changed, old_new = update_one_module(k, use_date, update_on_first_see)
-        if changed:
-            out[k] = [fnames[k]]+old_new
+    for m in fnames.keys():
+        if needs_update(m, update_on_first_see, use_date):
+            out[m] = update_one_module(m, fnames[m])
     return out
 
-def fsave(fname, txt, update_module=True):
-    # Updates modules and records changes if fname corresponds to a module.
-    fname = os.path.abspath(fname).replace('\\','/')
-    old_txt = contents(fname)
-    with io.open(fname, mode="w", encoding="utf-8") as file_obj:
-        file_obj.write(txt)
-    if update_module:
-        f = module_fnames(True)
-        for k in f: # a little inefficient to loop through each modulename.
-            if f[k] == fname and old_txt != txt:
-                if printouts:
-                    print('Saving to module:', k)
-                _fupdate(fname, k)
-                return k
-        raise Exception('Filename not in listed modules:' + fname)
+def function_flush():
+    # Looks high and low to the far corners of the Pythonverse for references to out-of-date module functions.
+    # Replaces them with the newest version when necessary.
+    # Can be an expensive and slow function, run when things seem to not be updated.
+    #mglobals['varflush_queue']
+    TODO

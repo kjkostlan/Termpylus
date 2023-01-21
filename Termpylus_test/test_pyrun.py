@@ -1,7 +1,6 @@
 import sys, os, imp
-from Termpylus_py import usetrack
+from Termpylus_py import usetrack, mload, fnwatch
 from Termpylus_shell import shellpython
-from Termpylus_py import mload
 
 def _alltrue(x):
     for xi in x:
@@ -10,13 +9,14 @@ def _alltrue(x):
     return True
 
 def test_py_import0():
-    # Requires a syster folder so it can't really run as a standalone test.
-
+    # Optional extra test. Returns True unless there is a simplypyimport test folder
+    # outside of our main directory for which it will try importing it.
+    # If this test fails (with the right folder & contents) opening a project will fail.
     kys0 = list(sys.modules.keys())
     folder = os.path.dirname(os.path.realpath(__file__)).replace('\\','/')
     folder = folder.replace('Termpylus','')+'/../simplypyimport/'
     if not os.path.exists(folder):
-        print('WARNING: cant run test_py_import due to lack of folder outside our folder. Will return True without testing.')
+        print('Make sure opening a Python project works.')
         return True
 
     # Sys.path append? https://docs.python.org/3/library/sys.html#sys.path
@@ -48,7 +48,6 @@ def test_py_import0():
     #print('test_py_import NEW moudles:', set(sys.modules.keys())-set(kys0))
 
     return True
-
 
 def test_py_update():
     #print('Fullpath:', os.path.realpath(fname).replace('\\','/'))
@@ -90,6 +89,28 @@ def test_py_update():
     #print('Stuff test_py_update:', val0, val1)
     return T0 and T1 and ed_len and ed_test
 
+def test_file_caches():
+    mload.startup_cache_sources()
+    mglob = mload.mglobals
+    fnamemap = mload.module_fnames(True)
+    t0 = len(mglob['filecontents'])>8
+    t1 = set(mglob['filecontents'].keys())==set(mglob['filemodified'].keys())
+    t2 = 'test_file_caches' in mglob['filecontents'][fnamemap['Termpylus_test.test_pyrun']]
+    t3 = os.path.isfile(list(fnamemap.values())[4])
+    return t0 and t1 and t2 and t3
+
+def test_vars_from_module():
+    modulename = '__main__'
+    x = sys.modules[modulename]
+    vmap = fnwatch.get_vars(modulename, nest_inside_classes=True)
+    vmap0 = fnwatch.get_vars(modulename, nest_inside_classes=False)
+    t0 = vmap['GUI'] is vmap0['GUI']
+    t1 = 'GUI.resize' in vmap and 'GUI.resize' not in vmap0
+    t2 = vmap['GUI'] is x.GUI
+    t3 = vmap['GUI.set_shell_output'] is x.GUI.set_shell_output
+    t4 = vmap['root'] is x.root
+    return t0 and t1 and t2 and t3 and t4
+
 def run_tests():
     d = sys.modules[__name__].__dict__
     vars = list(d.keys())
@@ -108,5 +129,5 @@ def run_tests():
             if not x:
                 failed_tests.append(v)
     if len(failed_tests)>0:
-        raise Exception('Tests failed: '+str(failed_tests))
-    return True
+        print('Tests failed: '+str(failed_tests))
+    return len(failed_tests)==0

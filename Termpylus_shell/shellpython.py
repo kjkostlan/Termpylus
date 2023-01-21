@@ -25,7 +25,6 @@ def _module_vars():
 pybashlib.splat_here(__name__)
 hotcmds1.splat_here(__name__)
 
-
 def run(cmd, cmd_args):
     # Single-shot run, returns result and sets last_run_err
     # https://stackoverflow.com/questions/89228/how-do-i-execute-a-program-or-call-a-system-command
@@ -212,12 +211,9 @@ class Shell:
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
         input = input.strip()
         if len(input)>0:
-            module2fname_contents = mload.update_all_modules()
-            for k in module2fname_contents.keys():
-                name_old_new_triple = module2fname_contents[k]
-                if name_old_new_triple[1] is not None:
-                    usetrack.record_updates(k, *name_old_new_triple)
-            pybashlib.shell = self # So that fns from pybashlib works properly.
+            pybashlib.shell = self # So that fns from pybashlib work properly.
+
+            mload.update_user_changed_modules() # Update modules.
             vars0 = _module_vars()
             err = ''
             try:
