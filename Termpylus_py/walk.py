@@ -1,4 +1,4 @@
-# Walking tools.
+# Walk across the Pythonverse! Converts datastructures to nested dicts for ease-of-use.
 import traceback, sys
 
 '''
@@ -24,22 +24,28 @@ class ObKey():
         return id(self)
     def __str__(self):
         return '|ob_key|'
-ob_key = ObKey() # Use this to search for things.
+ob_key = ObKey() # Use this to search for things. Dont construct your own ObKeys.
 
 class ObHolder():
     # Holds the original object. Stops the recursive search.
     def __init__(self, val):
         self.val = val
+    def __str__(self):
+        return '<'+str(self.val)+'>'
 
 class CircleHolder():
     # Holds circular dependencies. Stops the recursive search.
     def __init__(self, val):
         self.val = val
+    def __str__(self):
+        return '!<'+str(self.val)+'>!'
 
 class MysteryHolder():
     # Holds mysteries. These are not expored deeper for performance. Stops the recursive search.
     def __init__(self, val):
         self.val = val
+    def __str__(self):
+        return '?<'+str(self.val)+'>?'
 
 class Traced():
     # Traces ancestors; used for unwrap. Stops the recursive search (not really needed).
@@ -47,14 +53,18 @@ class Traced():
         self.val = val
         self.line = ancestors.copy()
     def __str__(self):
-        return str(self.val)
+        return '<'+str(self.val)+'>'
     #def __repr__(self):
     #    return str(self.val)
 
 def default_blockset(x):
     # Avoid wild goose chases. Returns ids since some objects are unhasable.
     if type(x) is module and x is sys.modules['Termpylus_shell.shellpython']:
-        return set(x.__dict__.keys())
+        # Avoid digging into user variables.
+        ok = {'str1','_module_vars','run', 'bashyparse2pystr', 'python', 'py_kwds',
+              'numeric_str', 'is_quoted', 'bashy', 'is_pyvar', 'split_by_eq', 
+              'attempt_shell_parse', 'exc_to_str', 'Shell'}
+        return set(x.__dict__.keys())-ok
     else:
         return {}
 
@@ -64,16 +74,24 @@ def to_dict1(x, level):
     # Converts something to x. usedset blocks circular references and is full of ids.
     # Leafs become None (and are later replaced by the object itself)
     # Only one level deep, does not operate recursivly.
-    anti_loop[0] = anti_loop[0]+1
-    if anti_loop[0] > 2e5:
-        raise Exception('Infinite loop possible, aborted.')
-    kvs = {}
-    ty = type(x)
+    if level>768:
+        raise Exception('Infinite recursion depth likely.')
+
     def finlz(z):
         if hasattr(x,'__defaults__'): # Extracts function info.
             z['__defaults__'] = x.__defaults__
+        if anti_loop[0] > 8e5:
+            #print('Are we a showstopper:', str(ty), [str(ObHolder), str(CircleHolder)], [ty is ObHolder, ty is CircleHolder])
+            raise Exception('Infinite loop possible, aborted at nest level '+str(level)+'; object: '+str(x))
         return z
-    if ty is ObHolder or ty is CircleHolder or ty is MysteryHolder or ty is Traced:
+
+    anti_loop[0] = anti_loop[0]+1
+    kvs = {}
+    ty = type(x)
+    ty_txt = str(ty)
+
+    # If this module gets reloaded the 4 holders will be redefined and is will fail. However, the str should still work.
+    if ty_txt == str(ObHolder) or ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
         return None
     elif hasattr(x, '__dict__'): # objects (classes, types, modules)
         dc = x.__dict__
@@ -127,7 +145,6 @@ def is_leaf_type(x):
 ################################# Recursive functions ##########################
 
 def to_dict(x, usedset=None, blockset_fn=default_blockset, level=0):
-    anti_loop[0] = anti_loop[0]
 
     if usedset is None:
         usedset = set()
