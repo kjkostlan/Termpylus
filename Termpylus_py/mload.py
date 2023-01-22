@@ -110,7 +110,7 @@ def pop_from_path():
     sys.path = sys.path[1:]
 
 def is_user(modulename, filename):
-    # user files.
+    # user files. TODO: maybe there is a better way to handle this?
     filename = filename.replace('\\','/')
     if 'syspyfolderlist' not in mglobals: # what modules
         test_modules = ['os', 'importlib', 'io']
@@ -119,6 +119,8 @@ def is_user(modulename, filename):
             folders.add(sys.modules[t].__file__.replace('\\','/').replace(t+'.py','').replace('__init__.py',''))
         mglobals['syspyfolderlist'] = folders
     no_list = mglobals['syspyfolderlist']
+    if 'PythonSoftwareFoundation.Python' in filename: # Heuristic that worked with numpy:
+        return False
     if filename.endswith('.pyd'):
         return False # User files don't use .pyd
     for n in no_list:

@@ -188,7 +188,7 @@ def dwalk(d, f, combine_f=None, combine_g=None):
 
 def unwrap(d, head='', ancestry=None):
     # Unwraps the dict d using '.' to seperate recursive keys.
-    # Each dict value is an
+    # Each dict key is a path.
     kys = sorted(list(d.keys()), key=str) # Sort for determinism.
     if ancestry is None:
         ancestry = []
@@ -199,8 +199,7 @@ def unwrap(d, head='', ancestry=None):
         else:
             ty_txt = str(type(d[k]))
             if ty_txt == str(ObHolder) or ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
-                # Splice these holders.
-                v = d[k].val
+                v = d[k].val # Splice these holders.
             else:
                 v = d[k]
             out[head+str(k)] = Traced(d[k], ancestry)
