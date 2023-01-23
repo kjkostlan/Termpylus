@@ -5,7 +5,7 @@
 import tkinter as tk
 import traceback, sys
 from Termpylus_shell import shellpython
-from Termpylus_UI import evt_check, layout
+from Termpylus_UI import evt_check, layout, slowprint
 from Termpylus_py import mload
 
 debug_show_keypress = False
@@ -152,6 +152,7 @@ class GUI(tk.Frame):
     #    self.text_input.edit_modified(False) # Reset the modified flag for text widget.
 
 if __name__=='__main__':
+    print_state_singleton = slowprint.PrinterState()
     mload.startup_cache_sources()
     #shell = shellnative.Shell()
     shell = shellpython.Shell()
