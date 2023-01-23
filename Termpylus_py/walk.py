@@ -1,14 +1,7 @@
 # Walk across the Pythonverse! Converts datastructures to nested dicts for ease-of-use.
 import traceback, sys
+from . import walk_filter
 
-'''
-# How to find default args:
-def foo(x=[1,2,3]):
-  return x[0]
-y = foo.__defaults__
-y[0][0] = 123
-z = foo()
-'''
 try:
     len(debug_strangetypes)
 except:
@@ -26,19 +19,11 @@ class ObKey():
         return '|ob_key|'
 ob_key = ObKey()
 
-class ObHolder():
-    # Holds the original object. Stops the recursive search.
-    def __init__(self, val):
-        self.val = val
-    def __str__(self):
-        return '❮'+str(self.val)+'❯'
-    def __repr__(self):
-        return '❮'+str(self.val)+'❯'
-
 class CircleHolder():
     # Holds circular dependencies. Stops the recursive search.
-    def __init__(self, val):
+    def __init__(self, val, val_as_dict):
         self.val = val
+        self.val_as_dict = val_as_dict
     def __str__(self):
         return '⸦'+str(self.val)+'⸧'
     def __repr__(self):
@@ -63,22 +48,11 @@ class Traced():
     def __repr__(self):
         return '⦅'+str(self.val)+'⦆'
 
-def default_blockset(x):
-    # Avoid wild goose chases. Returns ids since some objects are unhasable.
-    if type(x) is module and x is sys.modules['Termpylus_shell.shellpython']:
-        # Avoid digging into user variables.
-        ok = {'str1','_module_vars','run', 'bashyparse2pystr', 'python', 'py_kwds',
-              'numeric_str', 'is_quoted', 'bashy', 'is_pyvar', 'split_by_eq', 
-              'attempt_shell_parse', 'exc_to_str', 'Shell'}
-        return set(x.__dict__.keys())-ok
-    else:
-        return {}
-
 ##################################Core walking tools############################
 
 def to_dict1(x, level):
-    # Converts something to x. usedset blocks circular references and is full of ids.
-    # Leafs become None (and are later replaced by the object itself)
+    # Converts x to a dict.
+    # If x can't be broken down into smaller peices returns None
     # Only one level deep, does not operate recursivly.
     if level>768:
         raise Exception('Infinite recursion depth likely.')
@@ -87,8 +61,7 @@ def to_dict1(x, level):
         if hasattr(x,'__defaults__'): # Extracts function info.
             z['__defaults__'] = x.__defaults__
         if anti_loop[0] > 8e5:
-            #print('Are we a showstopper:', str(ty), [str(ObHolder), str(CircleHolder)], [ty is ObHolder, ty is CircleHolder])
-            raise Exception('Infinite loop possible, aborted at nest level '+str(level)+'; object: '+str(x))
+            raise Exception('Infinite loop possible (where searching through items creates items ad infinitum), aborted at nest level '+str(level)+'; object: '+str(x))
         return z
 
     anti_loop[0] = anti_loop[0]+1
@@ -97,11 +70,17 @@ def to_dict1(x, level):
     ty_txt = str(ty)
 
     # If this module gets reloaded the 4 holders will be redefined and is will fail. However, the str should still work.
-    if ty_txt == str(ObHolder) or ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
+    if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
         return None
+    elif ty is str: # strs are considered leafs even though they can be iterated.
+        return None
+    elif ty is dict:
+        return x.copy()
+    elif ty is set:
+        return finlz(dict(zip(x,x)))
     elif hasattr(x, '__dict__'): # objects (classes, types, modules)
         dc = x.__dict__
-        strd = str(type(x.__dict__))
+        strd = str(type(dc))
         debug_strangetypes[strd] = x
         #print('Type of dict:', str(type(x.__dict__)))
         #print('Reg keys:', debug_strangetypes)
@@ -109,29 +88,27 @@ def to_dict1(x, level):
             return finlz(dict(zip(dc.keys(), dc.values())))
         else:
             return finlz(dc.copy())
-    elif type(x) is str: # strs are considered leafs even though they can be iterated.
-        return None
-    elif ty is dict:
-        return x
-    elif ty is set:
-        return finlz(dict(zip(x,x)))
-    elif hasattr(x,'__iter__'):
-        x1 = list(x)
-        return finlz(dict(zip(range(len(x1)),x1)))
+    elif ty is list or ty is tuple:
+        return dict(zip(range(len(x)), x))
+    #elif hasattr(x,'__iter__'): # Too many infinite iterators.
+    #    try:
+    #        x1 = list(x)
+    #    except TypeError: # occasionally this fails.
+    #        return None
+    #    #sprt('__iter__ on:', type(x))
+    #    out = finlz(dict(zip(range(len(x1)),x1)))
+    #    #sprt('done with __iter__ on:', type(x))
+    #    return out
     else:
         return None
-    if out is None:
-        return out
-    if out is None or blocklist_fn is None:
-        return out
 
-def dfilter(d, usedset=None, blockset=None):
-    # Usedset accumilates object ids and prevents circular refrences.
+def dfilter(d, useddict=None, blockset=None):
+    # Useddict accumilates object ids and prevents circular refrences.
     # Blockset is an extra set that we don't use.
     if d is None:
         return d
-    if usedset is None:
-        usedset = set()
+    if useddict is None:
+        useddict = dict()
     if blockset is None:
         blockset = set()
     d1 = d.copy()
@@ -139,10 +116,8 @@ def dfilter(d, usedset=None, blockset=None):
         idi = id(d1[k])
         if idi in blockset:
             d1[k] = MysteryHolder(d1[k])
-        elif idi in usedset and (to_dict1(d1[k], 0) is not None): #Only circlehold non-None dicts.
-            d1[k] = CircleHolder(d1[k])
-        else:
-            usedset.add(idi)
+        elif idi in useddict and useddict[idi] is not None: #Only circlehold non-None dicts.
+            d1[k] = CircleHolder(d1[k], useddict[idi])
     return d1
 
 def is_leaf_type(x):
@@ -150,20 +125,31 @@ def is_leaf_type(x):
 
 ################################# Recursive functions ##########################
 
-def to_dict(x, usedset=None, blockset_fn=default_blockset, level=0):
-    if usedset is None:
-        usedset = set()
-    y = to_dict1(x, level)
+def to_dict(x, useddict=None, blockset_fn=walk_filter.default_blockset, d1_override=walk_filter.override_to_dict1, level=0):
+
+    if useddict is None:
+        useddict = dict()
+    #sprt('Before dict1:', str(type(x)))
+    if d1_override is not None:
+        y = d1_override(x, level)
+    if y is None:
+        y = to_dict1(x, level)
+    useddict[id(x)] = y
+    #sprt('After dict1:', str(type(x)))
+
     if y is None:
         return x
     if blockset_fn is None:
         blockset_fn = lambda x:set()
-    z = dfilter(y, usedset=usedset, blockset=blockset_fn(x))
+
+    z = dfilter(y, useddict=useddict, blockset=blockset_fn(x))
+
     zk = sorted(list(z.keys()), key=str) # Sort for determinism.
     for k in zk:
         if str(type(k))==str(ObKey):
             pass
-        z[k] = to_dict(z[k], usedset, blockset_fn, level+1)
+        z[k] = to_dict(z[k], useddict, blockset_fn, d1_override, level+1)
+
     z[ob_key] = x
     return z
 
@@ -198,7 +184,7 @@ def unwrap(d, head='', ancestry=None):
             out = {**out, **unwrap(d[k],head+str(k)+'.', ancestry+[d])}
         else:
             ty_txt = str(type(d[k]))
-            if ty_txt == str(ObHolder) or ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
+            if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
                 v = d[k].val # Splice these holders.
             else:
                 v = d[k]

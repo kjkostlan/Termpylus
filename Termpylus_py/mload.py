@@ -211,11 +211,16 @@ def module_from_file(modulename, pyfname, exec_module=True):
         spec.loader.exec_module(foo)
     return foo
 
-def startup_cache_sources():
+def startup_cache_sources(modulenames=None):
     # Stores the file contents and date-mod to compare against for updating.
-    for fname in module_fnames(True).values():
-        mglobals['filecontents'][fname] = contents(fname)
-        mglobals['filemodified'][fname] = date_mod(fname)
+    if modulenames is None:
+        filenames = module_fnames(True).values()
+    else:
+        filenames = [module_file(m) for m in modulenames]
+    for fname in filenames:
+        if fname is not None and fname.endswith('.py'):
+            mglobals['filecontents'][fname] = contents(fname)
+            mglobals['filemodified'][fname] = date_mod(fname)
 
 #############################Module updating####################################
 

@@ -118,13 +118,14 @@ class GUI(tk.Frame):
         char = evt.char; char = (char+' ')[0]
 
         if evt_check.emacs(evt, 'S+enter'): # Shift enter = send command.
+            mo0 = sys.modules.copy()
             input_to_shell=self.text_input.get("1.0","end-1c")
 
             autocorrected_input = self.shell.autocorrect(input_to_shell)
             if autocorrected_input != input_to_shell:
                 input_to_shell = autocorrected_input
                 set_text_text(self.text_input, autocorrected_input)
-            self.shell.send(input_to_shell) # The shell listener should activie and change the output text soon.
+            self.shell.send(input_to_shell)
             self.shell.input_ix += 1
             if len(input_to_shell)>0 and input_to_shell[-1] == '\n':
                 #https://stackoverflow.com/questions/49232866/how-to-delete-last-character-in-text-widget-tkinter
@@ -136,6 +137,8 @@ class GUI(tk.Frame):
             if not repeat:
                 self.historybox.insert(tk.END, input_to_shell.strip()+'\n')
                 self.historybox.see(tk.END)
+            new_modules = set(sys.modules.keys())-set(mo0.keys())
+            mload.startup_cache_sources(new_modules)
 
     def resize(self, *args):
         try:
