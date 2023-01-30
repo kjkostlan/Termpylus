@@ -243,5 +243,9 @@ class Shell:
     def exit_shell(self):
         pass
 
+    def clear_printouts(self):
+        # Clear the shell printouts.
+        self.outputs = []
+
     def add_update_listener(self, f, dt=0.0625):
         self.listenerf = f

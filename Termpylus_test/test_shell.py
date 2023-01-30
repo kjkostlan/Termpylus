@@ -2,6 +2,7 @@
 import sys, os, shutil
 import tkinter.messagebox
 from Termpylus_shell import shellpython, pybashlib
+from . import ttools
 
 def _alltrue(x):
     for xi in x:
@@ -127,7 +128,7 @@ def test_ls():
     #print('Ls test:', pybashlib.ls(['.']))
     #print('Ls test:', pybashlib.ls(['-s','.']))
     #print('Ls test:', pybashlib.ls(['-l','.']))
-    return _alltrue(tests)
+    return ttools.alltrue(tests)
 
 def test_cd():
     test_folder, subfiles, shell = _setup_tfiles()
@@ -146,7 +147,7 @@ def test_cd():
     tests.append('applachia.txt' in str(l1) and 'sahara.txt' not in str(l1))
     tests.append('mountain' in cur_dir1 and 'mountain' not in cur_dir0)
 
-    return _alltrue(tests)
+    return ttools.alltrue(tests)
 
 def test_grep():
     # TODO: more comprehensive test.
@@ -158,7 +159,7 @@ def test_grep():
     tests.append(len(x)>1 and len(x)<8)
 
     tests.append(len(x1)==1)
-    #_alltrue(tests)
+
     try:
         x2 = pybashlib.grep(['f', 'file_no_exist'])
         tests.append(False)
@@ -175,23 +176,4 @@ def test_others():
     return False
 
 def run_tests():
-    d = sys.modules[__name__].__dict__
-    vars = list(d.keys())
-    vars.sort()
-    failed_tests = []
-    for v in vars:
-        if '__' in v:
-            continue
-        if 'run_tests' in v:
-            continue
-        if 'test' not in v:
-            continue
-        v_obj = d[v]
-        if type(v_obj) is not type(sys):
-            x = v_obj()
-            if not x:
-                failed_tests.append(v)
-    if len(failed_tests)>0:
-        print('Tests failed: '+str(failed_tests))
-    return len(failed_tests)==0
-
+    return ttools.run_tests(__name__)

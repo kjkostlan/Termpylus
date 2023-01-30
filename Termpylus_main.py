@@ -62,6 +62,7 @@ class GUI(tk.Frame):
         layout.focus_cycle(root, self.all_widgets)
         for w in self.all_widgets:
             w.bind('<KeyPress>', self.maybe_send_command, add='+')
+            w.bind('<KeyPress>', self.maybe_clear_app, add='+')
             if debug_show_keypress:
                 w.bind('<KeyPress>', debug_keypress,  add='+')
 
@@ -139,6 +140,11 @@ class GUI(tk.Frame):
                 self.historybox.see(tk.END)
             new_modules = set(sys.modules.keys())-set(mo0.keys())
             mload.startup_cache_sources(new_modules)
+
+    def maybe_clear_app(self, *args):
+        if evt_check.emacs(args[0], 'C+l'): # Bash default clear.
+            self.shell.clear_printouts()
+            self.set_shell_output()
 
     def resize(self, *args):
         try:

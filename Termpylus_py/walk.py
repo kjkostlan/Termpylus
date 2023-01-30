@@ -16,7 +16,7 @@ class ObKey():
     def __hash__(self):
         return id(self)
     def __str__(self):
-        return '|ob_key|'
+        return '⟮ob_key⟯'
 ob_key = ObKey()
 
 class CircleHolder():
@@ -37,16 +37,6 @@ class MysteryHolder():
         return '⟅'+str(self.val)+'⟆'
     def __repr__(self):
         return '⟅'+str(self.val)+'⟆'
-
-class Traced():
-    # Traces ancestors; used for unwrap. Stops the recursive search (not really needed).
-    def __init__(self, val, ancestors):
-        self.val = val
-        self.line = ancestors.copy()
-    def __str__(self):
-        return '⦅'+str(self.val)+'⦆'
-    def __repr__(self):
-        return '⦅'+str(self.val)+'⦆'
 
 ##################################Core walking tools############################
 
@@ -69,40 +59,26 @@ def to_dict1(x, level):
     ty = type(x)
     ty_txt = str(ty)
 
-    # If this module gets reloaded the 4 holders will be redefined and is will fail. However, the str should still work.
-    if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
+    # If this module gets reloaded the 4 holders will be redefined and 'is' will fail. However, the str should still work.
+    if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder):
         return None
-    elif ty is str: # strs are considered leafs even though they can be iterated.
-        return None
+    elif ty in {str, float, int}:
+        return None # These are considered leaf types.
     elif ty is dict:
         return x.copy()
     elif ty is set:
         return finlz(dict(zip(x,x)))
-    elif hasattr(x, '__dict__'): # objects (classes, types, modules)
-        dc = x.__dict__
-        strd = str(type(dc))
-        debug_strangetypes[strd] = x
-        #print('Type of dict:', str(type(x.__dict__)))
-        #print('Reg keys:', debug_strangetypes)
-        if type(dc) is not dict: # Actually a mapping proxy.
-            return finlz(dict(zip(dc.keys(), dc.values())))
-        else:
-            return finlz(dc.copy())
     elif ty is list or ty is tuple:
         return dict(zip(range(len(x)), x))
-    #elif hasattr(x,'__iter__'): # Too many infinite iterators.
-    #    try:
-    #        x1 = list(x)
-    #    except TypeError: # occasionally this fails.
-    #        return None
-    #    #sprt('__iter__ on:', type(x))
-    #    out = finlz(dict(zip(range(len(x1)),x1)))
-    #    #sprt('done with __iter__ on:', type(x))
-    #    return out
+    elif hasattr(x,'__dict__'):
+        # Class instance methods are hard to look up:
+        # https://stackoverflow.com/questions/62105974/do-objects-have-a-copy-of-their-class-methods
+        return finlz(x.__dict__.copy())
     else:
         return None
 
-def dfilter(d, useddict=None, blockset=None):
+
+def mark_blocked(d, useddict=None, blockset=None, removeset=None):
     # Useddict accumilates object ids and prevents circular refrences.
     # Blockset is an extra set that we don't use.
     if d is None:
@@ -111,12 +87,18 @@ def dfilter(d, useddict=None, blockset=None):
         useddict = dict()
     if blockset is None:
         blockset = set()
+    if removeset is None:
+        removeset = set()
     d1 = d.copy()
     for k in list(d.keys()):
         idi = id(d1[k])
-        if idi in blockset:
+        if k in blockset:
             d1[k] = MysteryHolder(d1[k])
+        elif k in removeset:
+            del d1[k]
         elif idi in useddict and useddict[idi] is not None: #Only circlehold non-None dicts.
+            if str(type(d1[k])) == str(CircleHolder):
+                raise Exception('Nested circleholder.')
             d1[k] = CircleHolder(d1[k], useddict[idi])
     return d1
 
@@ -125,8 +107,7 @@ def is_leaf_type(x):
 
 ################################# Recursive functions ##########################
 
-def to_dict(x, useddict=None, blockset_fn=walk_filter.default_blockset, d1_override=walk_filter.override_to_dict1, level=0):
-
+def to_dict(x, useddict=None, blockset_fn=walk_filter.default_blockset, removeset_fn=walk_filter.default_no_showset, d1_override=walk_filter.default_override_to_dict1, level=0):
     if useddict is None:
         useddict = dict()
     #sprt('Before dict1:', str(type(x)))
@@ -134,22 +115,26 @@ def to_dict(x, useddict=None, blockset_fn=walk_filter.default_blockset, d1_overr
         y = d1_override(x, level)
     if y is None:
         y = to_dict1(x, level)
-    useddict[id(x)] = y
+
+    useddict[id(x)] = x
     #sprt('After dict1:', str(type(x)))
 
     if y is None:
         return x
     if blockset_fn is None:
-        blockset_fn = lambda x:set()
+        blockset_fn = lambda x,kys:set()
 
-    z = dfilter(y, useddict=useddict, blockset=blockset_fn(x))
+    z = mark_blocked(y, useddict=useddict, removeset=removeset_fn(x, list(y.keys())), blockset=blockset_fn(x, list(y.keys())))
 
     zk = sorted(list(z.keys()), key=str) # Sort for determinism.
     for k in zk:
         if str(type(k))==str(ObKey):
-            pass
-        z[k] = to_dict(z[k], useddict, blockset_fn, d1_override, level+1)
-
+            continue
+        if level>745:
+            _deeper = to_dict1(z[k], level+1)
+            if _deeper is not None and k in _deeper:
+                print('Likely infinite loop; key is:', k, 'x is:', [x, z[k]], 'ID:', id(x),'Level:', level)
+        z[k] = to_dict(z[k], useddict, blockset_fn, removeset_fn, d1_override, level+1)
     z[ob_key] = x
     return z
 
@@ -172,21 +157,57 @@ def dwalk(d, f, combine_f=None, combine_g=None):
     else:
         return f(d)
 
-def unwrap(d, head='', ancestry=None):
-    # Unwraps the dict d using '.' to seperate recursive keys.
-    # Each dict key is a path.
-    kys = sorted(list(d.keys()), key=str) # Sort for determinism.
-    if ancestry is None:
-        ancestry = []
+def _unwrap_core(d, head, ancestry):
     out = {}
+    kys = sorted(list(d.keys()), key=str) # Sort for determinism.
+
     for k in kys:
         if type(d[k]) is dict and str(type(k)) != str(ObKey):
-            out = {**out, **unwrap(d[k],head+str(k)+'.', ancestry+[d])}
+            out = {**out, **unwrap(d[k],head+str(k)+'•', ancestry+[d])}
         else:
-            ty_txt = str(type(d[k]))
-            if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder) or ty_txt == str(Traced):
-                v = d[k].val # Splice these holders.
-            else:
-                v = d[k]
-            out[head+str(k)] = Traced(d[k], ancestry)
+            out[head+str(k)] = d[k]
     return out
+
+def _splice_core(d):
+    d = d.copy()
+    for k, v in d.items():
+        ty_txt = str(type(v))
+        if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder):
+            d[k] = v.val
+            ty_txt = str(type(v.val))
+            if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder):
+                raise Exception('Nested holders.')
+    # Remove the ObKey tails from each key:
+    txt = '•'+str(ob_key)
+    return dict(zip([k.replace(txt, '') for k in d.keys()], d.values()))
+
+def unwrap(d, head='', ancestry=None):
+    # Unwraps the dict d using '•' as a path delim.
+    # Mostly a debug tool.
+    if ancestry is None:
+        ancestry = []
+    d = _unwrap_core(d, head, ancestry)
+    d = _splice_core(d)
+    return d
+
+
+def get_in(x, ks):
+    if len(ks)==0:
+        return x
+    if ks[0] not in x:
+        return None
+    return get_in(x, ks[1:])
+
+def find_in(d, x, prepend=None):
+    # Returns the path to object x and enclosing dict in nested dict d.
+    # There will be exactly one path if it is successful since CircleHolders don't count.
+    if prepend is None:
+        prepend = []
+    if ob_key in d and d[ob_key] is x:
+        return prepend, d
+    for k in d.keys():
+        if k is not ob_key and type(d[k]) is dict:
+            p, y = find_in(d[k], x, prepend+[k])
+            if p is not None:
+                return p, y
+    return None, None

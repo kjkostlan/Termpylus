@@ -6,23 +6,21 @@ from Termpylus_py import usetrack, fsearch, fnwatch
 def utest_this(args):
     # Unitests.
     print('**Running unit tests**')
-    from Termpylus_test import test_pyrun # Delay b/c better to not have circular dependencies and testing may import a lot of clutter.
-    ok = True
-    if not test_pyrun.run_tests():
-        ok = False
-        print('>>test_pyrun module failed.')
-    from Termpylus_test import test_shell
-    if not test_shell.run_tests():
-        ok = False
-        print('>>test_shell module failed.')
-    return ok
+    from Termpylus_test import test_pyrun, test_shell, test_walk
+    n_fail = 0
+    for t_module in [test_pyrun, test_shell, test_walk]:
+        if not t_module.run_tests():
+            print('>>testing failed for:', t_module)
+            n_fail = n_fail+1
+    print('!!>>!!>>Number fail:', n_fail)
+    return n_fail==0
 
 def cmds1():
     #These extra cmds are for python editing.
     # Will add many more...
     def t1(args):
-        from Termpylus_test import test_scratchpad # Delay import b/c it is importing many modules.
-        return test_scratchpad.some_test(args)
+        from Termpylus_test import scratchpad # Delay import b/c it is importing many modules.
+        return scratchpad.some_test(args)
     def _unwrap(d):
         if type(d) is list:
             d = d[0]

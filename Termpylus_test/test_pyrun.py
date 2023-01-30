@@ -1,12 +1,7 @@
 import sys, os, imp
 from Termpylus_py import usetrack, mload, fnwatch
 from Termpylus_shell import shellpython
-
-def _alltrue(x):
-    for xi in x:
-        if not xi:
-            return False
-    return True
+from . import ttools
 
 def test_py_import0():
     # Optional extra test. Returns True unless there is a simplypyimport test folder
@@ -55,11 +50,11 @@ def test_py_update():
     #print('TEST edit:', usetrack.txt_edit('foo123bar', 'foo456bar'))
     #return False
 
-    from . import test_changeme # adds to the sys.modules
-    val0 = test_changeme.mathy_function(1000)
-    mload.update_one_module(test_changeme.__name__)
+    from . import changeme # adds to the sys.modules
+    val0 = changeme.mathy_function(1000)
+    mload.update_one_module(changeme.__name__)
     #print('Val00 is:', val0)
-    fname = './Termpylus_test/test_changeme.py'
+    fname = './Termpylus_test/changeme.py'
     #x0 = mload.update_all_modules(use_date=False, update_on_first_see=False)
     txt = mload.contents(fname)
     if '1234' not in txt:
@@ -74,7 +69,7 @@ def test_py_update():
         raise Exception('The change failed.')
     mload.fsave(fname, txt1)
     #x1 = mload.update_all_modules(use_date=False, update_on_first_see=False)
-    val1 = test_changeme.mathy_function(1000)
+    val1 = changeme.mathy_function(1000)
     eds1 = usetrack.get_edits()
     T1 = val1==1000+4321
     mload.fsave(fname, txt) # revert.
@@ -112,22 +107,4 @@ def test_vars_from_module():
     return t0 and t1 and t2 and t3 and t4
 
 def run_tests():
-    d = sys.modules[__name__].__dict__
-    vars = list(d.keys())
-    vars.sort()
-    failed_tests = []
-    for v in vars:
-        if '__' in v:
-            continue
-        if 'run_tests' in v:
-            continue
-        if 'test' not in v:
-            continue
-        v_obj = d[v]
-        if type(v_obj) is not type(sys):
-            x = v_obj()
-            if not x:
-                failed_tests.append(v)
-    if len(failed_tests)>0:
-        print('Tests failed: '+str(failed_tests))
-    return len(failed_tests)==0
+    return ttools.run_tests(__name__)
