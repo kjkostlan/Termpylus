@@ -5,7 +5,7 @@
 import tkinter as tk
 import traceback, sys
 from Termpylus_shell import shellpython
-from Termpylus_UI import evt_check, layout, slowprint
+from Termpylus_UI import evt_check, layout, slowprint, hotkeys
 from Termpylus_core import updater
 
 debug_show_keypress = False
@@ -107,7 +107,7 @@ class GUI(tk.Frame):
         evt = args[0]
         char = evt.char
         keysym = evt.keysym
-        if evt_check.emacs(evt, 'C-k'):
+        if evt_check.emacs(evt, hotkeys.kys['clear_shell']):
             self.shell.outputs = []
             self.set_shell_output()
 
@@ -118,7 +118,7 @@ class GUI(tk.Frame):
         evt = args[0]
         char = evt.char; char = (char+' ')[0]
 
-        if evt_check.emacs(evt, 'S+enter'): # Shift enter = send command.
+        if evt_check.emacs(evt, hotkeys.kys['run_cmd']): # Shift enter = send command.
             mo0 = sys.modules.copy()
             input_to_shell=self.text_input.get("1.0","end-1c")
 

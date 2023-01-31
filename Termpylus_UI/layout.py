@@ -1,6 +1,6 @@
 # Widget layout.
 # Based on simple priority stuff.
-from . import evt_check
+from . import evt_check, hotkeys
 
 def normalize_widget_sizes(widgets):
     # Creates the want_size attribute, and sum to one.
@@ -21,17 +21,14 @@ def place_all(window_x, window_y, widgets):
         used_up = used_up+widgets[i].want_size
 
 def add_bigsmall_fns(widgets):
-    # Alt + and Alt -
+    # Make a frame bigger or smaller.
     def maybe_change_sz(widget_ix, evt):
         char = evt.char
         fac = 1.0
-        if evt_check.emacs(evt, ['M+-', 'M+=', 'SM+-', 'SM+=']):
-            if char=='-' or char == '_':
-                fac = 7.0/8.0
-            elif char=='=' or char == '+':
-                fac = 8.0/7.0
-            if evt_check.emacs(evt, ['SM+-', 'SM+=']):
-                fac = fac**0.25
+        _x = hotkeys.kys; facs = {_x['grow_frame']:(8.0/7.0)**0.25, _x['grow_frame_fast']:8.0/7.0, _x['shrink_frame']:(7.0/8.0)**0.25, _x['shrink_frame_fast']:7.0/8.0}
+        for k in facs.keys():
+            if evt_check.emacs(evt, k):
+                fac = facs[k]
         if fac != 1.0:
             normalize_widget_sizes(widgets)
             widgets[widget_ix].want_size = widgets[widget_ix].want_size*fac
@@ -42,20 +39,15 @@ def add_bigsmall_fns(widgets):
 
 def add_fontsize_fns(widgets):
     for w in widgets:
-        w.lovely_font = ['Courier', 12]
+        w.lovely_font = ['Courier', 12] # Probably a lovelier font exists.
         w.config(font=w.lovely_font)
     def maybe_change_font(w, evt):
-        char = evt.char
-        keysym = evt.keysym
+
+        _x = hotkeys.kys; deltas = {_x['grow_font']:1, _x['shrink_font']:-1, _x['grow_font_fast']:4, _x['shrink_font_fast']:-4}
         delta = 0
-        if evt_check.emacs(evt,['C+=']):
-            delta = 1
-        elif evt_check.emacs(evt,['C+-']):
-            delta = -1
-        elif evt_check.emacs(evt,['CS+=']):
-            delta = 4
-        elif evt_check.emacs(evt,['CS+-']):
-            delta = -4
+        for k in deltas.keys():
+            if evt_check.emacs(evt, k):
+                delta = deltas[k]
 
         if delta != 0:
             w.lovely_font[1] = max(1,int(w.lovely_font[1]+delta+0.5))
@@ -75,18 +67,13 @@ def focus_cycle(root, widgets):
     def maybe_cycle_focus(evt):
         char = evt.char
         keysym = evt.keysym
-        if keysym=='grave' or keysym=='asciitilde':
-            focus = which_has_focus(widgets)
-            #print('Current focus:', focus, 'mod_state:', mod_state)
-            if focus==-1:
-                focus = 0
-            if evt_check.emacs(evt, 'C+~'):
-                focus = (focus+1)%len(widgets)
-            elif evt_check.emacs(evt, 'CS+~'):
-                focus = (focus-1)%len(widgets)
-            if evt_check.emacs(evt, ['C+~', 'CS+~']):
-                #print('Set focus:', focus)
-                widgets[focus].focus_set()
+        focus = which_has_focus(widgets)
+        if evt_check.emacs(evt, hotkeys.kys['focus_next']):
+            focus = (focus+1)%len(widgets)
+            widgets[focus].focus_set()
+        if evt_check.emacs(evt, hotkeys.kys['focus_prev']):
+            focus = (focus-1)%len(widgets)
+            widgets[focus].focus_set()
 
     for w in widgets:
         w.bind('<KeyPress>', maybe_cycle_focus, add='+')

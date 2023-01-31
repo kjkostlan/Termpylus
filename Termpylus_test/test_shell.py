@@ -2,6 +2,7 @@
 import sys, os, shutil
 import tkinter.messagebox
 from Termpylus_shell import shellpython, pybashlib
+from Termpylus_UI import hotkeys
 from . import ttools
 
 def _alltrue(x):
@@ -49,18 +50,24 @@ def manual_tests():
     msg = '''
 These following manual tests should pass:
 
-1. Run "x = 1"
-    You should see x set to 1 in the printout.
-2. Run "x = 2"
+R1. Run "x = 1"
+    You should see x set to 1 in the printout. You can run with 'run_cmd' (emacs-style key cmds).
+R2. Run "x = 2"
     You should see x set to 2 in the printout.
-3. Run "x = 2" again. You should see "command succeeded." but no var is changed so it won't report x.
-3. Hotkey test: C+` and C+S+` should change focus.
-4. Hotkey test: C+- and C+= should change the font size.
-5. Hotkey test: M+- and M+= should change the focused window size.
-6. Doubleclick on x = 1 and x=2 in the command history. The command should be put into the command window.
-7. Same as (4) but with keyboard and enter.
-8. The Python program should quit when closed, unless there is a running shell command.
+R3. Run "x = 2" again. You should see "command succeeded." but no var is changed so it will not report x.
+S1. Hotkey test: 'focus_prev' and 'focus_next' should change focus (emacs-style key cmds).
+S2. Hotkey test: 'shrink_font' and 'grow_font' should change the font size.
+S3. Hotkey test: 'shrink_frame' and 'grow_frame' should change the focused window size.
+S4. Hotkey test: 'clear_shell' to clear the output of the shell.
+C1. Doubleclick on x = 1 and x=2 in the command history. The command should be put into the command window.
+C2. The Python program should quit when closed, even if a cmd freezes.
 '''
+    for k in hotkeys.kys:
+        msg = msg.replace( "'"+k+"'",hotkeys.kys[k])
+    if "'" in msg:
+        print(msg)
+        raise Exception('Cant find all of the hotkeys for the manual instructions.')
+
     tkinter.messagebox.showinfo(title="Manual tests", message=msg)
     return True
 
