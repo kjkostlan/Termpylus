@@ -1,14 +1,13 @@
-# Usage tracking. But instead of bieng for the benefit of huge cooperations,
-# it is for the end users.
-import sys, time, difflib
-from Termpylus_py import mload
+# Simple string parse fns. Can be "tricked" but should work in most cases.
+import difflib
 
-try:
-    _ = uglobals
-except NameError:
-    uglobals = dict()
-    #uglobals['tmodify'] = set() # Occasionaly check for differences.
-    uglobals['edits'] = [] # Edits to files.
+def line_indent_levels(code):
+    # Increases on indent, decreased on dedent.
+    TODO
+
+def sourcecode_defs(code):
+    # Map from code to def object.
+    TODO
 
 def txt_edit(old_txt, new_txt):
     # If not change or old_txt is None will not make a difference.
@@ -35,18 +34,3 @@ def txt_edit(old_txt, new_txt):
     bx0 = ax0+b0.b-b0.a; bx1 = bx0+(ax1-ax0)
 
     return [ax0, ax1, old_txt[ax0:ax1], new_txt[bx0:bx1]]
-
-def record_updates(mname, fname, old_txt, new_txt):
-    # Standard record updates.
-    # TODO: make it more real time, not just triggered.
-    if old_txt is None:
-        raise Exception('None old_text; files should be preloaded.')
-    ed = txt_edit(old_txt, new_txt)
-    if str(ed)==str([0,0,'']):
-        return # No edit made.
-    t_now = time.time()
-    ed1 = [mname, fname]+ed+[t_now]
-    uglobals['edits'].append(ed1)
-
-def get_edits(*args):
-    return list(uglobals['edits'])

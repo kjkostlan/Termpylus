@@ -1,5 +1,5 @@
 import sys, os, imp
-from Termpylus_py import usetrack, mload, fnwatch
+from Termpylus_core import var_watch, modules, updater, file_io
 from Termpylus_shell import shellpython
 from . import ttools
 
@@ -47,32 +47,32 @@ def test_py_import0():
 def test_py_update():
     #print('Fullpath:', os.path.realpath(fname).replace('\\','/'))
 
-    #print('TEST edit:', usetrack.txt_edit('foo123bar', 'foo456bar'))
+    #print('TEST edit:', var_watch.txt_edit('foo123bar', 'foo456bar'))
     #return False
 
     from . import changeme # adds to the sys.modules
     val0 = changeme.mathy_function(1000)
-    mload.update_one_module(changeme.__name__)
+    updater.update_one_module(changeme.__name__)
     #print('Val00 is:', val0)
     fname = './Termpylus_test/changeme.py'
-    #x0 = mload.update_all_modules(use_date=False, update_on_first_see=False)
-    txt = mload.contents(fname)
+    #x0 = modules.update_all_modules(use_date=False, update_on_first_see=False)
+    txt = file_io.contents(fname)
     if '1234' not in txt:
         txt0 = txt.replace('4321','1234')
-        mload.fsave(fname, txt0)
+        file_io.fsave(fname, txt0)
         raise Exception('Aborted test_py_update due to file save not bieng reverted. Try again.')
-    eds0 = usetrack.get_edits()
+    eds0 = var_watch.get_txt_edits()
     T0 = val0==1000+1234
 
     txt1 = txt.replace('1234','4321')
     if txt1==txt:
         raise Exception('The change failed.')
-    mload.fsave(fname, txt1)
-    #x1 = mload.update_all_modules(use_date=False, update_on_first_see=False)
+    updater.save_py_file(fname, txt1, assert_py_module=True)
+    #x1 = modules.update_all_modules(use_date=False, update_on_first_see=False)
     val1 = changeme.mathy_function(1000)
-    eds1 = usetrack.get_edits()
+    eds1 = var_watch.get_txt_edits()
     T1 = val1==1000+4321
-    mload.fsave(fname, txt) # revert.
+    updater.save_py_file(fname, txt, assert_py_module=True) # revert.
 
     #print('Values 01:', val0, val1)
     #print('edits len:', len(eds0), len(eds1))
@@ -85,9 +85,9 @@ def test_py_update():
     return T0 and T1 and ed_len and ed_test
 
 def test_file_caches():
-    mload.startup_cache_sources()
-    mglob = mload.mglobals
-    fnamemap = mload.module_fnames(True)
+    updater.startup_cache_sources()
+    mglob = updater.uglobals
+    fnamemap = modules.module_fnames(True)
     t0 = len(mglob['filecontents'])>8
     t1 = set(mglob['filecontents'].keys())==set(mglob['filemodified'].keys())
     t2 = 'test_file_caches' in mglob['filecontents'][fnamemap['Termpylus_test.test_pyrun']]
@@ -97,8 +97,8 @@ def test_file_caches():
 def test_vars_from_module():
     modulename = '__main__'
     x = sys.modules[modulename]
-    vmap = fnwatch.get_vars(modulename, nest_inside_classes=True)
-    vmap0 = fnwatch.get_vars(modulename, nest_inside_classes=False)
+    vmap = modules.get_vars(modulename, nest_inside_classes=True)
+    vmap0 = modules.get_vars(modulename, nest_inside_classes=False)
     t0 = vmap['GUI'] is vmap0['GUI']
     t1 = 'GUI.resize' in vmap and 'GUI.resize' not in vmap0
     t2 = vmap['GUI'] is x.GUI

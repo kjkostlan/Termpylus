@@ -6,7 +6,7 @@ import tkinter as tk
 import traceback, sys
 from Termpylus_shell import shellpython
 from Termpylus_UI import evt_check, layout, slowprint
-from Termpylus_py import mload
+from Termpylus_core import updater
 
 debug_show_keypress = False
 
@@ -139,7 +139,7 @@ class GUI(tk.Frame):
                 self.historybox.insert(tk.END, input_to_shell.strip()+'\n')
                 self.historybox.see(tk.END)
             new_modules = set(sys.modules.keys())-set(mo0.keys())
-            mload.startup_cache_sources(new_modules)
+            updater.startup_cache_sources(new_modules)
 
     def maybe_clear_app(self, *args):
         if evt_check.emacs(args[0], 'C+l'): # Bash default clear.
@@ -162,7 +162,7 @@ class GUI(tk.Frame):
 
 if __name__=='__main__':
     print_state_singleton = slowprint.PrinterState()
-    mload.startup_cache_sources()
+    updater.startup_cache_sources()
     #shell = shellnative.Shell()
     shell = shellpython.Shell()
     try:

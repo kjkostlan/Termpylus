@@ -1,6 +1,38 @@
-# Walk across the Pythonverse! Converts datastructures to nested dicts for ease-of-use.
-import traceback, sys
-from . import walk_filter
+# Conversion to dictionary.
+
+# DEBUG CODE:
+from Termpylus_UI import slowprint
+_sprts = [slowprint.last_impression_print, slowprint.fileprint, slowprint.fileprint1]
+_sprt = _sprts[1] # Change this ix to change which one is used.
+def sprt(*args):
+    _sprt(*args, main_printer=sys.modules['__main__'].print_state_singleton)
+
+
+def default_blockset(x, dict_keys):
+    # Avoid wild goose chases. Returns ids since some objects are unhasable.
+    if x is sys.modules['Termpylus_shell.shellpython']:
+        # Avoid digging into user variables, but these are fair game:
+        ok = {'str1','_module_vars','run', 'bashyparse2pystr', 'python', 'py_kwds',
+              'numeric_str', 'is_quoted', 'bashy', 'is_pyvar', 'split_by_eq',
+              'attempt_shell_parse', 'exc_to_str', 'Shell'}
+        return set(dict_keys)-ok
+    else:
+        return {}
+
+def default_no_showset(x, dict_keys):
+    # Instead of bieng blocked, these keys will be completly gone.
+    out = set()
+    for k in dict_keys:
+        if type(k) is str:
+            if k.startswith('__') and k.endswith('__'):
+                out.add(k)
+    return out
+
+def default_override_to_dict1(x, level=0):
+    # Overrides the default to_dict_1 behavior, None means to not override.
+    # This is applied BEFORE the filtering with the blockset function.
+    return None
+
 
 try:
     len(debug_strangetypes)
@@ -107,7 +139,7 @@ def is_leaf_type(x):
 
 ################################# Recursive functions ##########################
 
-def to_dict(x, useddict=None, blockset_fn=walk_filter.default_blockset, removeset_fn=walk_filter.default_no_showset, d1_override=walk_filter.default_override_to_dict1, level=0):
+def to_dict(x, useddict=None, blockset_fn=default_blockset, removeset_fn=default_no_showset, d1_override=default_override_to_dict1, level=0):
     if useddict is None:
         useddict = dict()
     #sprt('Before dict1:', str(type(x)))
@@ -137,77 +169,3 @@ def to_dict(x, useddict=None, blockset_fn=walk_filter.default_blockset, removese
         z[k] = to_dict(z[k], useddict, blockset_fn, removeset_fn, d1_override, level+1)
     z[ob_key] = x
     return z
-
-def dwalk(d, f, combine_f=None, combine_g=None):
-    # Dict walk. Use to_dict first.
-    # Combinef = within the layer.
-    # Combineg = upper, lower layer. If none defaults to combine_f with two keys.
-    if type(d) is dict:
-        d1 = d.copy()
-        for k in d.keys():
-            d1[k] = dwalk(d1[k],f, combine_f)
-        if combine_f is not None:
-            d2 = combine_f(d1)
-            if combine_g is not None:
-                return combine_g(d, d2)
-            else:
-                return combine_f({'_upper':d, '_lower':d2})
-        else:
-            return f(d1)
-    else:
-        return f(d)
-
-def _unwrap_core(d, head, ancestry):
-    out = {}
-    kys = sorted(list(d.keys()), key=str) # Sort for determinism.
-
-    for k in kys:
-        if type(d[k]) is dict and str(type(k)) != str(ObKey):
-            out = {**out, **unwrap(d[k],head+str(k)+'•', ancestry+[d])}
-        else:
-            out[head+str(k)] = d[k]
-    return out
-
-def _splice_core(d):
-    d = d.copy()
-    for k, v in d.items():
-        ty_txt = str(type(v))
-        if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder):
-            d[k] = v.val
-            ty_txt = str(type(v.val))
-            if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder):
-                raise Exception('Nested holders.')
-    # Remove the ObKey tails from each key:
-    txt = '•'+str(ob_key)
-    return dict(zip([k.replace(txt, '') for k in d.keys()], d.values()))
-
-def unwrap(d, head='', ancestry=None):
-    # Unwraps the dict d using '•' as a path delim.
-    # Mostly a debug tool.
-    if ancestry is None:
-        ancestry = []
-    d = _unwrap_core(d, head, ancestry)
-    d = _splice_core(d)
-    return d
-
-
-def get_in(x, ks):
-    if len(ks)==0:
-        return x
-    if ks[0] not in x:
-        return None
-    return get_in(x, ks[1:])
-
-def find_in(d, x, prepend=None):
-    # Returns the path to object x and enclosing dict in nested dict d.
-    # There will be exactly one path if it is successful since CircleHolders don't count.
-    if prepend is None:
-        prepend = []
-    if ob_key in d and d[ob_key] is x:
-        return prepend, d
-    for k in d.keys():
-        if k is not ob_key and type(d[k]) is dict:
-            p, y = find_in(d[k], x, prepend+[k])
-            if p is not None:
-                return p, y
-    return None, None

@@ -1,9 +1,6 @@
-# Search for function definitions.
-import inspect
-
-'''
-Look for weighted combination of keywords, uses, etc.
-'''
+# Querying nested dicts.
+#Look for weighted combination of keywords, uses, etc.
+from Termpylus_shell import pybashlib
 
 ##########################Lower-level fns#############################
 
@@ -86,7 +83,7 @@ def fcallcount_gmetric(query):
 
 ########################Putting it all together#################################
 
-def generic_find(bashy_args):
+def generic_find(bashy_args, query_target):
     # Weight these metrics together, and find the symbols.
     def m2g(module_level_f): # Global fns only input a query.
         return None
@@ -94,7 +91,7 @@ def generic_find(bashy_args):
     def l2g(local_level_f):
         return None
         TODO
-    wts = {'-n':['Fn name, qualified by moudle', l2g(fnname_metric)],
+    wts = {'-n':['Fn name, qualified by module', l2g(fnname_metric)],
            '--ar':['Fn arity, variable arity has partial match', l2g(fn_arity_metric)],
            '-s':['Source code text-match.', m2g(source_mmetric)],
            '--sr':['Source code text-match, regexp only (useful when entering as a bash cmd).', lambda q: m2g(source_mmetric)(Regexp(q))],

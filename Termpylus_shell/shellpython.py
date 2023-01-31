@@ -2,10 +2,10 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, os, importlib, traceback, subprocess
 from . import pybashlib, hotcmds1
-from Termpylus_py import mload, usetrack
+from Termpylus_core import modules, updater
 
 # Extra imports to make the command line easier to use:
-from Termpylus_py import *
+from Termpylus_core import *
 from Termpylus_shell import *
 from Termpylus_test import *
 from Termpylus_UI import *
@@ -85,11 +85,11 @@ def python(args):
         modulename = leaf.split('.')[0] # Remove the extension if any.
 
     folder_name = os.path.dirname(pyfname)
-    mload.add_to_path(folder_name)
-    foo = mload.module_from_file(modulename, pyfname)
+    modules.add_to_path(folder_name)
+    foo = modules.module_from_file(modulename, pyfname)
 
     if '-rmph' in fl: # Remove path (don't make permement changes to path).
-        mload.pop_from_path()
+        modules.pop_from_path()
 
     return foo
 
@@ -213,7 +213,7 @@ class Shell:
         if len(input)>0:
             pybashlib.shell = self # So that fns from pybashlib work properly.
 
-            mload.update_user_changed_modules() # Update modules.
+            updater.update_user_changed_modules() # Update modules.
             vars0 = _module_vars()
             err = ''
             try:

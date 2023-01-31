@@ -4,7 +4,6 @@
 import sys, os, fnmatch, re, pathlib, operator
 from tkinter import messagebox
 import Termpylus_extern.RonenNess_grepfunc as grep_core
-from Termpylus_py import mload
 
 shell = None # This has the current directory in it.
 debug_only_these_folders = None # Restrict all file writes and deletes to this folder b/c in case files are deleted. Use GLOBAL paths here.
