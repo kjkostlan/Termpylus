@@ -35,6 +35,8 @@ def cmds1():
     def _pfind(bashy_args):
         super_var_storage = modules.get_all_vars()
         dquery.generic_find(bashy_args, super_var_storage)
+    def _python_cmd(bashy_args):
+        TODO
     out['utest'] = utest_this
     out['test1'] = t1
     out['pwatch'] = var_watch.set_watchers
@@ -43,6 +45,7 @@ def cmds1():
     out['changes'] = var_watch.get_txt_edits
     out['dunwrap'] = _unwrap # Useful to see the total size of data structure.
     out['help'] = _help
+    out['python'] = _python_cmd
     return out
 
 def splat_here(modulename):

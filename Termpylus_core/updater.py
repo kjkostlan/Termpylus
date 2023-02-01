@@ -1,6 +1,6 @@
 # Call this to update several functions.
 import sys, os, importlib, time
-from . import gl_data, var_watch, modules, file_io
+from . import gl_data, var_watch, modules, ppatch, file_io
 
 if 'updater_globals' not in gl_data.dataset:
     uglobals = dict()
@@ -40,7 +40,7 @@ class ModuleUpdate:
                 self.old_new_pairs[k] = [old_vars[k], new_vars[k]]
 
 def _fupdate(fname, modulename):
-    old_vars = modules.get_vars(modulename)
+    old_vars = ppatch.get_vars(modulename)
     fname = os.path.abspath(fname).replace('\\','/')
 
     file_io.clear_pycache(fname)
@@ -55,7 +55,7 @@ def _fupdate(fname, modulename):
     uglobals['filecontents'][fname] = new_txt
     uglobals['filemodified'][fname] = time.time() # Does date modified use the same as our own time?
 
-    new_vars = modules.get_vars(modulename)
+    new_vars = ppatch.get_vars(modulename)
 
     out = ModuleUpdate(modulename, old_txt, new_txt, old_vars, new_vars)
     uglobals['varflush_queue'].append(out)
@@ -128,5 +128,11 @@ def startup_cache_sources(modulenames=None):
         filenames = [modules.module_file(m) for m in modulenames]
     for fname in filenames:
         if fname is not None and fname.endswith('.py'):
-            uglobals['filecontents'][fname] = file_io.contents(fname)
+            uglobals['filecontents'][fname] = file_io.contents(fname) # no need to call full _fuptate.
             uglobals['filemodified'][fname] = file_io.date_mod(fname)
+
+def startup_python(modulename, pyfname, exec_module=True):
+    out = modules.module_from_file(modulename, pyfname, exec_module)
+    uglobals['filecontents'][pyfname] = file_io.contents(pyfname) # no need to call full _fuptate.
+    uglobals['filemodified'][pyfname] = file_io.date_mod(pyfname)
+    return out

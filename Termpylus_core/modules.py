@@ -56,38 +56,6 @@ def module_fnames(user_only=False):
             out[k] = fname.replace('\\','/')
     return out
 
-def get_var(modulename, var_name):
-    # Gets the f_object.
-    pieces = var_name.split('.')
-    TODO
-
-def set_var(modulename, var_name, x):
-    # m.__dict__[var_name] = x but more complex for classes.
-    TODO
-
-def _get_vars_core(out, x, subpath, nest, usedids):
-    d = x.__dict__ # Found in both modules and classes.
-    for k in d.keys():
-        if id(d[k]) in usedids:
-            continue # Avoids infinite loops with circular class references.
-        if k.startswith('__') and k.endswith('__'): # Oddball python stuff we do not need.
-            continue
-        out[subpath+k] = d[k]
-        usedids.add(id(d[k]))
-        if nest and type(d[k]) is type: # Classes.
-            _get_vars_core(out, d[k], subpath+k+'.', nest, usedids)
-
-def get_vars(modulename, nest_inside_classes=True):
-    # Map from symbol to name.
-    out = {}
-    usedids = set()
-    x = sys.modules[modulename]
-    _get_vars_core(out, x, '', nest_inside_classes, usedids)
-    return out
-
-def get_all_vars(nest_inside_classes=True):
-    TODO
-
 def module_from_file(modulename, pyfname, exec_module=True):
     # Creates a module from a file.
     if modulename in sys.modules: # already exists, just update it.
@@ -99,8 +67,6 @@ def module_from_file(modulename, pyfname, exec_module=True):
             pyfname = os.path.realpath(pyfname).replace('\\','/')
             if pyfname != pyfname0:
                 raise Exception('Shadowing modulename: '+modulename+' Old py.file: '+pyfname0+ 'New py.file '+pyfname)
-    mglobals['filecontents'][pyfname] = contents(pyfname)
-    mglobals['filemodified'][pyfname] = date_mod(pyfname)
 
     #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
     spec = importlib.util.spec_from_file_location(modulename, pyfname)

@@ -1,5 +1,5 @@
 import sys, os, imp
-from Termpylus_core import var_watch, modules, updater, file_io
+from Termpylus_core import var_watch, modules, updater, file_io, ppatch
 from Termpylus_shell import shellpython
 from . import ttools
 
@@ -97,8 +97,9 @@ def test_file_caches():
 def test_vars_from_module():
     modulename = '__main__'
     x = sys.modules[modulename]
-    vmap = modules.get_vars(modulename, nest_inside_classes=True)
-    vmap0 = modules.get_vars(modulename, nest_inside_classes=False)
+    vmap = ppatch.get_vars(modulename, nest_inside_classes=True)
+
+    vmap0 = ppatch.get_vars(modulename, nest_inside_classes=False)
     t0 = vmap['GUI'] is vmap0['GUI']
     t1 = 'GUI.resize' in vmap and 'GUI.resize' not in vmap0
     t2 = vmap['GUI'] is x.GUI

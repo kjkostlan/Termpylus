@@ -1,10 +1,10 @@
 # Watch vars for certain effects.
 import sys, time
-from . import gl_data, strparse
+from . import gl_data, strparse, ppatch
 
 if 'uwglobals' not in gl_data.dataset:
     # Name-qual => function; name-qual => inputs-as-dict.
-    gl_data.dataset['uwglobals'] = {'original_fnss':{}, 'logs':{}, 'txt_edits':[], 'module_watcherss':{}}
+    gl_data.dataset['uwglobals'] = {'logs':{}, 'txt_edits':[], 'module_watcherss':{}}
 vglobals = gl_data.dataset['uwglobals']
 
 ############################ Var mutation watching #############################
@@ -18,7 +18,7 @@ def add_logged_var():
 
 def logged_fn(modulename, var_name):
     # Makes a logged version of the function, which behaves the same but adds to logs.
-    f_obj = modules.get_var(modulename, var_name)
+    f_obj = ppatch.get_var(modulename, var_name)
     def f(_SYM_name=name, *args, **kwargs):
         kwargs1 = kwargs.copy()
         for i in range(len(args)):
@@ -39,24 +39,19 @@ def add_fn_watcher(modulename, var_name, f_code=None):
     # f_code can change the code passed into f.
     m = sys.modules[modulename]
     k = modulename+'.'+var_name
-    f_obj = modules.get_var(modulename, var_name)
+    f_obj = ppatch.get_var(modulename, var_name)
     if modified_code is None:
         f_obj1 = vglobals.get('original_fns', f_obj)
     else:
         f_obj1 = eval(f_code) #TODO: eval in right environment.
     f = logged_fn(modulename, var_name, f_obj)
 
-    vglobals['original_fnss'][modulename][var_name] = f_obj
-    modules.set_var(modulename, var_name, f)
+    ppatch.set_var(modulename, var_name, f)
     vglobals['module_watcherss'][modulename][var_name] = f_code
     return f
 
 def rm_fn_watcher(modulename, var_name):
-    fcache = vglobals['original_fnss'][modulename]
-    if var_name in fcache:
-        m = sys.modules[modulename]
-        modules.set_var(modulename, var_name, fcache[name_qual])
-        del fcache[name_qual]
+    ppatch.remove_patch(modulename, var_name)
 
 def add_module_watchers(modulename):
     TODO
