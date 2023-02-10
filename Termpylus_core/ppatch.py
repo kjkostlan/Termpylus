@@ -4,25 +4,52 @@ from . import gl_data
 
 if 'ppaglobals' not in gl_data.dataset:
     # Name-qual => function; name-qual => inputs-as-dict.
-    gl_data.dataset['ppaglobals'] = {'original_fnss':{}}
+    gl_data.dataset['ppaglobals'] = {'original_varss':{}}
 _gld = gl_data.dataset['ppaglobals']
 
+def _v0(modulename, var_name):
+    return _gld['original_varss'].get(modulename,{}).get(var_name,None)
+
 def get_var(modulename, var_name):
-    # Gets the f_object.
+    # Gets the var.
     pieces = var_name.split('.')
-    TODO
+    y = sys.modules[modulename]
+    for p in pieces:
+        y = getattr(y,p)
+    return y
+
+def is_modified(modulename, var_name):
+    # Any modifications.
+    v0 = _v0(modulename, var_name)
+    return v0 is not None and v0 is not get_var(modulename, var_name)
+
+def original_var(modulename, var_name):
+    v0 = _v0(modulename, var_name)
+    if v0 is None:
+        return get_var(modulename, var_name)
+    return v0
 
 def set_var(modulename, var_name, x):
-    # m.__dict__[var_name] = x but more complex for classes.
-    _gld['original_fnss'][modulename][var_name] = get_var(modulename, var_name)
-    TODO
+    pieces = var_name.split('.')
+    y = sys.modules[modulename]
+    if not is_modified(modulename, var_name):
+        _gld['original_varss'][modulename] = _gld['original_varss'].get(modulename,{})
+        _gld['original_varss'][modulename][var_name] = get_var(modulename, var_name)
+    for p in pieces[0:-1]:
+        y = getattr(y,p)
+    setattr(y, pieces[-1], x)
 
-def remove_patch(modulename, var_name):
-    TODO
+def reset_var(modulename, var_name):
+    if is_modified(modulename, var_name):
+        set_var(modulename, var_name, _gld['original_varss'][modulename][var_name])
+
+############################### Multible updates ###############################
 
 def _get_vars_core(out, x, subpath, nest, usedids):
     d = x.__dict__ # Found in both modules and classes.
     for k in d.keys():
+        if str(type(d[k])) == "<class 'module'>":
+            continue # Exclude imports, etc.
         if id(d[k]) in usedids:
             continue # Avoids infinite loops with circular class references.
         if k.startswith('__') and k.endswith('__'): # Oddball python stuff we do not need.
@@ -36,9 +63,9 @@ def get_vars(modulename, nest_inside_classes=True):
     # Map from symbol to name.
     out = {}
     usedids = set()
-    x = sys.modules[modulename]
-    _get_vars_core(out, x, '', nest_inside_classes, usedids)
+    y = sys.modules[modulename]
+    _get_vars_core(out, y, '', nest_inside_classes, usedids)
     return out
 
-def get_all_vars(nest_inside_classes=True):
-    TODO
+def get_all_vars(nest_inside_classes=True): # For each module.
+    return dict(zip(sys.modules.keys(), [get_vars(m, nest_inside_classes) for m in sys.modules.values()]))
