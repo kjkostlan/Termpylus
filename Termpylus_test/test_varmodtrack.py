@@ -1,6 +1,7 @@
 # Tests variable modifications and tracking.
 import sys
-from Termpylus_core import ppatch, updater
+import numpy as np
+from Termpylus_core import ppatch, updater, var_watch
 from . import ttools
 
 def test_var_get():
@@ -70,6 +71,27 @@ def test_instance_method():
     test3 = not updater.same_inst_method(fn1_0, fn2)
 
     return test0 and test1 and test2 and test3
+
+def test_logging_var():
+    # Tests the logger system.
+    # Logging, unlogging, logs, etc.
+    var_watch.remove_all_watchers()
+    var_watch.remove_all_logs()
+    test0 = np.sum([len(logi) for logi in var_watch.get_logs().values()])==0
+    import Termpylus_core.strparse as strparse
+    var_watch.add_fn_watcher('Termpylus_core.strparse', 'txt_edit') #ed = txt_edit(old_txt, new_txt)
+    ed0 = strparse.txt_edit('What is this world around the orange dwarf?', 'What is this planet around the orange dwarf?')
+    ed1 = strparse.txt_edit('Foo', new_txt='Bar')
+    logs1 = var_watch.get_logs()['Termpylus_core.strparse.txt_edit']
+    test1 = len(logs1)==2
+    test2 = logs1[0]['return']==ed0 and logs1[1][0]=='Foo' and logs1[1]['new_txt']=='Bar'
+    var_watch.remove_all_logs()
+    var_watch.remove_all_watchers()
+    test3 = len(var_watch.get_logs())==0
+    ed1_1 = strparse.txt_edit('Foo', 'Bar')
+    test4 = ed1_1==ed1
+    test5 = np.sum([len(logi) for logi in var_watch.get_logs().values()])==0
+    return test0 and test1 and test2 and test3 and test4 and test5
 
 def run_tests():
     return ttools.run_tests(__name__)

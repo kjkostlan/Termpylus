@@ -45,10 +45,10 @@ def cmds1():
         TODO
     out['utest'] = utest_this
     out['test1'] = t1
-    out['pwatch'] = var_watch.set_watchers
+    out['pwatch'] = var_watch.bashy_set_watchers
     out['pfind'] = _pfind
     out['pflush'] = _pflush
-    out['changes'] = var_watch.get_txt_edits
+    out['changes'] = var_watch.bashy_get_txt_edits
     out['dunwrap'] = _unwrap # Useful to see the total size of data structure.
     out['help'] = _help
     out['python'] = _python_cmd
