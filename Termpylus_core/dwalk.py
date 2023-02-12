@@ -1,5 +1,5 @@
 # Functions to walk dictionaries.
-
+from . import todict
 
 def dwalk(d, f, combine_f=None, combine_g=None):
     # Dict walk. Use to_dict first.
@@ -25,7 +25,7 @@ def _unwrap_core(d, head, ancestry):
     kys = sorted(list(d.keys()), key=str) # Sort for determinism.
 
     for k in kys:
-        if type(d[k]) is dict and str(type(k)) != str(ObKey):
+        if type(d[k]) is dict and str(type(k)) != str(todict.ObKey):
             out = {**out, **unwrap(d[k],head+str(k)+'•', ancestry+[d])}
         else:
             out[head+str(k)] = d[k]
@@ -35,13 +35,13 @@ def _splice_core(d):
     d = d.copy()
     for k, v in d.items():
         ty_txt = str(type(v))
-        if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder):
+        if ty_txt == str(todict.CircleHolder) or ty_txt == str(todict.MysteryHolder):
             d[k] = v.val
             ty_txt = str(type(v.val))
-            if ty_txt == str(CircleHolder) or ty_txt == str(MysteryHolder):
+            if ty_txt == str(todict.CircleHolder) or ty_txt == str(todict.MysteryHolder):
                 raise Exception('Nested holders.')
     # Remove the ObKey tails from each key:
-    txt = '•'+str(ob_key)
+    txt = '•'+str(todict.ob_key)
     return dict(zip([k.replace(txt, '') for k in d.keys()], d.values()))
 
 def unwrap(d, head='', ancestry=None):
@@ -66,10 +66,10 @@ def find_in(d, x, prepend=None):
     # There will be exactly one path if it is successful since CircleHolders don't count.
     if prepend is None:
         prepend = []
-    if ob_key in d and d[ob_key] is x:
+    if todict.ob_key in d and d[todict.ob_key] is x:
         return prepend, d
     for k in d.keys():
-        if k is not ob_key and type(d[k]) is dict:
+        if k is not todict.ob_key and type(d[k]) is dict:
             p, y = find_in(d[k], x, prepend+[k])
             if p is not None:
                 return p, y

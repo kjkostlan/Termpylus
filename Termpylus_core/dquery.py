@@ -1,6 +1,7 @@
 # Querying nested dicts.
 #Look for weighted combination of keywords, uses, etc.
 from Termpylus_shell import pybashlib
+from . import dwalk # TODO: use this.
 
 ##########################Lower-level fns#############################
 

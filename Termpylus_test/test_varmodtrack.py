@@ -1,6 +1,6 @@
 # Tests variable modifications and tracking.
 import sys
-from Termpylus_core import ppatch
+from Termpylus_core import ppatch, updater
 from . import ttools
 
 def test_var_get():
@@ -48,6 +48,28 @@ def test_get_vars():
     test1 = 'Shell.clear_printouts' not in v_without_nest
     test2 = len(set(v_without_nest.keys())-set(v_with_nest.keys())) == 0
     return test0 and test1 and test2
+
+def test_instance_method():
+    # foo.bar will make a fresh bar every time. Can all the different bars be tracked to the same foo?
+    class Foo():
+        def __init__(self, bar):
+            self.bar = bar
+        def method1(self):
+            return str(self.bar)*4
+
+    foo1 = Foo(1)
+    foo2 = Foo(2)
+    fn1_0 = foo1.method1
+    fn1_1 = foo1.method1
+    fn2 = foo2.method1
+    fn0 = Foo.method1
+
+    test0 = fn1_0 is not fn1_1
+    test1 = updater.same_inst_method(fn1_0, fn1_1)
+    test2 = not updater.same_inst_method(fn0, fn1_0)
+    test3 = not updater.same_inst_method(fn1_0, fn2)
+
+    return test0 and test1 and test2 and test3
 
 def run_tests():
     return ttools.run_tests(__name__)

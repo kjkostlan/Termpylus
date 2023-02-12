@@ -1,4 +1,6 @@
-# Conversion to dictionary.
+# Conversion of various python objects to dictionary.
+# Acts recursivly with circular reference prevention.
+import sys
 
 # DEBUG CODE:
 from Termpylus_UI import slowprint
@@ -6,7 +8,6 @@ _sprts = [slowprint.last_impression_print, slowprint.fileprint, slowprint.filepr
 _sprt = _sprts[1] # Change this ix to change which one is used.
 def sprt(*args):
     _sprt(*args, main_printer=sys.modules['__main__'].print_state_singleton)
-
 
 def default_blockset(x, dict_keys):
     # Avoid wild goose chases. Returns ids since some objects are unhasable.
@@ -33,12 +34,6 @@ def default_override_to_dict1(x, level=0):
     # This is applied BEFORE the filtering with the blockset function.
     return None
 
-
-try:
-    len(debug_strangetypes)
-except:
-    debug_strangetypes = {}
-
 anti_loop = [0]
 
 class ObKey():
@@ -49,7 +44,10 @@ class ObKey():
         return id(self)
     def __str__(self):
         return '⟮ob_key⟯'
-ob_key = ObKey()
+try:
+    ob_key = ob_key
+except:
+    ob_key = ObKey()
 
 class CircleHolder():
     # Holds circular dependencies. Stops the recursive search.
@@ -109,14 +107,13 @@ def to_dict1(x, level):
     else:
         return None
 
-
-def mark_blocked(d, useddict=None, blockset=None, removeset=None):
-    # Useddict accumilates object ids and prevents circular refrences.
-    # Blockset is an extra set that we don't use.
+def mark_blocked(d, output_dict=None, blockset=None, removeset=None):
+    # output_dict accumilates object ids and prevents circular refrences.
+    # Blockset is an extra optional set to avoid.
     if d is None:
         return d
-    if useddict is None:
-        useddict = dict()
+    if output_dict is None:
+        output_dict = dict()
     if blockset is None:
         blockset = set()
     if removeset is None:
@@ -128,10 +125,10 @@ def mark_blocked(d, useddict=None, blockset=None, removeset=None):
             d1[k] = MysteryHolder(d1[k])
         elif k in removeset:
             del d1[k]
-        elif idi in useddict and useddict[idi] is not None: #Only circlehold non-None dicts.
+        elif idi in output_dict and output_dict[idi] is not None: #Only circlehold non-None dicts.
             if str(type(d1[k])) == str(CircleHolder):
                 raise Exception('Nested circleholder.')
-            d1[k] = CircleHolder(d1[k], useddict[idi])
+            d1[k] = CircleHolder(d1[k], output_dict[idi])
     return d1
 
 def is_leaf_type(x):
@@ -139,24 +136,22 @@ def is_leaf_type(x):
 
 ################################# Recursive functions ##########################
 
-def to_dict(x, useddict=None, blockset_fn=default_blockset, removeset_fn=default_no_showset, d1_override=default_override_to_dict1, level=0):
-    if useddict is None:
-        useddict = dict()
-    #sprt('Before dict1:', str(type(x)))
+def to_dict(x, output_dict=None, blockset_fn=default_blockset, removeset_fn=default_no_showset, d1_override=default_override_to_dict1, level=0):
+    if output_dict is None:
+        output_dict = dict()
     if d1_override is not None:
-        y = d1_override(x, level)
+        y = d1_override(x, level) # Return None to use the default to_dict1, return False to not convert to a dict.
     if y is None:
         y = to_dict1(x, level)
 
-    useddict[id(x)] = x
-    #sprt('After dict1:', str(type(x)))
+    output_dict[id(x)] = x
 
-    if y is None:
+    if y is None or y is False:
         return x
     if blockset_fn is None:
         blockset_fn = lambda x,kys:set()
 
-    z = mark_blocked(y, useddict=useddict, removeset=removeset_fn(x, list(y.keys())), blockset=blockset_fn(x, list(y.keys())))
+    z = mark_blocked(y, output_dict=output_dict, removeset=removeset_fn(x, list(y.keys())), blockset=blockset_fn(x, list(y.keys())))
 
     zk = sorted(list(z.keys()), key=str) # Sort for determinism.
     for k in zk:
@@ -166,6 +161,6 @@ def to_dict(x, useddict=None, blockset_fn=default_blockset, removeset_fn=default
             _deeper = to_dict1(z[k], level+1)
             if _deeper is not None and k in _deeper:
                 print('Likely infinite loop; key is:', k, 'x is:', [x, z[k]], 'ID:', id(x),'Level:', level)
-        z[k] = to_dict(z[k], useddict, blockset_fn, removeset_fn, d1_override, level+1)
+        z[k] = to_dict(z[k], output_dict, blockset_fn, removeset_fn, d1_override, level+1)
     z[ob_key] = x
     return z

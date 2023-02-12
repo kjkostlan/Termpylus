@@ -6,9 +6,9 @@ from Termpylus_core import var_watch, dquery, var_watch
 def utest_this(args):
     # Unitests.
     print('**************Running unit tests**************')
-    from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack
+    from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse
     n_fail = 0
-    for t_module in [test_pyrun, test_shell, test_walk, test_varmodtrack]:
+    for t_module in [test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse]:
         if not t_module.run_tests():
             print('>>testing failed for:', t_module)
             n_fail = n_fail+1
