@@ -166,17 +166,18 @@ def option_parse(args, paired_opts):
     # Returns options, everything else.
     # Options are -foo or --bar.
     if type(args) is str:
-        args = [args]
+        args = re.split(' +',args)
     paired_opts = set([p.replace('-','') for p in paired_opts])
     out = {'flags':[], 'pairs':{}, 'tail':[]}
     skip = False
     for i in range(len(args)):
         if skip:
+            skip = False
             continue
         a = args[i]
         a = a.strip()
         a1 = a+'  '
-        if a1[0]=='-' and a.replace('-','') in paired_opts:
+        if a1[0]=='-' and (a in paired_opts or a.replace('-','') in paired_opts):
             out['pairs'][a] = args[i+1]
             skip = True
         elif a1[0:2]=='--':

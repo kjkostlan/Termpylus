@@ -1,7 +1,12 @@
 # File io simple wrappers.
 import os, io
+from . import gl_data
 
 printouts = False
+
+if 'fileio_globals' not in gl_data.dataset:
+    gl_data.dataset['fileio_globals'] = {'original_txts':{}}
+fglobals = gl_data.dataset['fileio_globals']
 
 def contents(fname):
     if not os.path.isfile(fname):
@@ -11,7 +16,16 @@ def contents(fname):
             x = file_obj.read()
         except UnicodeDecodeError:
             raise Exception('No UTF-8 for:', fname)
-        return x.replace('\r\n','\n')
+        out = x.replace('\r\n','\n')
+        if fname not in fglobals['original_txts']:
+            fglobals['original_txts'][fname] = out
+        return out
+
+def contents_on_first_call(fname):
+    # The contents of the file on the first time said function was called.
+    if fname not in fglobals['original_txts']:
+        contents(fname)
+    return fglobals['original_txts'][fname]
 
 def date_mod(fname):
     return os.path.getmtime(fname)

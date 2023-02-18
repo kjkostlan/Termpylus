@@ -1,13 +1,86 @@
-# Simple string parse fns. Can be "tricked" but should work in most cases.
-import difflib
+# Simple string parse fns. Can be "tricked" but should work in most cases and has very few lines of code.
+import difflib, re
+
+def simple_tokens(code):
+    # Simple tokenize that tries to isolate vars. Not smart about strings.
+    pattern = '[ \n\[\]\{\}\(\)\#:\/\-=\+\%\*<>]+'
+    return re.split(pattern, code)
+
+def canon_lines(code):
+    return code.replace('\r\n','\n').replace('\t','    ').split('\n')
 
 def line_indent_levels(code):
     # Increases on indent, decreased on dedent.
-    TODO
+    # Levl is relative to first line.
+    # (Do not do too much of this "roll your own" text analysis, there are better libraries for that!)
+    code = code.replace('"""',"'''") # reduces triple quote confusions further.
+    lines = canon_lines(code)
+    spaces = []; last_nsp = 0; in_triple_quote=False
+    for l in lines:
+        ls = l.strip()
+        nsp = len(l+';')-len((l+';').strip())
+        if in_triple_quote:
+            nsp = last_nsp
+            if "'''" in ls or '"""' in ls:
+                in_triple_quote = False
+        elif ls.startswith('#') or len(ls)==0:
+            nsp = last_nsp
+        elif ls.startswith("'''") or ls.startswith('"""'):
+            in_triple_quote=True
+        spaces.append(nsp)
+        last_nsp = nsp
 
-def sourcecode_defs(code):
-    # Map from code to def object.
-    TODO
+    spaces2depth = {}
+    last_depth = 0
+    out = [0]
+    for i in range(1, len(lines)):
+        nsp = spaces[i]; nsp0 = spaces[i-1]
+        #if nsp>nsp0:
+        #    print('Line of indent:', lines[i])
+        if nsp==nsp0:
+            depth = last_depth
+        elif nsp>nsp0:
+            depth = last_depth+1
+            for i in range(nsp0+1, nsp+1): # Only i=nsp is syntactically allowed.
+                spaces2depth[i] = depth
+        elif nsp<nsp0:
+            depth = spaces2depth.get(nsp,0)
+        out.append(depth)
+        last_depth = depth
+    #print('Spaces:', spaces, 'depths:', out)
+
+    return out
+
+def sourcecode_defs(code, nest=True):
+    # Map from var name to def source. Option to nest inside defs and classes.
+    # (nested defs will be reported here but are not seen as a module or class attribute).
+    lines = canon_lines(code)
+    levels = line_indent_levels(code)
+    nestings = []
+    out = {}
+    N = len(lines)
+    for i in range(N):
+        l0 = lines[i].strip()
+        if l0.startswith('def') or l0.startswith('class'):
+            vname = (simple_tokens(l0)+['__PARSEERROR__'])[1].strip()
+            nestings.append(vname)
+            vnamefull = '.'.join(filter(lambda x: len(x)>0, nestings))
+            if nest or len(nestings)<=1:
+                nsp = len(lines[i])-len(l0)
+                src_lines = []
+                for j in range(i, len(lines)):
+                    nspj = len(lines[j])-len(l0)
+                    if nspj<nsp:
+                        break
+                    src_lines.append((lines[j]+' '*nsp)[nsp:])
+                src = '\n'.join(src_lines)
+                out[vnamefull] = src
+        elif i<N-1 and levels[i+1]>levels[i]:
+            nestings.append('') # Non-nesting indent.
+        elif i<N-1 and levels[i+1]<levels[i]: # dedent.
+            nestings = nestings[0:levels[i+1]]
+
+    return out
 
 def txt_edit(old_txt, new_txt):
     # If not change or old_txt is None will not make a difference.

@@ -32,17 +32,18 @@ def cmds1():
             d = d[0]
         from Termpylus_py import walk
         return walk.unwrap(d)
-    def _pflush(args):
+    def _pflush(bashy_args):
         from Termpylus_py import mload
         return mload.function_flush()
     out = {}
-    def _help(args):
-        return 'Available non-bash cmds: '+str(list(out.keys()))
+    def _help(bashy_args):
+        return 'Available "extra" cmds: '+str(list(out.keys()))
     def _pfind(bashy_args):
         super_var_storage = modules.get_all_vars()
         dquery.generic_find(bashy_args, super_var_storage)
     def _python_cmd(bashy_args):
         TODO
+
     out['utest'] = utest_this
     out['test1'] = t1
     out['pwatch'] = var_watch.bashy_set_watchers
@@ -52,4 +53,5 @@ def cmds1():
     out['dunwrap'] = _unwrap # Useful to see the total size of data structure.
     out['help'] = _help
     out['python'] = _python_cmd
+    out['find'] = lambda bashy_args: dquery.source_find(bashy_args)
     return out

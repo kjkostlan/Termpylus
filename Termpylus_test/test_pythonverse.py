@@ -1,6 +1,6 @@
 # Tests that need the pythonverse. It is slow to call the pythonverse so it gets reused.
 import sys
-from Termpylus_core import ppatch, updater, todict, dwalk
+from Termpylus_core import ppatch, updater, todict, dwalk, dquery
 from . import ttools
 
 try:
@@ -36,6 +36,15 @@ def find_gui_fn_test():
         if updater.same_inst_method(xu[k], fn_ver1):
             return True
     return False
+
+def search_source_test():
+    # Not the pythonverse itself, but a similar idea.
+    # Does not test requring.
+    xn = dquery.source_find('-n gui_fn_test')
+    xar = dquery.source_find('-ar 20')
+    xarv = dquery.source_find('-ar 0 -v')
+    xs = dquery.source_find(['-s', "if fname not in fglobals['original_txts']"])
+    return 'find_gui_fn_test' in str(xn) and 'todict.to_dict' in str(xar) and 'Sourcevar' in str(xarv) and len(xarv)>96 and 'contents_on_first_call' in str(xs)
 
 def run_tests():
     return ttools.run_tests(__name__)
