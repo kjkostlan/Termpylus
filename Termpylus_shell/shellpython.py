@@ -202,10 +202,12 @@ class Shell:
 
     def autocorrect(self, input):
         # TODO: simple shell commands with the path.
-        x = attempt_shell_parse(input)
-        if x is not None:
-            return bashyparse2pystr(*x)
-        return input
+        lines = input.replace('\r\n','\n').split('\n')
+        for i in range(len(lines)):
+            x = attempt_shell_parse(lines[i])
+            if x is not None:
+                lines[i] = bashyparse2pystr(*x)
+        return '\n'.join(lines)
 
     def send(self, input, include_newline=True):
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
@@ -224,18 +226,19 @@ class Shell:
                 err = exc_to_str(e)
 
             vars1 = _module_vars()
-            vars_set = ''
+            new_vars = []
             for ky in vars1.keys():
                 if vars1[ky] is not vars0.get(ky, None):
                     if str(vars1[ky]) != str(vars0.get(ky, None)):
-                        vars_set = vars_set+'\n'+str(ky)+' = '+str1(vars1[ky])
-            if len(vars_set)==0 and len(err)==0:
-                vars_set = 'Command succeeded, no vars changed'
+                        new_vars.append(str(ky)+' = '+str1(vars1[ky]))
+            if len(new_vars)==0 and len(err)==0:
+                new_vars = ['Command succeeded, no vars changed']
+            var_str = '\n'.join(new_vars)
 
-            if len(vars_set)>0:
-                self.outputs.append([vars_set+'\n', False, self.input_ix])
+            if len(var_str)>0:
+                self.outputs.append([var_str, False, self.input_ix])
             if len(err)>0:
-                self.outputs.append([err+'\n', True, self.input_ix])
+                self.outputs.append([err, True, self.input_ix])
 
             self.listenerf() #Trigger it manually (since there is no IO stream).
             self.input_ix = self.input_ix+1

@@ -79,7 +79,7 @@ def test_py2_bash():
     unchanged.append('x = 1\n y=2\nz=3')
 
     pairs = []
-    pairs.append(['ls -a','_ans = ls(["-a"])'])
+    pairs.append(['#foo\nls -a','#foo\n_ans = ls(["-a"])'])
     pairs.append(['x = ls -a','x = ls(["-a"])'])
     pairs.append(['blender','_ans, _err = run("blender", [])'])
     pairs.append(['blender -foo','_ans, _err = run("blender", ["-foo"])'])

@@ -53,7 +53,6 @@ class GUI(tk.Frame):
         self.historybox = tk.Listbox(root, yscrollcommand=scrollbar.set, bg = "#77FF77")
         self.historybox.bind('<Double-1>', self.maybe_click_history, add='+')
         self.historybox.bind('<KeyPress>', self.maybe_click_history, add='+')
-
         self.historybox.pack()
 
         self.all_widgets = [self.text_input, self.shell_output, self.historybox]
@@ -72,7 +71,7 @@ class GUI(tk.Frame):
             #https://www.tutorialspoint.com/how-do-i-get-the-index-of-an-item-in-tkinter-listbox
             #https://www.geeksforgeeks.org/how-to-get-selected-value-from-listbox-in-tkinter/
             ix = list(self.historybox.curselection())[0]
-            txt = self.historybox.get(ix)
+            txt = self.historybox.get(ix).replace('↵','\n')
             if len(txt.strip())>0:
                 set_text_text(self.text_input, txt)
             #print("You have selected " + str(item))
@@ -96,7 +95,7 @@ class GUI(tk.Frame):
             else:
                 style = 'stdout'+str(ix%ck)
 
-            self.shell_output.insert(tk.END, triplet[0], style)
+            self.shell_output.insert(tk.END, triplet[0]+'\n', style)
 
         #txt = '\n'.join([str(xi) for xi in self.shell['outputs']])
 
@@ -131,13 +130,15 @@ class GUI(tk.Frame):
             if len(input_to_shell)>0 and input_to_shell[-1] == '\n':
                 #https://stackoverflow.com/questions/49232866/how-to-delete-last-character-in-text-widget-tkinter
                 self.text_input.delete("end-2c", tk.END)
+
             repeat = False
-            if self.historybox.size()>0:
-                if self.historybox.get(self.historybox.size()-1).strip()== input_to_shell.strip():
-                    repeat = True
-            if not repeat:
-                self.historybox.insert(tk.END, input_to_shell.strip()+'\n')
-                self.historybox.see(tk.END)
+            for i in range(self.historybox.size()):
+                if self.historybox.get(i).strip().replace('↵','\n')==input_to_shell.strip():
+                    self.historybox.delete(i)
+                    break
+            self.historybox.insert(tk.END, input_to_shell.strip().replace('\n','↵'))
+            self.historybox.see(tk.END)
+
             new_modules = set(sys.modules.keys())-set(mo0.keys())
             updater.startup_cache_sources(new_modules)
 
@@ -153,13 +154,6 @@ class GUI(tk.Frame):
             [w,h] = args[0]
         layout.place_all(w,h,self.all_widgets)
 
-    #def text_changed_callback(self, *args):
-        #https://stackoverflow.com/questions/14824163/how-to-get-the-input-from-the-tkinter-text-widget
-    #    inputValue=self.text_input.get("1.0","end-1c")
-        #print("Text changed to:", inputValue)
-        #https://stackoverflow.com/questions/67957098/python-tkinter-bindmodified-works-only-once
-    #    self.text_input.edit_modified(False) # Reset the modified flag for text widget.
-
 if __name__=='__main__':
     print_state_singleton = slowprint.PrinterState()
     updater.startup_cache_sources()
@@ -170,7 +164,5 @@ if __name__=='__main__':
         gui.mainloop()
     except Exception:
         traceback.print_exc()
-    #print('About to exit shell!')
     shell.exit_shell()
-    #sys.exit()
-    #print('Exited shell!')
+

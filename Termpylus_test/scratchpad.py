@@ -1,6 +1,7 @@
 from Termpylus_core import dwalk, var_watch, modules, file_io, strparse
 from Termpylus_UI import slowprint
 from . import ttools, test_varmodtrack, test_pythonverse
+from Termpylus_test import test_shell
 import sys, random, time
 Termpylus_main = sys.modules['__main__']
 sprt = slowprint.last_impression_print # Shorthand.
@@ -12,5 +13,6 @@ def some_test(args): # Call with test1
     #code = file_io.contents('./Termpylus_core/updater.py')
     #defs = strparse.sourcecode_defs(code, nest=True)
     #print('Def keys:', defs.keys())
-    return test_pythonverse.search_source_test()
+    #return test_pythonverse.search_source_test()
+    return test_shell.test_py2_bash()
     pass
