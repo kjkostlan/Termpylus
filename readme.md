@@ -1,4 +1,4 @@
-##Maturity: Alpha. Development: Very active
+# Maturity: Alpha. Development: Very active
 
 
 **Termpylus** is a python-based shell in which you write Python code. It has several user-friendly features that aren't found in a shell.
@@ -15,7 +15,7 @@
 
 **Hotkeys for everything:** Since when does a shell require a mouse? Can be fully keyboard controlled (this includes resizing the windows).
 
-# TODO features:
+## TODO features:
 
 **Startup:** Add a startup.py to this folder to load in (to the history), which would work the same way as MATLABs startup.m.
 
