@@ -2,13 +2,15 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, os, importlib, traceback, subprocess
 from . import pybashlib, hotcmds1
-from Termpylus_core import modules, updater
+from Termpylus_core import updater
+from Termpylus_lang import modules, bashparse
 
 # Extra imports to make the command line easier to use:
 from Termpylus_core import *
 from Termpylus_shell import *
 from Termpylus_test import *
 from Termpylus_UI import *
+from Termpylus_lang import *
 
 def str1(x):
     sx = str(x)
@@ -41,23 +43,6 @@ def run(cmd, cmd_args):
     out = result.stdout.decode('utf-8')
     err = result.edterr.decode('utf-8')
     return out, err
-
-def bashyparse2pystr(out_var, cmd, args):
-    # Equivalent python command.
-    cmd_builtin = True # TODO: turn false when shell.
-    cmds = pybashlib.top_bash().union(set(hotcmds1.cmds1().keys()))
-    if cmd not in cmds:
-        cmd_builtin = False
-    def quote_if_needed(x):
-        if '"' in x or "'" in x:
-            return x
-        return '"'+x+'"'
-
-    arg_str = '['+','.join([quote_if_needed(a) for a in args])+']'
-    if not cmd_builtin:
-        return '%s, _err = run("%s", %s)'%(str(out_var), str(cmd), arg_str)
-    else:
-        return '%s = %s(%s)'%(str(out_var), str(cmd), arg_str)
 
 #################################Binding to Python##############################
 
@@ -95,87 +80,6 @@ def python(args):
 
 #################################Determining if bash############################
 
-py_kwds = {'import','from','def','lambda','class', 'try','except','raise','assert','finally',\
-           'await','async','yield', 'if','or','not','elif','else','and','is', \
-           'while','for','in','return','pass','break','continue', \
-           'global','with','as','nonlocal',  'del',\
-           'False','None','True'}
-
-def numeric_str(x):
-    try:
-        _ = float(str(x))
-        return True
-    except:
-        return False
-
-def is_quoted(x):
-    # Double quotes only, since they are bashy.
-    if len(x)>=2:
-        if x[0]=='"' and x[-1]=='"':
-            return True
-    return False
-
-def bashy(token):
-    # More likely to be bash than Python. Excludes ()[] unless in a quote.
-    # Includes numbers.
-    if len(token)>=2 and is_quoted(token):
-        return True
-    if ',' in token: # , is more Pythonic.
-        return False
-    if token in {'.','*','|','&'}:
-        return True
-    out = re.fullmatch('[-a-zA-Z0-9_]+', token)
-    if out:
-        return True
-    return False
-
-def is_pyvar(token):
-    # Is this a python var we already set? Overriden by the "top 25" bashy commands.
-    token = token.strip()
-
-    if token in py_kwds:
-        return True
-
-    if token in pybashlib.top_bash() or token in set(hotcmds1.cmds1().keys()):
-        return False
-    py_vars = set(sys.modules[__name__].__dict__.keys())
-    return token in py_vars
-
-def split_by_eq(txt):
-    # Splits a = b + c  => [a, [b,c]]. _ans if there is no eq.
-    pieces = re.split('[ \t\n]+', txt)
-
-    eq_ix = -1
-    for i in range(len(pieces)):
-        if pieces[i]=='=':
-            eq_ix = i
-
-    if eq_ix==-1:
-        return ['_ans', pieces]
-    else:
-        return [' '.join(pieces[0:eq_ix]), pieces[eq_ix+1:]]
-
-def attempt_shell_parse(txt):
-    # Attempts a shell parse as a series of tokens.
-    # Returns [python_var, f, args]
-
-    txt = txt.strip()
-    if '\n' in txt: # Does this restriction make sense?
-        return None
-
-    x = split_by_eq(txt)
-    #print('Split x:', x)
-    b4_eq = x[0]
-    after_eq = x[1]
-    all_bashy = len(list(filter(bashy, after_eq)))==len(after_eq)
-    if not all_bashy: # Exit criterian 1: Non-bashy args.
-        return None
-    if is_pyvar(after_eq[0]):  # Exit criterian 2: Python var that is not in the top 25 bash vars.
-        return None
-    if len(after_eq)==1 and (numeric_str(after_eq[-1]) or is_quoted(after_eq[-1])): # Exit criterion 3: Single var set.
-        return None
-    return [b4_eq, after_eq[0], after_eq[1:]]
-
 ################################################################################
 
 def exc_to_str(e):
@@ -201,13 +105,8 @@ class Shell:
         self.listenerf = None
 
     def autocorrect(self, input):
-        # TODO: simple shell commands with the path.
-        lines = input.replace('\r\n','\n').split('\n')
-        for i in range(len(lines)):
-            x = attempt_shell_parse(lines[i])
-            if x is not None:
-                lines[i] = bashyparse2pystr(*x)
-        return '\n'.join(lines)
+        py_vars = set(sys.modules[__name__].__dict__.keys())
+        return bashparse.bash2py_autocorrect(input, py_vars)
 
     def send(self, input, include_newline=True):
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')

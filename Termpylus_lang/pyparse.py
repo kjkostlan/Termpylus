@@ -1,5 +1,11 @@
-# Simple string parse fns. Can be "tricked" but should work in most cases and has very few lines of code.
+# Simple text-based Python parsing. Not intended to handle all use cases; can be tricked once in a while.
 import difflib, re
+
+py_kwds = {'import','from','def','lambda','class', 'try','except','raise','assert','finally',\
+           'await','async','yield', 'if','or','not','elif','else','and','is', \
+           'while','for','in','return','pass','break','continue', \
+           'global','with','as','nonlocal',  'del',\
+           'False','None','True'}
 
 def simple_tokens(code):
     # Simple tokenize that tries to isolate vars. Not smart about strings.

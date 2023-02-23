@@ -4,6 +4,7 @@
 import sys, os, fnmatch, re, pathlib, operator
 from tkinter import messagebox
 import Termpylus_extern.RonenNess_grepfunc as grep_core
+from Termpylus_lang import bashparse
 
 shell = None # This has the current directory in it.
 debug_only_these_folders = None # Restrict all file writes and deletes to this folder b/c in case files are deleted. Use GLOBAL paths here.
@@ -157,45 +158,13 @@ def guarded_create(fname, is_folder):
             pass
     return fname
 
-################################# Parsing tools ################################
-# Example use of bash syntaxes:
-#https://alvinalexander.com/linux-unix/recursive-grep-r-searching-egrep-find.
-
-def option_parse(args, paired_opts):
-    # Returns {'flags': [-a, -b, -c, --foo, ...], 'pairs': {"-foo", "bar", ...}, 'tail': [a,b,c]}
-    # Returns options, everything else.
-    # Options are -foo or --bar.
-    if type(args) is str:
-        args = re.split(' +',args)
-    paired_opts = set([p.replace('-','') for p in paired_opts])
-    out = {'flags':[], 'pairs':{}, 'tail':[]}
-    skip = False
-    for i in range(len(args)):
-        if skip:
-            skip = False
-            continue
-        a = args[i]
-        a = a.strip()
-        a1 = a+'  '
-        if a1[0]=='-' and (a in paired_opts or a.replace('-','') in paired_opts):
-            out['pairs'][a] = args[i+1]
-            skip = True
-        elif a1[0:2]=='--':
-            out['flags'].append(a)
-        elif a1[0]=='-':
-            add_fl = ['-'+c for c in a.replace('-','')]
-            out['flags'] = out['flags']+add_fl # One or more single-char flags.
-        else:
-            out['tail'].append(a)
-    return out
-
 ################################# Individual functions #########################
 
 def grep(args):
     #grep [options] PATTERN [FILE...]
     #grep [options] [-e PATTERN | -f FILE] [FILE...]
     #Note: "grep foo ." will check all files in this folder for foo. This is slightly different behavior from is a directory.
-    P = option_parse(args, ['-e','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
+    P = bashparse.option_parse(args, ['-e','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
     pattern = kv.get('-e', x[-2])
     flist = filelist_wildcard(x[-1], '-r' in args, include_folders=False)
 
@@ -216,7 +185,7 @@ def grep(args):
     return out
 
 def ls(args):
-    P = option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    P = bashparse.option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     if len(x)==0:
         fname = '.'
     else:
@@ -275,7 +244,7 @@ def cd(args):
 
 def rm(args):
     # DANGER DANGER DANGER. You have been warned.
-    P = option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    P = bashparse.option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     fname = x[0]
 
     if fname=='/' and '--no-preserve-root' not in fl:

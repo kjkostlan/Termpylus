@@ -1,6 +1,6 @@
 # Patch system: Allows making and removing patches to variables.
 import sys
-from . import gl_data
+from Termpylus_core import gl_data
 
 if 'ppaglobals' not in gl_data.dataset:
     # Name-qual => function; name-qual => inputs-as-dict.

@@ -1,6 +1,7 @@
 # Call this to update several functions.
 import sys, os, importlib, time
-from . import gl_data, var_watch, modules, ppatch, file_io, todict
+from . import gl_data, var_watch, file_io, todict
+from Termpylus_lang import modules, ppatch
 
 if 'updater_globals' not in gl_data.dataset:
     uglobals = dict()

@@ -1,6 +1,7 @@
 import sys, os, imp
-from Termpylus_core import var_watch, modules, updater, file_io, ppatch
+from Termpylus_core import var_watch, updater, file_io
 from Termpylus_shell import shellpython
+from Termpylus_lang import ppatch, modules
 from . import ttools
 
 def test_py_import0():

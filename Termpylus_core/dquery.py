@@ -2,8 +2,8 @@
 # SOme functions are generic while others are specalized to searching through source, etc.
 #Look for weighted combination of keywords, uses, etc.
 import sys, re, inspect
-from Termpylus_shell import pybashlib
-from . import dwalk, modules, file_io, strparse, var_watch, ppatch
+from . import dwalk, file_io, var_watch
+from Termpylus_lang import pyparse, modules, ppatch, bashparse
 
 ##########################Lower-level fns#############################
 
@@ -139,13 +139,13 @@ def get_all_sourcevars():
     for k in fnames.keys():
         contents = file_io.contents(fnames[k]); date_mod = file_io.date_mod(fnames[k])
         contents0 = file_io.contents_on_first_call(fnames[k])
-        src_pieces = strparse.simple_tokens(contents)
+        src_pieces = pyparse.simple_tokens(contents)
         for p in src_pieces:
             src_token_counts[p] = src_token_counts.get(p,0)+1
-        defs = strparse.sourcecode_defs(contents, nest=True)
-        defs0 = strparse.sourcecode_defs(contents0, nest=True)
+        defs = pyparse.sourcecode_defs(contents, nest=True)
+        defs0 = pyparse.sourcecode_defs(contents0, nest=True)
         for dk in defs.keys():
-            src_edit = strparse.txt_edit(defs0.get(dk,''), defs[dk])
+            src_edit = pyparse.txt_edit(defs0.get(dk,''), defs[dk])
             out.append(Sourcevar(k, dk, defs[dk], src_edit, date_mod))
     return out, src_token_counts
 
@@ -178,7 +178,7 @@ def source_find(bashy_args):
         out = out+'\n'+'Use '+verbose_key+' to output a more comprehensive dataset for further processing.'
         return out
 
-    P = pybashlib.option_parse(bashy_args, fns.keys()); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
+    P = bashparse.option_parse(bashy_args, fns.keys()); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
 
     # Calculated weighed sum:
     triplets = []

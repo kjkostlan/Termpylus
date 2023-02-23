@@ -1,7 +1,7 @@
 # Loading new modules and updating modules (but not file io)
 # Also: functions that get variables from modules.
 import sys, os, importlib, io
-from . import gl_data
+from Termpylus_core import gl_data
 
 if 'modules_globals' not in gl_data.dataset:
     mglobals = dict()

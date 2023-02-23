@@ -1,6 +1,7 @@
 # Watch vars for certain effects.
 import sys, time
-from . import gl_data, strparse, ppatch
+from . import gl_data
+from Termpylus_lang import pyparse, ppatch
 
 if 'uwglobals' not in gl_data.dataset:
     # Name-qual => function; name-qual => inputs-as-dict.
@@ -20,7 +21,7 @@ def logged_fn(modulename, var_name, f_obj):
     # Makes a logged version of the function, which behaves the same but adds to logs.
     name = modulename+'.'+var_name
     def f(*args, _SYM_name=name, **kwargs):
-        print('Logged fn call:', _SYM_name, len(args))
+        #print('Logged fn call:', _SYM_name, len(args))
         kwargs1 = kwargs.copy()
         for i in range(len(args)):
             kwargs1[i] = args[i] # Number args turn into dict keys with numerical values.
@@ -116,7 +117,7 @@ def record_txt_updates(mname, fname, old_txt, new_txt):
     # TODO: make it more real time, not just triggered.
     if old_txt is None:
         raise Exception('None old_text; files should be preloaded.')
-    ed = strparse.txt_edit(old_txt, new_txt)
+    ed = pyparse.txt_edit(old_txt, new_txt)
     if str(ed)==str([0,0,'']):
         return # No edit made.
     t_now = time.time()

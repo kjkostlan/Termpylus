@@ -1,6 +1,7 @@
 # Tests that need the pythonverse. It is slow to call the pythonverse so it gets reused.
 import sys
-from Termpylus_core import ppatch, updater, todict, dwalk, dquery
+from Termpylus_core import updater, todict, dwalk, dquery
+from Termpylus_lang import ppatch
 from . import ttools
 
 try:
