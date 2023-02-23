@@ -45,4 +45,3 @@ def clear_pycache(filename):
                 if printouts:
                     print('Deleting cached file:', cachefolder+'/'+l)
                 os.remove(cachefolder+'/'+l)
-

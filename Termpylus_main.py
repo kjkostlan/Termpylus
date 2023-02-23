@@ -6,7 +6,7 @@ import tkinter as tk
 import traceback, sys
 from Termpylus_shell import shellpython
 from Termpylus_UI import evt_check, layout, slowprint, hotkeys
-from Termpylus_core import updater
+from Termpylus_core import updater, file_io
 
 debug_show_keypress = False
 
@@ -39,6 +39,9 @@ class GUI(tk.Frame):
         #self.text_input.bind('<<Modified>>', self.text_changed_callback, add='+')
         root.bind("<Configure>", self.resize, add='+')
         self.text_input.pack() #fill=tk.BOTH
+        init_txt = file_io.contents('./user_startup.py')
+        if init_txt is not None:
+            self.text_input.insert(tk.END, init_txt)
 
         # Doesn't work: , selectbackground="red", inactiveselectbackground="green"
         self.shell_output = tk.Text(root, yscrollcommand=scrollbar.set, bg = "#EEEEFF")
@@ -98,7 +101,6 @@ class GUI(tk.Frame):
             self.shell_output.insert(tk.END, triplet[0]+'\n', style)
 
         #txt = '\n'.join([str(xi) for xi in self.shell['outputs']])
-
         #https://stackoverflow.com/questions/811532/how-to-scroll-automatically-within-a-tkinter-message-window
         self.shell_output.see(tk.END)
 
@@ -165,4 +167,3 @@ if __name__=='__main__':
     except Exception:
         traceback.print_exc()
     shell.exit_shell()
-
