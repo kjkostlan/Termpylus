@@ -101,9 +101,14 @@ def to_dict1(x, level):
     elif ty is list or ty is tuple:
         return dict(zip(range(len(x)), x))
     elif hasattr(x,'__dict__'):
-        # Class instance methods are hard to look up:
+        # Class instance methods are generated dynamically and won't be found here:
         # https://stackoverflow.com/questions/62105974/do-objects-have-a-copy-of-their-class-methods
-        return finlz(x.__dict__.copy())
+        if hasattr(x.__dict__, 'copy'):
+            return finlz(x.__dict__.copy())
+        elif hasattr(x.__dict__, 'keys'):
+            return dict(zip(x.__dict__.keys(), x.__dict__.values()))
+        else: # Occasionally a __dict__ can't be used as such.
+            return None
     else:
         return None
 

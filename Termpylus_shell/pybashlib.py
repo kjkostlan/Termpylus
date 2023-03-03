@@ -7,7 +7,7 @@ import Termpylus_extern.RonenNess_grepfunc as grep_core
 from Termpylus_lang import bashparse
 
 shell = None # This has the current directory in it.
-debug_only_these_folders = None # Restrict all file writes and deletes to this folder b/c in case files are deleted. Use GLOBAL paths here.
+debug_restrict_disk_modifications_to_these = None # Restrict all file writes and deletes to this folder b/c in case files are deleted. Use GLOBAL paths here.
 
 ############################### Directory stuff ################################
 
@@ -15,7 +15,7 @@ def absolute_path(fname, the_shell=None):
     # Loads a file given an absolute path.
     fname = fname.replace('\\','/')
     linux_abspath = fname[0]=='/'
-    win_abspath = len(fname)>2 and fname[1]==':' # C:/path/to/directore
+    win_abspath = len(fname)>2 and fname[1]==':' # C:/path/to/folder
     if the_shell is None:
         the_shell = shell
     if linux_abspath or win_abspath: # Two ways of getting absolute paths.
@@ -119,7 +119,7 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
     return recursive_files_core('/'.join(pieces1), include_folders=include_folders, filter_fn=filter_fn, max_folder_depth=65536*is_recursive+max_nonrecur_depth)
 
 def _fileallow(fname):
-    keeplist = debug_only_these_folders
+    keeplist = debug_restrict_disk_modifications_to_these
     fname = absolute_path(fname)
     if keeplist is not None:
         if type(keeplist) is str:
@@ -137,7 +137,7 @@ def gaurded_delete(fname, allow_folders=False):
     # Deleting is dangerous.
     fname = absolute_path(fname)
     if not _fileallow(fname):
-        raise Exception('debug_only_these_folders is set to: '+str(debug_only_these_folders).replace('\\\\','/')+' and disallows deleting this filename: '+fname)
+        raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows deleting this filename: '+fname)
     if os.path.isdir(fname) and not allow_folders:
         raise Exception('Attempt to delete folder (and whats inside) when allow_folders=False.')
 
@@ -146,7 +146,7 @@ def guarded_create(fname, is_folder):
     # Skips files that already exist.
     fname = absolute_path(fname)
     if not _fileallow(fname):
-        raise Exception('debug_only_these_folders is set to: '+str(debug_only_these_folders).replace('\\\\','/')+' and disallows creating this filename: '+fname)
+        raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows creating this filename: '+fname)
     if is_folder:
         folder = fname
     else:
@@ -160,7 +160,7 @@ def guarded_create(fname, is_folder):
 
 ################################# Individual functions #########################
 
-def grep(args):
+def grep(*args):
     #grep [options] PATTERN [FILE...]
     #grep [options] [-e PATTERN | -f FILE] [FILE...]
     #Note: "grep foo ." will check all files in this folder for foo. This is slightly different behavior from is a directory.
@@ -184,7 +184,7 @@ def grep(args):
 
     return out
 
-def ls(args):
+def ls(*args):
     P = bashparse.option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     if len(x)==0:
         fname = '.'
@@ -231,7 +231,7 @@ def ls(args):
 
     return sep.join([showfile(f) for f in flist])
 
-def cd(args):
+def cd(*args):
     fname = absolute_path(args[-1])
     flist = filelist_wildcard(fname, False, include_folders=True)
     if len(flist)==0:
@@ -242,7 +242,7 @@ def cd(args):
         shell.cur_dir = flist[0]
         return shell.cur_dir
 
-def rm(args):
+def rm(*args):
     # DANGER DANGER DANGER. You have been warned.
     P = bashparse.option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     fname = x[0]
@@ -263,13 +263,17 @@ def rm(args):
 
     return inner_flist
 
-def pwd(args):
+def pwd(*args):
     return absolute_path('.')
 
-def touch(args):
+def touch(*args):
     TODO
 
-def mkdir(args):
+def mkdir(*args):
+    TODO
+
+def HOME(*args):
+    # The ~ or $HOME directory.
     TODO
 
 ################################################################################
@@ -278,7 +282,7 @@ def splat_here(modulename): # modulename = __name__ from within a module.
     var_dict = sys.modules[__name__].__dict__
     module = sys.modules[modulename]
     for k in var_dict.keys():
-        if '__' not in k and k != 'shell' and k !=debug_only_these_folders:
+        if '__' not in k and k != 'shell' and k !='debug_restrict_disk_modifications_to_these':
             setattr(module, k, var_dict[k])
 
 def top_bash():

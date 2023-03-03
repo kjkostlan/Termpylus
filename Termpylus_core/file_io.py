@@ -24,15 +24,23 @@ def contents(fname):
 def contents_on_first_call(fname):
     # The contents of the file on the first time said function was called.
     if fname not in fglobals['original_txts']:
-        contents(fname)
+        return contents(fname)
     return fglobals['original_txts'][fname]
 
 def date_mod(fname):
     return os.path.getmtime(fname)
 
-def fsave(fname, txt):
-    with io.open(fname, mode="w", encoding="utf-8") as file_obj:
+def fsave1(fname, txt, mode):
+    #https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
+    os.makedirs(os.path.dirname(fname), exist_ok=True)
+    with io.open(fname, mode=mode, encoding="utf-8") as file_obj:
         file_obj.write(txt)
+
+def fsave(fname, txt):
+    fsave1(fname, txt, "w")
+
+def fappend(fname, txt):
+    fsave1(fname, txt, "a")
 
 def clear_pycache(filename):
     # This can intefere with updating.

@@ -120,10 +120,29 @@ class GUI(tk.Frame):
         char = evt.char; char = (char+' ')[0]
 
         if evt_check.emacs(evt, hotkeys.kys['run_cmd']): # Shift enter = send command.
+
             mo0 = sys.modules.copy()
             input_to_shell=self.text_input.get("1.0","end-1c")
+            if len(input_to_shell.strip())==0:
+                return None
+            updater.update_user_changed_modules() # Update modules.
 
-            autocorrected_input = self.shell.autocorrect(input_to_shell)
+            autocorrect_err_prepend = '#Autocorrect error (see the background console for the error)\n'
+            try:
+                autocorrected_input = self.shell.autocorrect(input_to_shell)
+                autocorrect_error = None
+                autocorrected_input = autocorrected_input.replace(autocorrect_err_prepend,'')
+            except Exception as exc:
+                autocorrect_error = shellpython.exc_to_str(exc)
+                prepend = autocorrect_err_prepend
+                if prepend not in input_to_shell:
+                    autocorrected_input = autocorrect_err_prepend+input_to_shell
+                else:
+                    autocorrected_input = input_to_shell
+            if autocorrect_error is not None:
+                for _ in range(8):
+                    print('<><><><><>')
+                print('<([{Autocorrect error}])>\n'+autocorrect_error)
             if autocorrected_input != input_to_shell:
                 input_to_shell = autocorrected_input
                 set_text_text(self.text_input, autocorrected_input)

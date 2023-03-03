@@ -86,11 +86,13 @@ def needs_update(modulename, update_on_first_see=True, use_date=False):
     else:
         return uglobals['filecontents'][fname] != file_io.contents(fname)
 
-def update_one_module(modulename, fname=None):
+def update_one_module(modulename, fname=None, assert_main=True):
     # The module must already be in the file.
-    print('Updating MODULE:', modulename)
-    if modulename == '__main__' and (not update_on_first_see): # odd case, generates spec not found error.
+    if modulename == '__main__' and assert_main: # odd case, generates spec not found error.
         raise Exception('Cannot update the main module for some reason. Need to restart when the Termpylus_main.py file changes.')
+    elif modulename == '__main__':
+        return
+    print('Updating MODULE:', modulename)
     if fname is None:
         fname = modules.module_file(modulename)
     if fname is None:
@@ -109,7 +111,7 @@ def update_user_changed_modules(update_on_first_see=True, use_date=False):
     out = {}
     for m in fnames.keys():
         if needs_update(m, update_on_first_see, use_date):
-            out[m] = update_one_module(m, fnames[m])
+            out[m] = update_one_module(m, fnames[m], not update_on_first_see)
     return out
 
 def startup_cache_sources(modulenames=None):

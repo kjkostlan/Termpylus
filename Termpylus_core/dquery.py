@@ -78,7 +78,7 @@ class Sourcevar:
         self.modulename = modulename
         self.varname = varname
         self.src_txt = src_txt # Txt of the function body.
-        self.src_edit = src_edit # Edit on the fn body since program startup. 
+        self.src_edit = src_edit # Edit on the fn body since program startup.
         self.src_datemod = src_datemod
         self.signature = None
         self.score = None
@@ -149,7 +149,7 @@ def get_all_sourcevars():
             out.append(Sourcevar(k, dk, defs[dk], src_edit, date_mod))
     return out, src_token_counts
 
-def source_find(bashy_args):
+def source_find(*bashy_args):
     all_src_vars, src_token_counts = get_all_sourcevars()
 
     def use_count(sourcevar, query):

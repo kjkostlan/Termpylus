@@ -71,34 +71,6 @@ C2. The Python program should quit when closed, even if a cmd freezes.
     tkinter.messagebox.showinfo(title="Manual tests", message=msg)
     return True
 
-def test_py2_bash():
-    # Python to bash.
-    txts = []
-    unchanged = []
-    unchanged.append('x = 1')
-    unchanged.append('x = 1\n y=2\nz=3')
-
-    pairs = []
-    pairs.append(['#foo\nls -a','#foo\n_ans = ls(["-a"])'])
-    pairs.append(['x = ls -a','x = ls(["-a"])'])
-    pairs.append(['blender','_ans, _err = run("blender", [])'])
-    pairs.append(['blender -foo','_ans, _err = run("blender", ["-foo"])'])
-    pairs.append(['blender "foo"','_ans, _err = run("blender", ["foo"])'])
-    pairs.append(['x = blender "foo"','x, _err = run("blender", ["foo"])'])
-
-    sh = shellpython.Shell()
-
-    for x in unchanged:
-        if x.strip() != sh.autocorrect(x).strip():
-            raise Exception('This should not be bash-i-fied, but it was:' + str(x) + str(sh.autocorrect(x)))
-
-    for p in pairs:
-        p0 = p[0]; p1 = p[1]; p1g = sh.autocorrect(p[0])
-        if p1g != p1:
-            raise Exception('Bashification incorrect, '+'X0: '+p0+' Gold: '+p1+' Green: '+p1g)
-
-    return True
-
 def test_ls():
     #Wildcard matches.
     # Ls exmaples fropm cygwin:
@@ -112,41 +84,33 @@ def test_ls():
     test_folder, subfiles, shell = _setup_tfiles()
     tests = []
 
-    x0 = pybashlib.ls(['.'])
-    x1 = pybashlib.ls(['-s','.'])
-    x2 = pybashlib.ls(['-l','.'])
+    x0 = pybashlib.ls('.')
+    x1 = pybashlib.ls('-s','.')
+    x2 = pybashlib.ls('-l','.')
     tests.append(len(x2)>len(x1))
     tests.append(len(x1)>len(x0))
 
-    r1 = pybashlib.ls(['-r','.'])
+    r1 = pybashlib.ls('-r','.')
 
     tests.append(len(x0.split(' '))*1.5+2<len(r1.split(' ')))
 
-    r2 = pybashlib.ls(['mount*']) # Goes one level deeper for bash and us.
+    r2 = pybashlib.ls('mount*') # Goes one level deeper for bash and us.
     tests.append('cumulus' not in str(r2) and 'kilimanjaro' in str(r2))
-    r3 = pybashlib.ls(['fo*'])
+    r3 = pybashlib.ls('fo*')
     tests.append('foo.txt' in r3 and 'bar.txt' not in r3)
 
-    #print('r3:',r3)
-
-    #print('Tests:', tests)
-
-    #print('Ls test:', pybashlib.ls(['-r','.']))
-    #print('Ls test:', pybashlib.ls(['.']))
-    #print('Ls test:', pybashlib.ls(['-s','.']))
-    #print('Ls test:', pybashlib.ls(['-l','.']))
     return ttools.alltrue(tests)
 
 def test_cd():
     test_folder, subfiles, shell = _setup_tfiles()
 
-    l0 = pybashlib.ls(['.'])
+    l0 = pybashlib.ls('.')
     cur_dir0 = shell.cur_dir
-    cd01 = pybashlib.cd(['mountain'])
-    l1 = pybashlib.ls(['.'])
+    cd01 = pybashlib.cd('mountain')
+    l1 = pybashlib.ls('.')
     cur_dir1 = shell.cur_dir
-    cd12 = pybashlib.cd(['..'])
-    l2 = pybashlib.ls(['.'])
+    cd12 = pybashlib.cd('..')
+    l2 = pybashlib.ls('.')
     cur_dir2 = shell.cur_dir
 
     tests = []
@@ -158,22 +122,24 @@ def test_cd():
 
 def test_grep():
     # TODO: more comprehensive test.
-    x = pybashlib.grep(['-r','f', '.'])
+    x = pybashlib.grep('-r','f', '.')
     tests = []
     tests.append(len(x)>1 and len(x)<8)
 
-    x1 = pybashlib.grep(['f', '.'])
+    x1 = pybashlib.grep('f', '.')
     tests.append(len(x)>1 and len(x)<8)
 
     tests.append(len(x1)==1)
 
+    print("tests are:", tests)
+
     try:
-        x2 = pybashlib.grep(['f', 'file_no_exist'])
+        x2 = pybashlib.grep('f', 'file_no_exist')
         tests.append(False)
     except: #Grep in bash throws errors if files don't exist.
         tests.append(True)
 
-    x3 = pybashlib.grep(['string_not_found', '.'])
+    x3 = pybashlib.grep('string_not_found', '.')
 
     tests.append(len(x3)==0)
     return _alltrue(tests)

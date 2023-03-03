@@ -2,7 +2,6 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, os, importlib, traceback, subprocess
 from . import pybashlib, hotcmds1
-from Termpylus_core import updater
 from Termpylus_lang import modules, bashparse
 
 # Extra imports to make the command line easier to use:
@@ -26,6 +25,7 @@ def _module_vars():
 
 pybashlib.splat_here(__name__)
 hotcmds1.splat_here(__name__)
+bashparse.add_bashExpand_fns(__name__)
 
 def run(cmd, cmd_args):
     # Single-shot run, returns result and sets last_run_err
@@ -105,8 +105,7 @@ class Shell:
         self.listenerf = None
 
     def autocorrect(self, input):
-        py_vars = set(sys.modules[__name__].__dict__.keys())
-        return bashparse.bash2py_autocorrect(input, py_vars)
+        return bashparse.maybe_bash2py_console_input(input)
 
     def send(self, input, include_newline=True):
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
@@ -114,7 +113,6 @@ class Shell:
         if len(input)>0:
             pybashlib.shell = self # So that fns from pybashlib work properly.
 
-            updater.update_user_changed_modules() # Update modules.
             vars0 = _module_vars()
             err = ''
             try:

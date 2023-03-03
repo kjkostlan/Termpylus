@@ -1,18 +1,17 @@
-from Termpylus_core import dwalk, var_watch, modules, file_io, strparse
-from Termpylus_UI import slowprint
-from . import ttools, test_varmodtrack, test_pythonverse
-from Termpylus_test import test_shell
 import sys, random, time
 Termpylus_main = sys.modules['__main__']
-sprt = slowprint.last_impression_print # Shorthand.
 findme0 = sys.modules['__main__'].GUI.set_shell_output
 
-def some_test(args): # Call with test1
+def some_test(*args): # Call with test1
+    from Termpylus_core import dwalk, var_watch, file_io
+    from Termpylus_UI import slowprint
+    sprt = slowprint.last_impression_print # Shorthand.
+    from . import ttools, test_varmodtrack, test_pythonverse, test_parse
+    from Termpylus_test import test_shell
     # Scratchwork tests go here. Reset to 'return True' when git commiting.
-    #return test_varmodtrack.test_var_get()
-    #code = file_io.contents('./Termpylus_core/updater.py')
-    #defs = strparse.sourcecode_defs(code, nest=True)
-    #print('Def keys:', defs.keys())
-    #return test_pythonverse.search_source_test()
-    return test_shell.test_py2_bash()
+
+    #return test_parse.test_py_fsm()
+    #return test_parse.test_py_defs()
+    #return test_parse.test_bash2py()
+    return test_parse.test_bash_parse()
     pass

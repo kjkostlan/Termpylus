@@ -1,6 +1,6 @@
 # Watch vars for certain effects.
 import sys, time
-from . import gl_data
+from . import gl_data, file_io
 from Termpylus_lang import pyparse, ppatch
 
 if 'uwglobals' not in gl_data.dataset:
@@ -16,6 +16,10 @@ def add_mutation_watch():
     TODO
 
 ################################ Fn watching core engine ###################################
+
+def disk_log(*x):
+    # Code freezing up? Use this function to pinpoint where.
+    file_io.fappend('./softwaredump_/disklog.txt', ' '.join([str(xi) for xi in x])+'\n')
 
 def logged_fn(modulename, var_name, f_obj):
     # Makes a logged version of the function, which behaves the same but adds to logs.
@@ -92,7 +96,7 @@ def remove_all_watchers():
         if k != __name__:
             remove_module_watchers(k)
 
-def bashy_set_watchers(bashy_args):
+def bashy_set_watchers(*bashy_args):
     # Bashy commands favor brevity.
     TODO
 
@@ -102,7 +106,7 @@ def on_module_update(modulename):
     for varq_name in watchers.keys():
         if varq_name.startswith(modulename+'.'):
             var_name = varq_name[len(modulename)+1:]
-            add_fn_watcher(modulename, var_name, watchers[var_name])
+            add_fn_watcher(modulename, var_name, watchers[varq_name])
 
 def get_logs():
     return vglobals['logss'].copy()
@@ -127,7 +131,6 @@ def record_txt_updates(mname, fname, old_txt, new_txt):
 def get_txt_edits():
     return list(vglobals['txt_edits'])
 
-def bashy_get_txt_edits(bashy_args):
+def bashy_get_txt_edits(*bashy_args):
     # Various options like a bash command.
     TODO
-
