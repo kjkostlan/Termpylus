@@ -1,7 +1,7 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
 import sys, re, os, importlib, traceback, subprocess
-from . import pybashlib, hotcmds1
+from . import bashy_cmds
 from Termpylus_lang import modules, bashparse
 
 # Extra imports to make the command line easier to use:
@@ -22,65 +22,6 @@ def _module_vars():
     return modl.__dict__.copy()
 
 ################################ Running bash commands #########################
-
-pybashlib.splat_here(__name__)
-hotcmds1.splat_here(__name__)
-bashparse.add_bashExpand_fns(__name__)
-
-def run(cmd, cmd_args):
-    # Single-shot run, returns result and sets last_run_err
-    # https://stackoverflow.com/questions/89228/how-do-i-execute-a-program-or-call-a-system-command
-    dir = pybashlib.absolute_path('.') # Cd to this, which depends on the global singleton shell.
-    #https://stackoverflow.com/questions/17742789/running-multiple-bash-commands-with-subprocess
-    cmd = 'cd '+dir+'\n'+cmd+' '+' '.join(cmd_args)
-    #result = subprocess.run([cmd]+cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    x = '/bin/bash'
-    if os.name == 'nt':
-        x = 'cmd'
-    process = subprocess.Popen(x, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-    out, err = process.communicate(cmd)
-
-    out = result.stdout.decode('utf-8')
-    err = result.edterr.decode('utf-8')
-    return out, err
-
-#################################Binding to Python##############################
-
-def python(args):
-    # Runs a Python file much like a bash python command, except that it is ran in the current process.
-    # What does this mean?
-    # The file's folder is taken to be in the root of said python project (TODO: allow other options).
-    # This root folder is prepended to sys.path, so that all imports within the project can work.
-    # Our module names will almost certanly not conflict with the project.
-    # However, multible projects may generate namespace collisions.
-    #    I.e. if boh projects have a folder called 'extern'.
-    #    (thus it is not recommended to work on multible projects, unless you decollide them).
-
-    P = pybashlib.option_parse(args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
-    if len(x)==0:
-        raise Exception('Must specify filename to run.')
-    pyfname = pybashlib.absolute_path(x[0])
-    if not pyfname.endswith('.py') and not pyfname.endswith('.txt'):
-        pyfname = pyfname+'.py'
-
-    if '-m' in kv:
-        modulename = kv['-m']
-    else: # Assume we are calling the root module name.
-        leaf = pyfname.split('/')[-1]
-        modulename = leaf.split('.')[0] # Remove the extension if any.
-
-    folder_name = os.path.dirname(pyfname)
-    modules.add_to_path(folder_name)
-    foo = modules.module_from_file(modulename, pyfname)
-
-    if '-rmph' in fl: # Remove path (don't make permement changes to path).
-        modules.pop_from_path()
-
-    return foo
-
-#################################Determining if bash############################
-
-################################################################################
 
 def exc_to_str(e):
     # Includes stack trace.
@@ -107,11 +48,23 @@ class Shell:
     def autocorrect(self, input):
         return bashparse.maybe_bash2py_console_input(input)
 
+    def make_module_closures(self):
+        # "considered evil" zone ahead: we add properties to the parent module
+        # so that they can be used without qualifications in the command line.
+        bashparse.add_bash_syntax_fns(__name__)
+        us = sys.modules[__name__]
+        fns = sys.modules['Termpylus_shell.bashy_cmds'].__dict__
+        kys1 = list(filter(lambda x:'__' not in x, fns.keys()))
+        for fn_name in kys1:
+            def fn1(*args):
+                return fns[fn_name](args, self)
+            setattr(us, fn_name, fn1)
+
     def send(self, input, include_newline=True):
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
         input = input.strip()
         if len(input)>0:
-            pybashlib.shell = self # So that fns from pybashlib work properly.
+            self.make_module_closures()
 
             vars0 = _module_vars()
             err = ''

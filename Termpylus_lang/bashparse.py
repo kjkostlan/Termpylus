@@ -12,7 +12,6 @@
 import sys, re, numba, copy
 import numpy as np
 from . import pyparse
-from Termpylus_shell import pybashlib, hotcmds1
 
 # False: Bash behaves more consistently and intuitivly.
 # True: Bash behaves more like Bash.
@@ -65,13 +64,12 @@ def BIF(cond, if_true, if_false):
     # Requires wrapping the true and false in lambdas.
     return if_true() if bool(cond) else if_false()
 
-def add_bashExpand_fns(module_name):
-    # Add functions to the shell's module that are used when expanding one-liners (and staying in a single line).
-    # (this is different from the bash commands such as ls).
+def add_bash_syntax_fns(module_name):
+    # Adds functions that implement specific bash syntatical constructs, such as A{1,2}B
     m = sys.modules[module_name]
     fns = {'BRG':BRG,'BVC':BVC,'BEX':BEX,'BCT':BCT,'BIF':BIF}
     for k,v in fns.items():
-        m.__dict__[k] = v
+        setattr(m, k, v)
 
 ################################### The BASH-compiletime world ########################
 

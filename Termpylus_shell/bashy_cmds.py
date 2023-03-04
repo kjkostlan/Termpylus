@@ -15,7 +15,7 @@ def help(bashy_args, shell_obj):
     # TODO: help is a dict and dict vals are more helpful.
     kys = sys.modules[__name__].__dict__.keys()
     kys1 = list(filter(lambda x:'__' not in x, kys))
-    return list(out.keys())
+    return kys1
 
 def test1(bashy_args, shell_obj):
     if len(bashy_args)==0:
@@ -62,7 +62,38 @@ def pfind(bashy_args, shell_obj):
 def python(bashy_args, shell_obj):
     if len(bashy_args)==0:
         return 'Launch a Python project that you are working on. Can be a file or folder. Use -f to create a future in case of blocking main.py files.'
+
+    # Runs a Python file much like a bash python command, except that it is ran in the current process.
+    # What does this mean?
+    # The file's folder is taken to be in the root of said python project (TODO: allow other options).
+    # This root folder is prepended to sys.path, so that all imports within the project can work.
+    # Our module names will almost certanly not conflict with the project.
+    # However, multible projects may generate namespace collisions.
+    #    I.e. if boh projects have a folder called 'extern'.
+    #    (thus it is not recommended to work on multible projects, unless you decollide them).
     TODO #-f option makes a future.
+
+    P = pybashlib.option_parse(args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    if len(x)==0:
+        raise Exception('Must specify filename to run.')
+    pyfname = pybashlib.absolute_path(x[0])
+    if not pyfname.endswith('.py') and not pyfname.endswith('.txt'):
+        pyfname = pyfname+'.py'
+
+    if '-m' in kv:
+        modulename = kv['-m']
+    else: # Assume we are calling the root module name.
+        leaf = pyfname.split('/')[-1]
+        modulename = leaf.split('.')[0] # Remove the extension if any.
+
+    folder_name = os.path.dirname(pyfname)
+    modules.add_to_path(folder_name)
+    foo = modules.module_from_file(modulename, pyfname)
+
+    if '-rmph' in fl: # Remove path (don't make permement changes to path).
+        modules.pop_from_path()
+
+    return foo
 
 def pwatch(bashy_args, shell_obj):
     return var_watch.bashy_set_watchers(*bashy_args)
@@ -234,3 +265,20 @@ def kill(bashy_args, shell_obj):
 
 def sleep(bashy_args, shell_obj):
     TODO
+
+def run(bashy_args, shell_obj):
+    # Single-shot run, returns result and sets last_run_err
+    # https://stackoverflow.com/questions/89228/how-do-i-execute-a-program-or-call-a-system-command
+    dir = pybashlib.absolute_path('.') # Cd to this, which depends on the global singleton shell.
+    #https://stackoverflow.com/questions/17742789/running-multiple-bash-commands-with-subprocess
+    cmd = 'cd '+dir+'\n'+cmd+' '+' '.join(cmd_args)
+    #result = subprocess.run([cmd]+cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    x = '/bin/bash'
+    if os.name == 'nt':
+        x = 'cmd'
+    process = subprocess.Popen(x, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    out, err = process.communicate(cmd)
+
+    out = result.stdout.decode('utf-8')
+    err = result.edterr.decode('utf-8')
+    return out, err
