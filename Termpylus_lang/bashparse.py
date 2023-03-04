@@ -73,33 +73,6 @@ def add_bashExpand_fns(module_name):
     for k,v in fns.items():
         m.__dict__[k] = v
 
-def option_parse(args, paired_opts):
-    # Bash-like handling of arguments.
-    # Returns {'flags': [-a, -b, -c, --foo, ...], 'pairs': {"-foo", "bar", ...}, 'tail': [a,b,c]}
-    if type(args) is str:
-        args = re.split(' +',args)
-    paired_opts = set([p.replace('-','') for p in paired_opts])
-    out = {'flags':[], 'pairs':{}, 'tail':[]}
-    skip = False
-    for i in range(len(args)):
-        if skip:
-            skip = False
-            continue
-        a = args[i]
-        a = a.strip()
-        a1 = a+'  '
-        if a1[0]=='-' and (a in paired_opts or a.replace('-','') in paired_opts):
-            out['pairs'][a] = args[i+1]
-            skip = True
-        elif a1[0:2]=='--':
-            out['flags'].append(a)
-        elif a1[0]=='-':
-            add_fl = ['-'+c for c in a.replace('-','')]
-            out['flags'] = out['flags']+add_fl # One or more single-char flags.
-        else:
-            out['tail'].append(a)
-    return out
-
 ################################### The BASH-compiletime world ########################
 
 class Symbol:

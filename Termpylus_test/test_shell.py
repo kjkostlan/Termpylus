@@ -24,7 +24,7 @@ def _setup_tfiles():
         pass
     except PermissionError:
         print('Warning: Test_shell testbed is having a windoze moment.')
-    pybashlib.debug_only_these_folders = [test_folder]
+    file_io.debug_restrict_disk_modifications_to_these = [test_folder]
 
     subfiles = ['./foo.txt','./bar.txt']
     subfiles = subfiles+['./ocean/atlantic.txt', './ocean/pacific.txt']

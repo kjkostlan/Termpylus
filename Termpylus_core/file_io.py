@@ -3,6 +3,7 @@ import os, io
 from . import gl_data
 
 printouts = False
+debug_restrict_disk_modifications_to_these = None
 
 if 'fileio_globals' not in gl_data.dataset:
     gl_data.dataset['fileio_globals'] = {'original_txts':{}}
@@ -39,6 +40,20 @@ def fsave1(fname, txt, mode):
 def fsave(fname, txt):
     fsave1(fname, txt, "w")
 
+def fdelete(fname):
+    TODO
+
+def fcreate(fname, is_folder):
+    if is_folder:
+        folder = fname
+    else:
+        folder, _ = os.path.split(fname)
+    #https://stackoverflow.com/questions/273192/how-can-i-safely-create-a-nested-directory
+    pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
+    if not is_folder:
+        with open(fname,'a') as _:
+            pass
+
 def fappend(fname, txt):
     fsave1(fname, txt, "a")
 
@@ -53,3 +68,64 @@ def clear_pycache(filename):
                 if printouts:
                     print('Deleting cached file:', cachefolder+'/'+l)
                 os.remove(cachefolder+'/'+l)
+
+def files_in_folder1(fname):
+    # Fullpath.
+    fname = absolute_path(fname)
+    files = os.listdir(fname)
+    return [(fname+'/'+file).replace('//','/') for file in files]
+
+def recursive_files(fname, include_folders=False, filter_fn=None, max_folder_depth=65536):
+    fname = absolute_path(fname)
+    if os.path.isdir(fname):
+        files1 = files_in_folder1(fname)
+        out = []
+        for f in files1:
+            if filter_fn is not None and not filter_fn(f):
+                continue
+            if os.path.isdir(f):
+                if include_folders:
+                    out.append(f)
+                if len(fname.split('/'))<max_folder_depth:
+                    out = out+recursive_files_core(f, include_folders, filter_fn, max_folder_depth)
+            else:
+                out.append(f)
+        return out
+    else:
+        if filter_fn(fname):
+            return [fname]
+        else:
+            return []
+
+####################################Debug safety features#######################
+
+def _fileallow(fname):
+    keeplist = debug_restrict_disk_modifications_to_these
+    fname = absolute_path(fname)
+    if keeplist is not None:
+        if type(keeplist) is str:
+            keeplist = [keeplist]
+        keeplist = [os.path.realpath(kl).replace('\\','/') for kl in keeplist]
+        allow = False
+        for k in keeplist:
+            if fname.startswith(k):
+                allow = True
+        return allow
+    else:
+        return True
+
+def gaurded_delete(fname, allow_folders=False):
+    # Deleting is dangerous.
+    if not _fileallow(fname):
+        raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows deleting this filename: '+fname)
+    if os.path.isdir(fname) and not allow_folders:
+        raise Exception('Attempt to delete folder (and whats inside) when allow_folders=False.')
+    fdelete(fname)
+
+def guarded_create(fname, is_folder):
+    # Creating files isn't all that dangerous, but still can be annoying.
+    # Skips files that already exist.
+    if not _fileallow(fname):
+        raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows creating this filename: '+fname)
+    fcreate(fname, is_folder)
+    return fname
