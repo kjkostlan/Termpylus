@@ -1,6 +1,6 @@
 import sys, os, imp
 from Termpylus_core import var_watch, updater, file_io
-from Termpylus_shell import shellpython
+from Termpylus_shell import bashy_cmds, shellpython
 from Termpylus_lang import ppatch, modules
 from . import ttools
 
@@ -15,9 +15,13 @@ def test_py_import0():
         print('Make sure opening a Python project works.')
         return True
 
+    shell_obj = shellpython.Shell()
+
     # Sys.path append? https://docs.python.org/3/library/sys.html#sys.path
     #sys.path = [os.path.realpath(folder)]+sys.path
-    mdle = shellpython.python([folder+"smain.py"])
+    mdle = bashy_cmds.python([folder+"smain.py"], shell_obj)
+
+    return False # TODO: test the output of this python script.
 
     # https://docs.python.org/3/reference/import.html
     # add a new import hook to sys.meta_path.

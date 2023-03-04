@@ -37,8 +37,10 @@ class Closure():
             try:
                 return f1(*args,**kwargs)
             except Exception as e:
-                txt = repr(e)
-                raise Exception(txt+'\nin: '+self.fname)
+                #txt = repr(e)
+                import traceback
+                traceback.print_exception(e)
+                raise Exception('Bash cmd error in '+self.fname+'. Trace printed to print().') from e
         return f2
 
 ################################ Running bash commands #########################

@@ -1,8 +1,9 @@
-# Tests.
+# Tests the more bash commands and shell directory.
 import sys, os, shutil
 import tkinter.messagebox
-from Termpylus_shell import shellpython, pybashlib
+from Termpylus_shell import shellpython, bashy_cmds
 from Termpylus_UI import hotkeys
+from Termpylus_core import file_io
 from . import ttools
 
 def _alltrue(x):
@@ -13,8 +14,7 @@ def _alltrue(x):
 
 def _setup_tfiles():
     # Some files to test on. Shell starts in the dump folder.
-    shell = shellpython.Shell()
-    pybashlib.shell = shell
+    shell_obj = shellpython.Shell()
 
     shell.cur_dir = './softwaredump_'
     test_folder = os.path.abspath(shell.cur_dir)
@@ -33,14 +33,14 @@ def _setup_tfiles():
     subfiles = subfiles+['./sky/cumulus.txt', './sky/nimbus.txt', './sky/airfoil.txt']
 
     for s in subfiles:
-        fnamefull = pybashlib.guarded_create(s, '.txt' not in s)
+        fnamefull = file_io.guarded_create(s, '.txt' not in s)
         modified_fname = ''
         for si in s:
             modified_fname = modified_fname+si*3
         with open(fnamefull,'a') as f_obj:
             f_obj.writelines(modified_fname)
 
-    return test_folder, subfiles, shell
+    return test_folder, subfiles, shell_obj
 
 ################################################################################
 
@@ -84,19 +84,19 @@ def test_ls():
     test_folder, subfiles, shell = _setup_tfiles()
     tests = []
 
-    x0 = pybashlib.ls('.')
-    x1 = pybashlib.ls('-s','.')
-    x2 = pybashlib.ls('-l','.')
+    x0 = bashy_cmds.ls(['.'], shell)
+    x1 = bashy_cmds.ls(['-s','.'], shell)
+    x2 = bashy_cmds.ls(['-l','.'], shell)
     tests.append(len(x2)>len(x1))
     tests.append(len(x1)>len(x0))
 
-    r1 = pybashlib.ls('-r','.')
+    r1 = bashy_cmds.ls(['-r','.'], shell)
 
     tests.append(len(x0.split(' '))*1.5+2<len(r1.split(' ')))
 
-    r2 = pybashlib.ls('mount*') # Goes one level deeper for bash and us.
+    r2 = bashy_cmds.ls(['mount*'], shell) # Goes one level deeper for bash and us.
     tests.append('cumulus' not in str(r2) and 'kilimanjaro' in str(r2))
-    r3 = pybashlib.ls('fo*')
+    r3 = bashy_cmds.ls(['fo*'], shell)
     tests.append('foo.txt' in r3 and 'bar.txt' not in r3)
 
     return ttools.alltrue(tests)
@@ -104,13 +104,13 @@ def test_ls():
 def test_cd():
     test_folder, subfiles, shell = _setup_tfiles()
 
-    l0 = pybashlib.ls('.')
+    l0 = bashy_cmds.ls(['.'], shell)
     cur_dir0 = shell.cur_dir
-    cd01 = pybashlib.cd('mountain')
-    l1 = pybashlib.ls('.')
+    cd01 = bashy_cmds.cd(['mountain'], shell)
+    l1 = bashy_cmds.ls(['.'], shell)
     cur_dir1 = shell.cur_dir
-    cd12 = pybashlib.cd('..')
-    l2 = pybashlib.ls('.')
+    cd12 = bashy_cmds.cd(['..'], shell)
+    l2 = bashy_cmds.ls(['.'], shell)
     cur_dir2 = shell.cur_dir
 
     tests = []
@@ -122,11 +122,13 @@ def test_cd():
 
 def test_grep():
     # TODO: more comprehensive test.
-    x = pybashlib.grep('-r','f', '.')
+    test_folder, subfiles, shell = _setup_tfiles()
+
+    x = bashy_cmds.grep(['-r','f', '.'], shell)
     tests = []
     tests.append(len(x)>1 and len(x)<8)
 
-    x1 = pybashlib.grep('f', '.')
+    x1 = bashy_cmds.grep(['f', '.'], shell)
     tests.append(len(x)>1 and len(x)<8)
 
     tests.append(len(x1)==1)
@@ -134,12 +136,12 @@ def test_grep():
     print("tests are:", tests)
 
     try:
-        x2 = pybashlib.grep('f', 'file_no_exist')
+        x2 = bashy_cmds.grep(['f', 'file_no_exist'], shell)
         tests.append(False)
     except: #Grep in bash throws errors if files don't exist.
         tests.append(True)
 
-    x3 = pybashlib.grep('string_not_found', '.')
+    x3 = bashy_cmds.grep(['string_not_found', '.'], shell)
 
     tests.append(len(x3)==0)
     return _alltrue(tests)
