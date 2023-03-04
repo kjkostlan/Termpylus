@@ -5,7 +5,7 @@
 # os.chdir
 # https://ss64.com/bash/
 # Most of the vanilla bash commands don't seem to have libraries available thus the need to write them.
-import sys
+import sys, os, subprocess
 from Termpylus_core import var_watch, dquery
 from . import bash_helpers
 
@@ -270,7 +270,7 @@ def run(bashy_args, shell_obj):
     # https://stackoverflow.com/questions/89228/how-do-i-execute-a-program-or-call-a-system-command
     dir = bash_helpers.absolute_path('.', shell_obj)
     #https://stackoverflow.com/questions/17742789/running-multiple-bash-commands-with-subprocess
-    cmd = 'cd '+dir+'\n'+cmd+' '+' '.join(cmd_args)
+    cmd = 'cd '+dir+'\n'+' '.join(bashy_args)
     #result = subprocess.run([cmd]+cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     x = '/bin/bash'
     if os.name == 'nt':

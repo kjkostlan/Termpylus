@@ -21,6 +21,26 @@ def _module_vars():
     modl = sys.modules[__name__]
     return modl.__dict__.copy()
 
+class Closure():
+    # Don't like Pythons "sticky" closures? Use this instead!
+    # (Is there a better way than this class)?
+    def __init__(self, f, fname, closed_over, g):
+        self.closed_over = closed_over
+        self.fname = fname
+        self.f = f; self.g = g
+    def call(self, *args, **kwargs):
+        return self.f(*args, **kwargs)
+    def get_f(self):
+        # No sticky when class methods dynamically make themselves!
+        f1 = self.g(self.f, self.closed_over)
+        def f2(*args, **kwargs):
+            try:
+                return f1(*args,**kwargs)
+            except Exception as e:
+                txt = repr(e)
+                raise Exception(txt+'\nin: '+self.fname)
+        return f2
+
 ################################ Running bash commands #########################
 
 def exc_to_str(e):
@@ -57,10 +77,14 @@ class Shell:
         us = sys.modules[__name__]
         mname = 'Termpylus_shell.bashy_cmds'; m = sys.modules[mname]
         kys = ppatch.get_vars(mname)
+
+        def g(f, shell):
+            def f1(*args):
+                return f(args, shell)
+            return f1
         for fn_name in kys:
-            def fn1(*args):
-                return m.__dict__[fn_name](args, self)
-            setattr(us, fn_name, fn1)
+            c = Closure(m.__dict__[fn_name], mname+'.'+fn_name, self, g)
+            setattr(us, fn_name, c.get_f())
 
     def send(self, input, include_newline=True):
         self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
