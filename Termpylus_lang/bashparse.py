@@ -65,7 +65,7 @@ def BIF(cond, if_true, if_false):
     return if_true() if bool(cond) else if_false()
 
 def add_bash_syntax_fns(module_name):
-    # Adds functions that implement specific bash syntatical constructs, such as A{1,2}B
+    # setattr for functions with specific bash syntatical constructs, such as A{1,2}B
     m = sys.modules[module_name]
     fns = {'BRG':BRG,'BVC':BVC,'BEX':BEX,'BCT':BCT,'BIF':BIF}
     for k,v in fns.items():

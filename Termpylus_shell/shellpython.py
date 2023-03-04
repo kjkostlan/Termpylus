@@ -2,7 +2,7 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, os, importlib, traceback, subprocess
 from . import bashy_cmds
-from Termpylus_lang import modules, bashparse
+from Termpylus_lang import modules, bashparse, ppatch
 
 # Extra imports to make the command line easier to use:
 from Termpylus_core import *
@@ -43,6 +43,7 @@ class Shell:
         self.cur_dir = '.' #TODO: default directory.
         self.outputs = [] # [message, is_error, input_ix]
         self.input_ix = 0
+        self.last_err = None # stderr.
         self.listenerf = None
 
     def autocorrect(self, input):
@@ -51,13 +52,14 @@ class Shell:
     def make_module_closures(self):
         # "considered evil" zone ahead: we add properties to the parent module
         # so that they can be used without qualifications in the command line.
+        # (due to the need to closure over self we can't use from ... import *)
         bashparse.add_bash_syntax_fns(__name__)
         us = sys.modules[__name__]
-        fns = sys.modules['Termpylus_shell.bashy_cmds'].__dict__
-        kys1 = list(filter(lambda x:'__' not in x, fns.keys()))
-        for fn_name in kys1:
+        mname = 'Termpylus_shell.bashy_cmds'; m = sys.modules[mname]
+        kys = ppatch.get_vars(mname)
+        for fn_name in kys:
             def fn1(*args):
-                return fns[fn_name](args, self)
+                return m.__dict__[fn_name](args, self)
             setattr(us, fn_name, fn1)
 
     def send(self, input, include_newline=True):

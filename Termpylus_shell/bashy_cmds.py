@@ -9,8 +9,6 @@ import sys
 from Termpylus_core import var_watch, dquery
 from . import bash_helpers
 
-debug_restrict_disk_modifications_to_these = None # Restrict all file writes and deletes to this folder b/c in case files are deleted. Use GLOBAL paths here.
-
 def help(bashy_args, shell_obj):
     # TODO: help is a dict and dict vals are more helpful.
     kys = sys.modules[__name__].__dict__.keys()
@@ -60,6 +58,7 @@ def pfind(bashy_args, shell_obj):
     return dquery.generic_find(bashy_args, pythonverse)
 
 def python(bashy_args, shell_obj):
+    # Unlike "run" this does not spawn a seperate process: we want to access the processes internals after all.
     if len(bashy_args)==0:
         return 'Launch a Python project that you are working on. Can be a file or folder. Use -f to create a future in case of blocking main.py files.'
 
@@ -73,10 +72,10 @@ def python(bashy_args, shell_obj):
     #    (thus it is not recommended to work on multible projects, unless you decollide them).
     TODO #-f option makes a future.
 
-    P = pybashlib.option_parse(args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    P = bash_helpers.option_parse(args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     if len(x)==0:
         raise Exception('Must specify filename to run.')
-    pyfname = pybashlib.absolute_path(x[0])
+    pyfname = bash_helpers.absolute_path(x[0], shell_obj)
     if not pyfname.endswith('.py') and not pyfname.endswith('.txt'):
         pyfname = pyfname+'.py'
 
@@ -181,8 +180,8 @@ def cd(bashy_args, shell_obj):
     else:
         if not os.path.isdir(flist[0]):
             flist[0] = '/'.join(flist[0].split('/')[0:-1]) # It tends to be one level too deep.
-        shell.cur_dir = flist[0]
-        return shell.cur_dir
+        shell_obj.cur_dir = flist[0]
+        return shell_obj.cur_dir
 
 def rm(bashy_args, shell_obj):
     # DANGER DANGER DANGER. You have been warned.
@@ -269,7 +268,7 @@ def sleep(bashy_args, shell_obj):
 def run(bashy_args, shell_obj):
     # Single-shot run, returns result and sets last_run_err
     # https://stackoverflow.com/questions/89228/how-do-i-execute-a-program-or-call-a-system-command
-    dir = pybashlib.absolute_path('.') # Cd to this, which depends on the global singleton shell.
+    dir = bash_helpers.absolute_path('.', shell_obj)
     #https://stackoverflow.com/questions/17742789/running-multiple-bash-commands-with-subprocess
     cmd = 'cd '+dir+'\n'+cmd+' '+' '.join(cmd_args)
     #result = subprocess.run([cmd]+cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -280,5 +279,6 @@ def run(bashy_args, shell_obj):
     out, err = process.communicate(cmd)
 
     out = result.stdout.decode('utf-8')
-    err = result.edterr.decode('utf-8')
-    return out, err
+    err = result.sdterr.decode('utf-8')
+    shell_obj.err = err
+    return out

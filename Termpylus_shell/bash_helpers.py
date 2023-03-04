@@ -39,7 +39,7 @@ def absolute_path(fname, the_shell):
     if linux_abspath or win_abspath: # Two ways of getting absolute paths.
         return fname
     else:
-        cur_dir = os.path.abspath(shell.cur_dir).replace('\\','/')
+        cur_dir = os.path.abspath(the_shell.cur_dir).replace('\\','/')
         out = os.path.abspath(cur_dir+'./'+fname).replace('\\','/')
         return out
 
