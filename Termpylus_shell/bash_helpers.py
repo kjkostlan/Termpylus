@@ -90,11 +90,3 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
             break
         pieces1.append(p)
     return file_io.recursive_files('/'.join(pieces1), include_folders=include_folders, filter_fn=filter_fn, max_folder_depth=65536*is_recursive+max_nonrecur_depth)
-
-#def top_bash():
-#    # Top 25 with a couple of changes.
-#    # https://www.educative.io/blog/bash-shell-command-cheat-sheet
-#    out = {'ls', 'echo', 'touch', 'mkdir', 'grep', 'man', 'pwd', 'cd', 'mv',\
-#           'rm', 'locate', 'less', 'compgen', '>', 'cat', '|', 'head', \
-#            'tail', 'chmod', 'exit', 'history', 'clear', 'cp', 'kill', 'sleep'}
-#    return out

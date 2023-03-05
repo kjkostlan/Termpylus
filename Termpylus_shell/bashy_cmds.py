@@ -35,9 +35,9 @@ def pflush(bashy_args, shell_obj):
 def utest(bashy_args, shell_obj):
     # Unitests.
     print('**************Running unit tests**************')
-    from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse
+    from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun
     n_fail = 0
-    for t_module in [test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse]:
+    for t_module in [test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun]:
         if not t_module.run_tests():
             print('>>testing failed for:', t_module)
             n_fail = n_fail+1

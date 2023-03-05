@@ -12,49 +12,15 @@ def test_py_import0():
     folder = os.path.dirname(os.path.realpath(__file__)).replace('\\','/')
     folder = folder.replace('Termpylus','')+'/../simplypyimport/'
     if not os.path.exists(folder):
-        print('Make sure opening a Python project works.')
+        print('Warning: external directory for testing does not exist.')
         return True
 
     shell_obj = shellpython.Shell()
-
-    # Sys.path append? https://docs.python.org/3/library/sys.html#sys.path
-    #sys.path = [os.path.realpath(folder)]+sys.path
     mdle = bashy_cmds.python([folder+"smain.py"], shell_obj)
-
-    return False # TODO: test the output of this python script.
-
-    # https://docs.python.org/3/reference/import.html
-    # add a new import hook to sys.meta_path.
-    # (too complex, we need a spec object on return)
-
-    #mdleoo = shellpython.python([folder+"stpkg", "-m", "stpkg"])
-    # https://www.oreilly.com/library/view/python-cookbook/0596001673/ch15s03.html
-    #pkh = imp.new_module('stpkg'); sys.modules['stpkg'] = pkg
-    #pkg.__spec__.submodule_search_locations =
-    #mdle = shellpython.python([folder+"soutside.py", "-m", "soutside"])
-    #mdle = shellpython.python([folder+"smain.py", "-m", "smain"])
-
-    #https://peps.python.org/pep-0302/
-    #mdleoo = shellpython.python([folder+"stpkg/unicode.py", "-m", "stpkg.unicode"])
-    #mdleoo = shellpython.python([folder+"stpkg/mathy.py", "-m", "stpkg.mathy"]) # needed.
-    #mdleo = shellpython.python([folder+"soutside.py", "-m", "soutside"])
-    # If out of order we get: ModuleNotFoundError: No module named 'soutside'
-    #mdleo = shellpython.python([folder+"soutside.py"]) # Outer level pyhton filenames are automatically set.
-
-    # Import ... as ... does not change the name.
-
-    #print('Py import test',mdle.go1())
-    #print('test_py_import All moudles:', list(sys.modules.keys()))
-    #print('test_py_import NEW moudles:', set(sys.modules.keys())-set(kys0))
-
     return True
 
 def test_py_update():
-    #print('Fullpath:', os.path.realpath(fname).replace('\\','/'))
-
-    #print('TEST edit:', var_watch.txt_edit('foo123bar', 'foo456bar'))
-    #return False
-
+    # Tests making changes to the source code.
     from . import changeme # adds to the sys.modules
     val0 = changeme.mathy_function(1000)
     updater.update_one_module(changeme.__name__)
