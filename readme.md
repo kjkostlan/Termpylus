@@ -7,7 +7,7 @@
 
 **Multiline input:** Input multiline Python code all at once. Define multiple defs in a single command. Test that SSCCE with a single Ctrl+V.
 
-**Bash2python:** As amazing as Python is, bash one-liners are *extremely* concise. Simple bash commands such as "cd path/to/dir" are converted into python commands (unfortunately there is a general lacking of bash clones in python so these mostly had to be written manually). Also, "x = ls -a" will set the variable x to the output of "ls -a". TODO: add more bash commands.
+**Bash2python:** As amazing as Python is, bash one-liners are *extremely* concise. Simple bash commands such as "cd path/to/dir" are converted into python commands (unfortunately there is a general lacking of bash clones in python so these mostly had to be written manually).
 
 **Pythonic searching:** Call "python path/to/project/main.py" to launch a project. Search the code based on the function name, it's source code, how "new" it's source code is, it's use count, or even it's inputs and outputs. The latter will require adding *loggers* to the project's functions. Note: this section is very much under active development and hasn't yet been extensively tested.
 
