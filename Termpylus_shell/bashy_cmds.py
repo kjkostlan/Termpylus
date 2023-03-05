@@ -179,9 +179,10 @@ def ls(bashy_args, shell_obj):
 
 def cd(bashy_args, shell_obj):
     from Termpylus_core import file_io
-    fname = file_io.absolute_path(bashy_args[-1])
+    fname = bashy_args[0]
     fname1 = bash_helpers.path_given_shell(fname, shell_obj)
     flist = bash_helpers.filelist_wildcard(fname1, False, include_folders=True)
+
     if len(flist)==0:
         raise Exception('No such file or directory:'+str(fname))
     else:

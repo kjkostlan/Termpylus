@@ -1,5 +1,5 @@
 # File io simple wrappers.
-import os, io, pathlib
+import os, io, pathlib, shutil, time
 from . import gl_data
 
 printouts = False
@@ -11,6 +11,15 @@ fglobals = gl_data.dataset['fileio_globals']
 
 def absolute_path(fname):
     return os.path.realpath(fname).replace('\\','/')
+
+def is_path_absolute(fname):
+    # Different rules for linux and windows.
+    fname = fname.replace('\\','/')
+    linux_abspath = fname[0]=='/'
+    win_abspath = len(fname)>2 and fname[1]==':' # C:/path/to/folder
+    if linux_abspath or win_abspath: # Two ways of getting absolute paths.
+        return True
+    return False
 
 def contents(fname):
     if not os.path.isfile(fname):
@@ -25,6 +34,9 @@ def contents(fname):
             fglobals['original_txts'][fname] = out
         return out
 
+def is_folder(fname):
+    return os.path.isdir(fname)
+
 def contents_on_first_call(fname):
     # The contents of the file on the first time said function was called.
     if fname not in fglobals['original_txts']:
@@ -37,17 +49,39 @@ def date_mod(fname):
 def is_hidden(fname):
     return fname.split('/')[-1][0] == '.'
 
-def fsave1(fname, txt, mode):
+def _unwindoze_attempt(f, name, tries, retry_delay):
+    for i in range(tries):
+        try:
+            f()
+            break
+        except PermissionError as e:
+            if 'being used by another process' not in str(e):
+                f() # actual permission errors.
+            if i==tries-1:
+                raise Exception('Windoze error: Retried too many times and this file stayed in use:', name)
+            print('File-in-use error (will retry) for:', name)
+            time.sleep(retry_delay)
+
+def _fsave1(fname, txt, mode, tries=12, retry_delay=1.0):
+    # Does not need any enclosing folders to already exist.
     #https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
-    os.makedirs(os.path.dirname(fname), exist_ok=True)
-    with io.open(fname, mode=mode, encoding="utf-8") as file_obj:
-        file_obj.write(txt)
+    def f():
+        os.makedirs(os.path.dirname(fname), exist_ok=True)
+        with io.open(fname, mode=mode, encoding="utf-8") as file_obj:
+            file_obj.write(txt)
+    _unwindoze_attempt(f, fname, tries, retry_delay)
 
-def fsave(fname, txt):
-    fsave1(fname, txt, "w")
+def fsave(fname, txt, tries=12, retry_delay=1.0):
+    _fsave1(fname, txt, "w", tries, retry_delay)
 
-def fdelete(fname):
-    TODO
+def fdelete(fname, tries=12, retry_delay=1.0):
+    # Works on files and folders.
+    def f():
+        if is_folder(fname):
+            shutil.rmtree(fname)
+        else:
+            os.remove(fname)
+    _unwindoze_attempt(f, fname, tries, retry_delay)
 
 def fcreate(fname, is_folder):
     if is_folder:
@@ -61,7 +95,7 @@ def fcreate(fname, is_folder):
             pass
 
 def fappend(fname, txt):
-    fsave1(fname, txt, "a")
+    _fsave1(fname, txt, "a")
 
 def clear_pycache(filename):
     # This can intefere with updating.

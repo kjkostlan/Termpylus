@@ -33,15 +33,11 @@ def option_parse(args, paired_opts):
 ############################### Directory stuff ################################
 
 def path_given_shell(fname, the_shell):
-    # Linux-a-fies the file name.
-    fname = fname.replace('\\','/')
-    linux_abspath = fname[0]=='/'
-    win_abspath = len(fname)>2 and fname[1]==':' # C:/path/to/folder
-    if linux_abspath or win_abspath: # Two ways of getting absolute paths.
-        return fname
+    # Absolute and relative paths behave differently.
+    if file_io.is_path_absolute(fname):
+        return file_io.absolute_path(fname)
     else:
-        out = file_io.absolute_path(the_shell.cur_dir+'/'+fname)
-        return out
+        return file_io.absolute_path(the_shell.cur_dir+'/'+fname)
 
 def bashy_file_info(fname):
     #https://flaviocopes.com/python-get-file-details/
@@ -56,6 +52,8 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
     # is_recursive = False:
     #   If wildcard ends in a folder, all files inside will be choosen.
     #   If wildcard ends in a filename, the filename and any others that match will be choosen.
+
+    wildcard = file_io.absolute_path(wildcard)
 
     def leaf_star(leafname, leaf_wild):
         # Includes regexps, but they can't have forward slashes.

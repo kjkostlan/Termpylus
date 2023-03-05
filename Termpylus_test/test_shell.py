@@ -1,5 +1,5 @@
 # Tests the more bash commands and shell directory.
-import sys, os, shutil
+import os
 import tkinter.messagebox
 from Termpylus_shell import shellpython, bashy_cmds
 from Termpylus_UI import hotkeys
@@ -18,13 +18,8 @@ def _setup_tfiles():
 
     shell_obj.cur_dir = './softwaredump_'
     test_folder = os.path.abspath(shell_obj.cur_dir)
-    try:
-        shutil.rmtree(test_folder)
-    except FileNotFoundError:
-        pass
-    except PermissionError:
-        print('Warning: Test_shell testbed is having a windoze moment.')
     file_io.debug_restrict_disk_modifications_to_these = [test_folder]
+    file_io.gaurded_delete(test_folder, allow_folders=True)
 
     subfiles = ['./foo.txt','./bar.txt']
     subfiles = subfiles+['./ocean/atlantic.txt', './ocean/pacific.txt']
@@ -98,7 +93,6 @@ def test_ls():
     tests.append('cumulus' not in str(r2) and 'kilimanjaro' in str(r2))
     r3 = bashy_cmds.ls(['fo*'], shell)
     tests.append('foo.txt' in r3 and 'bar.txt' not in r3)
-
     return ttools.alltrue(tests)
 
 def test_cd():
@@ -112,11 +106,14 @@ def test_cd():
     cd12 = bashy_cmds.cd(['..'], shell)
     l2 = bashy_cmds.ls(['.'], shell)
     cur_dir2 = shell.cur_dir
+    cd13 = bashy_cmds.cd(['des*'], shell)
+    cur_dir3 = shell.cur_dir
 
     tests = []
     tests.append(str(l0)==str(l2))
     tests.append('applachia.txt' in str(l1) and 'sahara.txt' not in str(l1))
     tests.append('mountain' in cur_dir1 and 'mountain' not in cur_dir0)
+    tests.append('desert' in cd13 and 'desert' in cur_dir3)
 
     return ttools.alltrue(tests)
 
@@ -133,8 +130,6 @@ def test_grep():
 
     tests.append(len(x1)==1)
 
-    print("tests are:", tests)
-
     try:
         x2 = bashy_cmds.grep(['f', 'file_no_exist'], shell)
         tests.append(False)
@@ -147,8 +142,10 @@ def test_grep():
     return _alltrue(tests)
 
 def test_others():
-    # Other bash fns.
+    # Less important bash fns go here.
     return False
 
 def run_tests():
-    return ttools.run_tests(__name__)
+    out = ttools.run_tests(__name__)
+    file_io.debug_restrict_disk_modifications_to_these = None # reset.
+    return out
