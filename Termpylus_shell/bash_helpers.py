@@ -1,6 +1,7 @@
 #Helpers for implementing bash functions. Not the funcions themselves (they are in bashy_cmds).
 import sys, os, fnmatch, re, pathlib, operator
 from tkinter import messagebox
+from Termpylus_core import file_io
 
 def option_parse(args, paired_opts):
     # Bash-like handling of arguments.
@@ -31,7 +32,7 @@ def option_parse(args, paired_opts):
 
 ############################### Directory stuff ################################
 
-def absolute_path(fname, the_shell):
+def path_given_shell(fname, the_shell):
     # Linux-a-fies the file name.
     fname = fname.replace('\\','/')
     linux_abspath = fname[0]=='/'
@@ -39,13 +40,8 @@ def absolute_path(fname, the_shell):
     if linux_abspath or win_abspath: # Two ways of getting absolute paths.
         return fname
     else:
-        cur_dir = os.path.abspath(the_shell.cur_dir).replace('\\','/')
-        out = os.path.abspath(cur_dir+'./'+fname).replace('\\','/')
+        out = file_io.absolute_path(the_shell.cur_dir+'/'+fname)
         return out
-
-def is_hidden(fname):
-    # Is the filename hidden.
-    return absolute_path(fname).split('/')[-1][0] == '.'
 
 def bashy_file_info(fname):
     #https://flaviocopes.com/python-get-file-details/
@@ -56,11 +52,10 @@ def bashy_file_info(fname):
     return out
 
 def filelist_wildcard(wildcard, is_recursive, include_folders=False):
-    # Wildcard and regexp matching.
+    # Wildcard and regexp matching. wildcard should reperesent an absolute path.
     # is_recursive = False:
     #   If wildcard ends in a folder, all files inside will be choosen.
     #   If wildcard ends in a filename, the filename and any others that match will be choosen.
-    path_global = absolute_path(wildcard)
 
     def leaf_star(leafname, leaf_wild):
         # Includes regexps, but they can't have forward slashes.
@@ -77,7 +72,7 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
 
     def filter_fn(fname_global):
         pieces = fname_global.split('/') #regexs allowed if they dont have *forward* slash.
-        path_pieces = path_global.split('/')
+        path_pieces = wildcard.split('/')
         n_piece = len(pieces)
         n_glob = len(path_pieces)
         if n_piece>n_glob: # Digging deeper.
@@ -89,8 +84,8 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
             return False
         return False
 
-    max_nonrecur_depth = len(path_global.split('/'))
-    pieces = path_global.split('/')
+    max_nonrecur_depth = len(wildcard.split('/'))
+    pieces = wildcard.split('/')
     pieces1 = []
     for p in pieces:
         if '*' in p:

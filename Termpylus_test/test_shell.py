@@ -16,8 +16,8 @@ def _setup_tfiles():
     # Some files to test on. Shell starts in the dump folder.
     shell_obj = shellpython.Shell()
 
-    shell.cur_dir = './softwaredump_'
-    test_folder = os.path.abspath(shell.cur_dir)
+    shell_obj.cur_dir = './softwaredump_'
+    test_folder = os.path.abspath(shell_obj.cur_dir)
     try:
         shutil.rmtree(test_folder)
     except FileNotFoundError:
@@ -33,7 +33,7 @@ def _setup_tfiles():
     subfiles = subfiles+['./sky/cumulus.txt', './sky/nimbus.txt', './sky/airfoil.txt']
 
     for s in subfiles:
-        fnamefull = file_io.guarded_create(s, '.txt' not in s)
+        fnamefull = file_io.guarded_create('softwaredump_/'+s, '.txt' not in s)
         modified_fname = ''
         for si in s:
             modified_fname = modified_fname+si*3

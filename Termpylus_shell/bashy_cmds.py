@@ -5,8 +5,7 @@
 # os.chdir
 # https://ss64.com/bash/
 # Most of the vanilla bash commands don't seem to have libraries available thus the need to write them.
-import sys, os, subprocess
-from Termpylus_core import var_watch, dquery
+import sys, os, subprocess, operator
 from . import bash_helpers
 
 def help(bashy_args, shell_obj):
@@ -29,11 +28,11 @@ def dunwrap(bashy_args, shell_obj):
 
 def pflush(bashy_args, shell_obj):
     if len(bashy_args)==0:
-        print('Attempting to flush function references with updated versions. Will not work on Tkinter callbacks.')
+        print('Attempting to replace function references with updated versions (if there is any updated src code that is). Will not work on Tkinter callbacks.')
     from Termpylus_py import mload
     return mload.function_flush()
 
-def utest(ashy_args, shell_obj):
+def utest(bashy_args, shell_obj):
     # Unitests.
     print('**************Running unit tests**************')
     from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse
@@ -72,7 +71,7 @@ def python(bashy_args, shell_obj):
     #    (thus it is not recommended to work on multible projects, unless you decollide them).
     TODO #-f option makes a future.
 
-    P = bash_helpers.option_parse(args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    P = bash_helpers.option_parse(bashy_args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     if len(x)==0:
         raise Exception('Must specify filename to run.')
     pyfname = bash_helpers.absolute_path(x[0], shell_obj)
@@ -95,9 +94,11 @@ def python(bashy_args, shell_obj):
     return foo
 
 def pwatch(bashy_args, shell_obj):
+    from Termpylus_core import var_watch
     return var_watch.bashy_set_watchers(*bashy_args)
 
 def edits(bashy_args, shell_obj):
+    from Termpylus_core import var_watch
     return var_watch.bashy_get_txt_edits(*bashy_args)
 
 def grep(bashy_args, shell_obj):
@@ -105,9 +106,11 @@ def grep(bashy_args, shell_obj):
     #grep [options] [-e PATTERN | -f FILE] [FILE...]
     #Note: "grep foo ." will check all files in this folder for foo. This is slightly different behavior from is a directory.
     import Termpylus_extern.RonenNess_grepfunc as grep_core
-    P = bashparse.option_parse(args, ['-e','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
+    from Termpylus_core import file_io
+    P = bash_helpers.option_parse(bashy_args, ['-e','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
     pattern = kv.get('-e', x[-2])
-    flist = filelist_wildcard(x[-1], '-r' in args, include_folders=False)
+    fname1 = bash_helpers.path_given_shell(x[-1], shell_obj)
+    flist = bash_helpers.filelist_wildcard(fname1, '-r' in bashy_args, include_folders=False)
 
     fl = fl-set(['-r']) # they have a -r flag that is non-standard, but we use it for recursive.
     kwargs = {}
@@ -126,46 +129,48 @@ def grep(bashy_args, shell_obj):
     return out
 
 def ls(bashy_args, shell_obj):
-    P = bashparse.option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    from Termpylus_core import file_io
+    P = bash_helpers.option_parse(bashy_args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     if len(x)==0:
         fname = '.'
     else:
         fname = x[0]
 
     # We flip -r and -R to be more consistent with most bash cmds.
-    flist = filelist_wildcard(fname, '-r' in fl, include_folders=True)
+    fname1 = bash_helpers.path_given_shell(fname, shell_obj)
+    flist = bash_helpers.filelist_wildcard(fname1, '-r' in fl, include_folders=True)
 
     if '-a' in fl or '-A' in fl: # Include hidden files.
         pass
     else:
-        flist = list(filter(lambda x: not is_hidden(x), flist))
+        flist = list(filter(lambda x: not file_io.is_hidden(x), flist))
 
-    flist = [bashy_file_info(fnm) for fnm in flist]
+    flist = [bash_helpers.bashy_file_info(fnm) for fnm in flist]
 
     sort_ky = 'name'
-    if '-S' in args:
+    if '-S' in bashy_args:
         sort_ky = 'size'
-    elif '-t' in args:
+    elif '-t' in bashy_args:
         sort_ky = 'name'
-    elif '-X' in args:
+    elif '-X' in bashy_args:
         sort_ky = 'ext'
     flist = list(sorted(flist, key=operator.itemgetter(sort_ky)))
 
-    if '-R' in args: # We flip -r and -R to be more consistent with most bash cmds.
+    if '-R' in bashy_args: # We flip -r and -R to be more consistent with most bash cmds.
         flist.reverse()
 
     sep = ' '
-    if '-l' in args:
+    if '-l' in bashy_args:
         sep = '\n'
 
     # How to show files:
     def showfile(fl):
         fname = fl['name']
-        if '-r' not in args:
+        if '-r' not in bashy_args:
             fname = fname.split('/')[-1]
-        if '-l' in args: # full list (a bit simplier than bashe's arcane options)
+        if '-l' in bashy_args: # full list (a bit simplier than bashe's arcane options)
             return fl['permiss']+' '+str(fl['size'])+' '+str(fl['modified'])+' '+fname
-        elif '-s' in args:
+        elif '-s' in bashy_args:
             return str(fl['size'])+' '+fname
         else:
             return fname
@@ -173,8 +178,10 @@ def ls(bashy_args, shell_obj):
     return sep.join([showfile(f) for f in flist])
 
 def cd(bashy_args, shell_obj):
-    fname = absolute_path(args[-1])
-    flist = filelist_wildcard(fname, False, include_folders=True)
+    from Termpylus_core import file_io
+    fname = file_io.absolute_path(bashy_args[-1])
+    fname1 = bash_helpers.path_given_shell(fname, shell_obj)
+    flist = bash_helpers.filelist_wildcard(fname1, False, include_folders=True)
     if len(flist)==0:
         raise Exception('No such file or directory:'+str(fname))
     else:
@@ -185,7 +192,7 @@ def cd(bashy_args, shell_obj):
 
 def rm(bashy_args, shell_obj):
     # DANGER DANGER DANGER. You have been warned.
-    P = bashparse.option_parse(args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
+    P = bash_helpers.option_parse(bashy_args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     fname = x[0]
 
     if fname=='/' and '--no-preserve-root' not in fl:
@@ -196,8 +203,9 @@ def rm(bashy_args, shell_obj):
         if not answer:
             raise Exception('rm cmd averted by user.')
 
-    outer_flist = filelist_wildcard(fname, False, include_folders='-r' in fl)
-    inner_flist = filelist_wildcard(fname, '-r' in fl, include_folders='-r' in fl)
+    fname1 = bash_helpers.path_given_shell(fname, shell_obj)
+    outer_flist = bash_helpers.filelist_wildcard(fname1, False, include_folders='-r' in fl)
+    inner_flist = bash_helpers.filelist_wildcard(fname1, '-r' in fl, include_folders='-r' in fl)
 
     for f in outer_flist:
         gaurded_delete(f, '-r' in fl)

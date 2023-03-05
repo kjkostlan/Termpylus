@@ -3,7 +3,8 @@
 #Look for weighted combination of keywords, uses, etc.
 import sys, re, inspect
 from . import dwalk, file_io, var_watch
-from Termpylus_lang import pyparse, modules, ppatch, bashparse
+from Termpylus_lang import pyparse, modules, ppatch
+from Termpylus_shell import bash_helpers
 
 ##########################Lower-level fns#############################
 
@@ -178,7 +179,7 @@ def source_find(*bashy_args):
         out = out+'\n'+'Use '+verbose_key+' to output a more comprehensive dataset for further processing.'
         return out
 
-    P = bashparse.option_parse(bashy_args, fns.keys()); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
+    P = bash_helpers.option_parse(bashy_args, fns.keys()); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
 
     # Calculated weighed sum:
     triplets = []

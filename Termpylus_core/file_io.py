@@ -1,5 +1,5 @@
 # File io simple wrappers.
-import os, io
+import os, io, pathlib
 from . import gl_data
 
 printouts = False
@@ -8,6 +8,9 @@ debug_restrict_disk_modifications_to_these = None
 if 'fileio_globals' not in gl_data.dataset:
     gl_data.dataset['fileio_globals'] = {'original_txts':{}}
 fglobals = gl_data.dataset['fileio_globals']
+
+def absolute_path(fname):
+    return os.path.realpath(fname).replace('\\','/')
 
 def contents(fname):
     if not os.path.isfile(fname):
@@ -30,6 +33,9 @@ def contents_on_first_call(fname):
 
 def date_mod(fname):
     return os.path.getmtime(fname)
+
+def is_hidden(fname):
+    return fname.split('/')[-1][0] == '.'
 
 def fsave1(fname, txt, mode):
     #https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
@@ -87,7 +93,7 @@ def recursive_files(fname, include_folders=False, filter_fn=None, max_folder_dep
                 if include_folders:
                     out.append(f)
                 if len(fname.split('/'))<max_folder_depth:
-                    out = out+recursive_files_core(f, include_folders, filter_fn, max_folder_depth)
+                    out = out+recursive_files(f, include_folders, filter_fn, max_folder_depth)
             else:
                 out.append(f)
         return out
@@ -105,7 +111,7 @@ def _fileallow(fname):
     if keeplist is not None:
         if type(keeplist) is str:
             keeplist = [keeplist]
-        keeplist = [os.path.realpath(kl).replace('\\','/') for kl in keeplist]
+        keeplist = [absolute_path(kl) for kl in keeplist]
         allow = False
         for k in keeplist:
             if fname.startswith(k):
@@ -116,6 +122,7 @@ def _fileallow(fname):
 
 def gaurded_delete(fname, allow_folders=False):
     # Deleting is dangerous.
+    fname = absolute_path(fname)
     if not _fileallow(fname):
         raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows deleting this filename: '+fname)
     if os.path.isdir(fname) and not allow_folders:
@@ -125,6 +132,7 @@ def gaurded_delete(fname, allow_folders=False):
 def guarded_create(fname, is_folder):
     # Creating files isn't all that dangerous, but still can be annoying.
     # Skips files that already exist.
+    fname = absolute_path(fname)
     if not _fileallow(fname):
         raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows creating this filename: '+fname)
     fcreate(fname, is_folder)
