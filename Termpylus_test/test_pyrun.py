@@ -1,3 +1,4 @@
+#Tests running python and updating changes to python.
 import sys, os, imp
 from Termpylus_core import var_watch, updater, file_io
 from Termpylus_shell import bashy_cmds, shellpython
@@ -65,18 +66,34 @@ def test_file_caches():
     t3 = os.path.isfile(list(fnamemap.values())[4])
     return t0 and t1 and t2 and t3
 
-def test_vars_from_module():
-    modulename = '__main__'
-    x = sys.modules[modulename]
-    vmap = ppatch.get_vars(modulename, nest_inside_classes=True)
-
-    vmap0 = ppatch.get_vars(modulename, nest_inside_classes=False)
-    t0 = vmap['GUI'] is vmap0['GUI']
-    t1 = 'GUI.resize' in vmap and 'GUI.resize' not in vmap0
-    t2 = vmap['GUI'] is x.GUI
-    t3 = vmap['GUI.set_shell_output'] is x.GUI.set_shell_output
-    t4 = vmap['root'] is x.root
-    return t0 and t1 and t2 and t3 and t4
+def test_python_openproject():
+    # Our "python" command tries to launch a python program.
+    # A github project is downloaded into an alternate folder.
+    # Simple project: https://github.com/rajatshukla009/Breakout
+    # More complex project: https://github.com/nywang16/Pixel2Mesh
+    project_urls = ['https://github.com/rajatshukla009/Breakout', 'https://github.com/nywang16/Pixel2Mesh']
+    project_main_files = ['/Breakout/BREAKOUT.py', '/demo.py']
+    outside_folder = file_io.absolute_path('../__softwaredump__')
+    print('Outside folder:', outside_folder)
+    ask_for_permiss = False
+    if ask_for_permiss:
+        x = input('This test needs to download GitHub code to ' + outside_folder + ' y to preceed.')
+        if x.strip() != 'y':
+            return False
+    qwrap = lambda txt: '"'+txt+'"'
+    file_io.fdelete(outside_folder)
+    file_io.fcreate(outside_folder, True)
+    shell_obj = shellpython.Shell()
+    for i in range(len(project_urls)):
+        url = project_urls[i]
+        local_folder = outside_folder+'/'+url.split('/')[-1]
+        main_py_file = file_io.absolute_path(local_folder+'/'+project_main_files[i])
+        main_py_folder = os.path.dirname(main_py_file) # TODO: use this.
+        cmd = ' '.join(['git','clone',qwrap(url),qwrap(local_folder)])
+        #print('Cmd is:', cmd); return False
+        os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder.
+        bashy_cmds.python(main_py_folder, shell_obj)
+    return False # TODO.
 
 def run_tests():
     return ttools.run_tests(__name__)
