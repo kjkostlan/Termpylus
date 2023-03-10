@@ -5,7 +5,7 @@ from Termpylus_core import file_io
 
 def option_parse(args, paired_opts):
     # Bash-like handling of arguments.
-    # Returns {'flags': [-a, -b, -c, --foo, ...], 'pairs': {"-foo", "bar", ...}, 'tail': [a,b,c]}
+    # Returns {'flags': ["-a", "-b", "-c", "--foo", ...], 'pairs': {"-foo", "bar", ...}, 'tail': [a,b,c]}
     if type(args) is str:
         args = re.split(' +',args)
     paired_opts = set([p.replace('-','') for p in paired_opts])

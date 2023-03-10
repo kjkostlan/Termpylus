@@ -8,6 +8,8 @@
 import sys, os, subprocess, operator
 from . import bash_helpers
 
+############################### Custom commands ################################
+
 def help(bashy_args, shell_obj):
     # TODO: help is a dict and dict vals are more helpful.
     kys = sys.modules[__name__].__dict__.keys()
@@ -57,41 +59,65 @@ def pfind(bashy_args, shell_obj):
     return dquery.generic_find(bashy_args, pythonverse)
 
 def python(bashy_args, shell_obj):
-    # Unlike "run" this does not spawn a seperate process: we want to access the processes internals after all.
     if len(bashy_args)==0:
-        return 'Launch a Python project that you are working on. Can be a file or folder. Use -f to create a future in case of blocking main.py files.'
+        help = '''Runs a python script. Usage: "python pyFile.py args".
+-c: Concurrancy option. 0 = No concurrancy; t = seperate thread, returning a concurrent.future obj with a result() (the default); p = processes (also a future, no GIL but cannot access internals).
+-f: Run with our modules.module_from_file (the default) and then call a function from said module (this option conflicts with -n).
+   # f uses the tail
+-n: Use runpy.run_path using your supplied name which can be '__main__' (run_path is not the default). Conflicts with -f.
+-rmph: 1 means remove the module from the path once done. Conflicts with -n.
+'''
+        return help
 
-    # Runs a Python file much like a bash python command, except that it is ran in the current process.
-    # What does this mean?
-    # The file's folder is taken to be in the root of said python project (TODO: allow other options).
-    # This root folder is prepended to sys.path, so that all imports within the project can work.
-    # Our module names will almost certanly not conflict with the project.
-    # However, multible projects may generate namespace collisions.
-    #    I.e. if boh projects have a folder called 'extern'.
-    #    (thus it is not recommended to work on multible projects, unless you decollide them).
-    TODO #-f option makes a future.
+    fname = bashy_args[0]
+    P = bash_helpers.option_parse(bashy_args[1:], ['-c','-n','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
 
-    P = bash_helpers.option_parse(bashy_args, ['-m']); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
-    if len(x)==0:
-        raise Exception('Must specify filename to run.')
-    pyfname = bash_helpers.absolute_path(x[0], shell_obj)
-    if not pyfname.endswith('.py') and not pyfname.endswith('.txt'):
-        pyfname = pyfname+'.py'
+    if '-n' in kv:
+        if '-f' in kv or '-rmph' in kv:
+            raise Exception('Incompatible arguments: -n vs -f or -n vs -rmph')
 
-    if '-m' in kv:
-        modulename = kv['-m']
-    else: # Assume we are calling the root module name.
-        leaf = pyfname.split('/')[-1]
-        modulename = leaf.split('.')[0] # Remove the extension if any.
+    abs_path = bash_helpers.path_given_shell(fname, shell_obj)
 
-    folder_name = os.path.dirname(pyfname)
-    modules.add_to_path(folder_name)
-    foo = modules.module_from_file(modulename, pyfname)
+    def core_fn(): #Will be called directly or put into a future.
+        if '-n' in kv:
+            return runpy.run_path(abs_path, init_globals=None, run_name=kv['-n'])
+        else:
+            if '-m' in kv: # Not sure if this is useful.
+                modulename = kv['-m']
+            else: # Assume we are calling the root module name.
+                leaf = abs_path.split('/')[-1]
+                modulename = leaf.split('.')[0] # Remove the extension if any.
+            folder_name = os.path.dirname(abs_path)
+            modules.add_to_path(folder_name)
+            out = modules.module_from_file(modulename, abs_path)
+            if 'f' in kv:
+                out = getattr(out, kv[f])(**x) # TODO: better function call.
+            if '-rmph' in fl: # Remove path (don't make permement changes to path).
+                modules.pop_from_path()
+            return out
 
-    if '-rmph' in fl: # Remove path (don't make permement changes to path).
-        modules.pop_from_path()
-
-    return foo
+    c_opt = str(kv.get('-c', 't')).lower()
+    if c_opt=='t':
+        from concurrent.futures import ThreadPoolExecutor
+        executor = ThreadPoolExecutor(max_workers=1)
+        out = executor.submit(core_fn)
+    elif c_opt=='p':
+        from concurrent.futures import ProcessPoolExecutor
+        executor = ProcessPoolExecutor(max_workers=1)
+        out = executor.submit(core_fn)
+    elif c_opt=='0':
+        out = core_fn()
+    else:
+        raise Exception('-c (the concurrent option) must be 0, t, or p')
+    fast_report_exceptions = True
+    if fast_report_exceptions and c_opt != '0':
+        try:
+            ex = out.exception(timeout=0.125)
+            if ex is not None:
+                print('Launching the Python quickly caused this exception and shut down the Thread/Process:\n', repr(ex))
+        except TimeoutError:
+            pass
+    return out
 
 def pwatch(bashy_args, shell_obj):
     from Termpylus_core import var_watch
@@ -127,6 +153,8 @@ def grep(bashy_args, shell_obj):
             out[fname] = listy
 
     return out
+
+############################### Vanilla commands ###############################
 
 def ls(bashy_args, shell_obj):
     from Termpylus_core import file_io

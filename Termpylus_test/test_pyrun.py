@@ -40,20 +40,17 @@ def test_py_update():
     if txt1==txt:
         raise Exception('The change failed.')
     updater.save_py_file(fname, txt1, assert_py_module=True)
-    #x1 = modules.update_all_modules(use_date=False, update_on_first_see=False)
+
     val1 = changeme.mathy_function(1000)
     eds1 = var_watch.get_txt_edits()
     T1 = val1==1000+4321
     updater.save_py_file(fname, txt, assert_py_module=True) # revert.
 
-    #print('Values 01:', val0, val1)
-    #print('edits len:', len(eds0), len(eds1))
     last_ed = eds1[-1]
-    #print('last_ed:', last_ed)
+
     ed_len = (len(eds1)==len(eds0)+1)
     ed_test = last_ed[4] == '1234' and last_ed[5] == '4321'
-    #print('criteria:', T0, T1, ed_len, ed_test)
-    #print('Stuff test_py_update:', val0, val1)
+
     return T0 and T1 and ed_len and ed_test
 
 def test_file_caches():
@@ -69,10 +66,8 @@ def test_file_caches():
 def test_python_openproject():
     # Our "python" command tries to launch a python program.
     # A github project is downloaded into an alternate folder.
-    # Simple project: https://github.com/rajatshukla009/Breakout
-    # More complex project: https://github.com/nywang16/Pixel2Mesh
-    project_urls = ['https://github.com/rajatshukla009/Breakout', 'https://github.com/nywang16/Pixel2Mesh']
-    project_main_files = ['/Breakout/BREAKOUT.py', '/demo.py']
+    project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
+    project_main_files = ['/main.py', '/bench.py']
     outside_folder = file_io.absolute_path('../__softwaredump__')
     print('Outside folder:', outside_folder)
     ask_for_permiss = False
@@ -84,7 +79,10 @@ def test_python_openproject():
     file_io.fdelete(outside_folder)
     file_io.fcreate(outside_folder, True)
     shell_obj = shellpython.Shell()
+    concur_opt = 't' # '0','t','p'
     for i in range(len(project_urls)):
+        if i==1:
+            return False
         url = project_urls[i]
         local_folder = outside_folder+'/'+url.split('/')[-1]
         main_py_file = file_io.absolute_path(local_folder+'/'+project_main_files[i])
@@ -92,7 +90,7 @@ def test_python_openproject():
         cmd = ' '.join(['git','clone',qwrap(url),qwrap(local_folder)])
         #print('Cmd is:', cmd); return False
         os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder.
-        bashy_cmds.python(main_py_folder, shell_obj)
+        x = bashy_cmds.python([main_py_folder, '-c', concur_opt], shell_obj)
     return False # TODO.
 
 def run_tests():
