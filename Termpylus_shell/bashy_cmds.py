@@ -60,23 +60,33 @@ def pfind(bashy_args, shell_obj):
 
 def python(bashy_args, shell_obj):
     if len(bashy_args)==0:
-        help = '''Runs a python script. Usage: "python pyFile.py args".
+        help = '''Runs a python script or project. Usage: "python path/to/pyFile.py args".
 -c: Concurrancy option. 0 = No concurrancy; t = seperate thread, returning a concurrent.future obj with a result() (the default); p = processes (also a future, no GIL but cannot access internals).
 -f: Run with our modules.module_from_file (the default) and then call a function from said module (this option conflicts with -n).
    # f uses the tail
 -n: Use runpy.run_path using your supplied name which can be '__main__' (run_path is not the default). Conflicts with -f.
 -rmph: 1 means remove the module from the path once done. Conflicts with -n.
+-m: Override module name. Conflicts with -n.
 '''
         return help
+
+    from Termpylus_lang import modules
 
     fname = bashy_args[0]
     P = bash_helpers.option_parse(bashy_args[1:], ['-c','-n','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
 
     if '-n' in kv:
-        if '-f' in kv or '-rmph' in kv:
-            raise Exception('Incompatible arguments: -n vs -f or -n vs -rmph')
+        if '-f' in kv or '-rmph' in kv or '-m' in kv:
+            raise Exception('Incompatible arguments: -n vs (-f -rmph or -m).')
 
     abs_path = bash_helpers.path_given_shell(fname, shell_obj)
+    if not os.path.exists(abs_path):
+        raise Exception('File/folder does not exist: '+str(abs_path))
+
+    if os.path.isdir(abs_path):
+        if not os.path.exists(abs_path+'/main.py'):
+            raise Exception('No main.py found in:'+abs_path+'; thus a .py file, not a folder, must be specified.')
+        abs_path = abs_path+'/main.py'
 
     def core_fn(): #Will be called directly or put into a future.
         if '-n' in kv:
@@ -87,8 +97,7 @@ def python(bashy_args, shell_obj):
             else: # Assume we are calling the root module name.
                 leaf = abs_path.split('/')[-1]
                 modulename = leaf.split('.')[0] # Remove the extension if any.
-            folder_name = os.path.dirname(abs_path)
-            modules.add_to_path(folder_name)
+
             out = modules.module_from_file(modulename, abs_path)
             if 'f' in kv:
                 out = getattr(out, kv[f])(**x) # TODO: better function call.
@@ -114,7 +123,7 @@ def python(bashy_args, shell_obj):
         try:
             ex = out.exception(timeout=0.125)
             if ex is not None:
-                print('Launching the Python quickly caused this exception and shut down the Thread/Process:\n', repr(ex))
+                print("Attempting to launch "+abs_path+" quickly caused this exception and shut down it's Thread/Process:\n", repr(ex))
         except TimeoutError:
             pass
     return out

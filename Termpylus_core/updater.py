@@ -103,7 +103,7 @@ def update_one_module(modulename, fname=None, assert_main=True):
 
 def update_user_changed_modules(update_on_first_see=True, use_date=False):
     # Updates modules that aren't pip packages or builtin.
-    # use_date True should be faster but maybe less accurate.
+    # use_date True should be faster but maybe miss some files?
     # Returns {mname: ModuleUpdate object}
     fnames = modules.module_fnames(True)
     #print('Updating USER MODULES, '+str(len(uglobals['filecontents']))+' files currently cached,', str(len(fnames)), 'user modules recognized.')

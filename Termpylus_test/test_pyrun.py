@@ -79,7 +79,7 @@ def test_python_openproject():
     file_io.fdelete(outside_folder)
     file_io.fcreate(outside_folder, True)
     shell_obj = shellpython.Shell()
-    concur_opt = 't' # '0','t','p'
+    concur_opt = '0' # '0','t','p'
     for i in range(len(project_urls)):
         if i==1:
             return False
