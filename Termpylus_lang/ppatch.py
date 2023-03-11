@@ -1,4 +1,5 @@
 # Patch system: Allows making and removing patches to variables.
+# (Of course this requires functions that get variables from modules)
 import sys
 from Termpylus_core import gl_data
 
@@ -42,6 +43,24 @@ def set_var(modulename, var_name, x):
 def reset_var(modulename, var_name):
     if is_modified(modulename, var_name):
         set_var(modulename, var_name, _gld['original_varss'][modulename][var_name])
+
+def eval_here(modulename, code_txt, delete_new_vars=False):
+    # Runs code_txt in modulename. Returns any vars that are created (added to the __dict__)
+    # (which means that it returns an empty dict for purely side-effect-free code).
+    # Option to delete new vars to "clean up"
+    #https://stackoverflow.com/questions/2220699/whats-the-difference-between-eval-exec-and-compile
+    m = modulename if type(modulename) is type(sys) else sys.modules[modulename]
+
+    vars0 = set(m.__dict__.keys())
+    exec(code_txt, vars(m)) # This also makes
+    new_vars = list(set(m.__dict__.keys())-vars0); new_vars.sort()
+
+    out = {}
+    for new_var in new_vars:
+        out[new_var] = getattr(m, new_var)
+        if delete_new_vars:
+            delattr(m, new_var)
+    return out
 
 ############################### Multible updates ###############################
 

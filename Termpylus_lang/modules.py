@@ -1,5 +1,4 @@
 # Loading new modules and updating modules (but not file io)
-# Also: functions that get variables from modules.
 import sys, os, importlib, io
 from Termpylus_core import gl_data
 

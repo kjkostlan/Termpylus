@@ -53,6 +53,29 @@ def test_py_update():
 
     return T0 and T1 and ed_len and ed_test
 
+def test_eval():
+    # Does eval (actually exec) work in all modules?
+    def evl(mname, txt, deletevar=True):
+        return ppatch.eval_here(mname, txt, delete_new_vars=deletevar)
+
+    out = True
+    x = evl('Termpylus_test.test_pyrun', '_x_ = test_py_update')
+    out = out and x['_x_'] is test_py_update
+    y = evl('Termpylus_core.file_io', '_y_ = is_path_absolute("./bar"); _z_ = 2')
+    out = out and y['_y_'] is False
+    out = out and '_y_' not in file_io.__dict__
+    z = evl('Termpylus_core.todict', '_z_ = default_blockset({},[])')
+    out = out and z['_z_'] == {}
+    try:
+        w = evl('Termpylus_test.test_pyrun', '_w_ = test_py_updyate')
+        out = False
+    except:
+        pass
+    w = evl('Termpylus_core.file_io', '_w_ = is_path_absolute("./bar")', False)
+    out = out and '_w_' in file_io.__dict__
+
+    return out
+
 def test_file_caches():
     updater.startup_cache_sources()
     mglob = updater.uglobals
