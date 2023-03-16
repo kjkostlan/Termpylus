@@ -14,6 +14,6 @@ def some_test(*args): # Call with test1
     #return test_parse.test_py_defs()
     #return test_parse.test_bash2py()
     #return test_parse.test_bash_parse()
-    #return test_pyrun.test_python_openproject()
-    return test_pyrun.test_eval()
+    #return test_pyrun.test_eval()
+    return test_pyrun.test_python_openproject()
     pass
