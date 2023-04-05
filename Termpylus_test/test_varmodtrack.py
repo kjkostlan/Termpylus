@@ -51,6 +51,20 @@ def test_get_vars():
     test2 = len(set(v_without_nest.keys())-set(v_with_nest.keys())) == 0
     return test0 and test1 and test2
 
+def test_vars_from_module():
+    # TODO: merge this with test_get_vars?
+    modulename = '__main__'
+    x = sys.modules[modulename]
+    vmap = ppatch.get_vars(modulename, nest_inside_classes=True)
+
+    vmap0 = ppatch.get_vars(modulename, nest_inside_classes=False)
+    t0 = vmap['GUI'] is vmap0['GUI']
+    t1 = 'GUI.resize' in vmap and 'GUI.resize' not in vmap0
+    t2 = vmap['GUI'] is x.GUI
+    t3 = vmap['GUI.set_shell_output'] is x.GUI.set_shell_output
+    t4 = vmap['root'] is x.root
+    return t0 and t1 and t2 and t3 and t4
+
 def test_instance_method():
     # foo.bar will make a fresh bar every time. Can all the different bars be tracked to the same foo?
     class Foo():

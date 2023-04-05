@@ -1,5 +1,5 @@
 # File io simple wrappers.
-import os, io, pathlib, shutil, time
+import os, io, pathlib, shutil, time, stat
 from . import gl_data
 
 printouts = False
@@ -56,7 +56,7 @@ def _unwindoze_attempt(f, name, tries, retry_delay):
             break
         except PermissionError as e:
             if 'being used by another process' not in str(e):
-                f() # actual permission errors.
+                f() # Throw actual permission errors.
             if i==tries-1:
                 raise Exception('Windoze error: Retried too many times and this file stayed in use:', name)
             print('File-in-use error (will retry) for:', name)
@@ -75,12 +75,28 @@ def fsave(fname, txt, tries=12, retry_delay=1.0):
     _fsave1(fname, txt, "w", tries, retry_delay)
 
 def fdelete(fname, tries=12, retry_delay=1.0):
+    version2 = False # (I think) V1 and V2 are equivalent.
+
     # Works on files and folders.
-    def f():
-        if is_folder(fname):
+    if version2: #https://stackoverflow.com/questions/4829043/how-to-remove-read-only-attrib-directory-with-python-in-windows
+        def f():
+            if is_folder(fname):
+                for root, dirs, files in os.walk(fname):
+                    for fname1 in files:
+                        full_path = os.path.join(root, fname1)
+                        os.chmod(full_path ,stat.S_IWRITE)
             shutil.rmtree(fname)
-        else:
-            os.remove(fname)
+    else: #https://stackoverflow.com/questions/1889597/deleting-read-only-directory-in-python
+        def remove_readonly(func, path, excinfo):
+            os.chmod(path, stat.S_IWRITE) # rmtree can't remove internal read-only files, but the explorer can. This will remov read-only related errors.
+            func(path)
+        def f():
+            if not os.path.exists(fname):
+                return
+            if is_folder(fname):
+                shutil.rmtree(fname, onerror=remove_readonly)
+            else:
+                os.remove(fname)
     _unwindoze_attempt(f, fname, tries, retry_delay)
 
 def fcreate(fname, is_folder):

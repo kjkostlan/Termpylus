@@ -1,4 +1,5 @@
 # Tests the more bash commands and shell directory.
+# Does not test Bash parsing (see test_parse) or our Python updating system (see test_pyrun).
 import os
 import tkinter.messagebox
 from Termpylus_shell import shellpython, bashy_cmds

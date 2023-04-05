@@ -1,3 +1,4 @@
+#Tests running python and updating changes to python.
 import sys, os, imp
 from Termpylus_core import var_watch, updater, file_io
 from Termpylus_shell import bashy_cmds, shellpython
@@ -39,21 +40,41 @@ def test_py_update():
     if txt1==txt:
         raise Exception('The change failed.')
     updater.save_py_file(fname, txt1, assert_py_module=True)
-    #x1 = modules.update_all_modules(use_date=False, update_on_first_see=False)
+
     val1 = changeme.mathy_function(1000)
     eds1 = var_watch.get_txt_edits()
     T1 = val1==1000+4321
     updater.save_py_file(fname, txt, assert_py_module=True) # revert.
 
-    #print('Values 01:', val0, val1)
-    #print('edits len:', len(eds0), len(eds1))
     last_ed = eds1[-1]
-    #print('last_ed:', last_ed)
+
     ed_len = (len(eds1)==len(eds0)+1)
     ed_test = last_ed[4] == '1234' and last_ed[5] == '4321'
-    #print('criteria:', T0, T1, ed_len, ed_test)
-    #print('Stuff test_py_update:', val0, val1)
+
     return T0 and T1 and ed_len and ed_test
+
+def test_eval():
+    # Does eval (actually exec) work in all modules?
+    def evl(mname, txt, deletevar=True):
+        return ppatch.eval_here(mname, txt, delete_new_vars=deletevar)
+
+    out = True
+    x = evl('Termpylus_test.test_pyrun', '_x_ = test_py_update')
+    out = out and x['_x_'] is test_py_update
+    y = evl('Termpylus_core.file_io', '_y_ = is_path_absolute("./bar"); _z_ = 2')
+    out = out and y['_y_'] is False
+    out = out and '_y_' not in file_io.__dict__
+    z = evl('Termpylus_core.todict', '_z_ = default_blockset({},[])')
+    out = out and z['_z_'] == {}
+    try:
+        w = evl('Termpylus_test.test_pyrun', '_w_ = test_py_updyate')
+        out = False
+    except:
+        pass
+    w = evl('Termpylus_core.file_io', '_w_ = is_path_absolute("./bar")', False)
+    out = out and '_w_' in file_io.__dict__
+
+    return out
 
 def test_file_caches():
     updater.startup_cache_sources()
@@ -65,18 +86,35 @@ def test_file_caches():
     t3 = os.path.isfile(list(fnamemap.values())[4])
     return t0 and t1 and t2 and t3
 
-def test_vars_from_module():
-    modulename = '__main__'
-    x = sys.modules[modulename]
-    vmap = ppatch.get_vars(modulename, nest_inside_classes=True)
-
-    vmap0 = ppatch.get_vars(modulename, nest_inside_classes=False)
-    t0 = vmap['GUI'] is vmap0['GUI']
-    t1 = 'GUI.resize' in vmap and 'GUI.resize' not in vmap0
-    t2 = vmap['GUI'] is x.GUI
-    t3 = vmap['GUI.set_shell_output'] is x.GUI.set_shell_output
-    t4 = vmap['root'] is x.root
-    return t0 and t1 and t2 and t3 and t4
+def test_python_openproject():
+    # Our "python" command tries to launch a python program.
+    # A github project is downloaded into an alternate folder.
+    project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
+    project_main_files = ['/main.py', '/bench.py']
+    outside_folder = file_io.absolute_path('../__softwaredump__')
+    print('Outside folder:', outside_folder)
+    ask_for_permiss = False
+    if ask_for_permiss:
+        x = input('This test needs to download GitHub code to ' + outside_folder + ' y to preceed.')
+        if x.strip() != 'y':
+            return False
+    qwrap = lambda txt: '"'+txt+'"'
+    file_io.fdelete(outside_folder)
+    file_io.fcreate(outside_folder, True)
+    shell_obj = shellpython.Shell()
+    concur_opt = '0' # '0','t','p'
+    for i in range(len(project_urls)):
+        if i==1:
+            return False
+        url = project_urls[i]
+        local_folder = outside_folder+'/'+url.split('/')[-1]
+        main_py_file = file_io.absolute_path(local_folder+'/'+project_main_files[i])
+        main_py_folder = os.path.dirname(main_py_file) # TODO: use this.
+        cmd = ' '.join(['git','clone',qwrap(url),qwrap(local_folder)])
+        #print('Cmd is:', cmd); return False
+        os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder.
+        x = bashy_cmds.python([main_py_folder, '-c', concur_opt], shell_obj)
+    return False # TODO.
 
 def run_tests():
     return ttools.run_tests(__name__)

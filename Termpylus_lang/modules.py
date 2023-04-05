@@ -1,5 +1,4 @@
 # Loading new modules and updating modules (but not file io)
-# Also: functions that get variables from modules.
 import sys, os, importlib, io
 from Termpylus_core import gl_data
 
@@ -13,8 +12,9 @@ mglobals = gl_data.dataset['modules_globals']
 
 def add_to_path(folder_name):
     # https://docs.python.org/3/library/sys.html#sys.path
-    sys.path = [os.path.realpath(folder_name)]+sys.path
-    mglobals['pathprepends'].add(folder_name)
+    if folder_name not in set(sys.path):
+        sys.path = [os.path.realpath(folder_name)]+sys.path
+        mglobals['pathprepends'].add(folder_name)
 
 def pop_from_path():
     mglobals['pathprepends'].remove(sys.path[0])
@@ -57,16 +57,20 @@ def module_fnames(user_only=False):
     return out
 
 def module_from_file(modulename, pyfname, exec_module=True):
-    # Creates a module from a file.
+    # Creates a module from a file. Generally the modulename will be foo.bar if the
+    # file is path/to/external/project/foo/bar.py
     if modulename in sys.modules: # already exists, just update it.
         pyfname0 = module_file(modulename)
         if pyfname0 == pyfname:
-            update_one_module(modulename, False)
+            #update_one_module(modulename, False) # Shouldn't be necessary as long as update_user_changed_modules is bieng called.
             return sys.modules[modulename]
         elif pyfname0 is not None:
             pyfname = os.path.realpath(pyfname).replace('\\','/')
             if pyfname != pyfname0:
                 raise Exception('Shadowing modulename: '+modulename+' Old py.file: '+pyfname0+ 'New py.file '+pyfname)
+
+    folder_name = os.path.dirname(pyfname)
+    add_to_path(folder_name)
 
     #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
     spec = importlib.util.spec_from_file_location(modulename, pyfname)
