@@ -86,13 +86,48 @@ def test_file_caches():
     t3 = os.path.isfile(list(fnamemap.values())[4])
     return t0 and t1 and t2 and t3
 
+def test_dynamic_add_fn():
+    # Can we add a function that uses a module's variables?
+    out = True
+    from . import test_varmodtrack
+    modul = test_varmodtrack
+    def foo(bar):
+        if bar>0:
+            x = test_var_get
+            return type(x)
+        else:
+            return modul
+    modul.foo = foo
+
+    try: # This wont work.
+        ty = modul.foo(1)
+        out = False
+    except Exception as e:
+        if "name 'test_var_get' is not defined" not in str(e):
+            raise e
+    modul = modul.foo(0) # But variables HERE are accessable; def evaluates into this module.
+
+    bar_txt = '''
+def bar(foo):
+    x = test_var_get
+    return [x,2,3]
+'''
+
+    exec(bar_txt, modul.__dict__)
+    out = out and modul.bar(1)[0] is modul.test_var_get
+
+    return out
+
+
 def test_python_openproject():
+    # BIG TEST!
     # Our "python" command tries to launch a python program.
     # A github project is downloaded into an alternate folder.
+
     project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
     project_main_files = ['/main.py', '/bench.py']
     outside_folder = file_io.absolute_path('../__softwaredump__')
-    print('Outside folder:', outside_folder)
+    print('Git Clones into this folder:', outside_folder)
     ask_for_permiss = False
     if ask_for_permiss:
         x = input('This test needs to download GitHub code to ' + outside_folder + ' y to preceed.')
@@ -102,7 +137,6 @@ def test_python_openproject():
     file_io.fdelete(outside_folder)
     file_io.fcreate(outside_folder, True)
     shell_obj = shellpython.Shell()
-    concur_opt = '0' # '0','t','p'
     for i in range(len(project_urls)):
         if i==1:
             return False
@@ -113,7 +147,8 @@ def test_python_openproject():
         cmd = ' '.join(['git','clone',qwrap(url),qwrap(local_folder)])
         #print('Cmd is:', cmd); return False
         os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder.
-        x = bashy_cmds.python([main_py_folder, '-c', concur_opt], shell_obj)
+        # -th = Thread, -pr = process. Neither = Not applicable.
+        x = bashy_cmds.python([main_py_folder, '--th'], shell_obj)
     return False # TODO.
 
 def run_tests():

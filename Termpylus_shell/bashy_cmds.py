@@ -39,7 +39,7 @@ def utest(bashy_args, shell_obj):
     print('**************Running unit tests**************')
     from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun
     n_fail = 0
-    for t_module in [test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun]:
+    for t_module in [test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun]:
         if not t_module.run_tests():
             print('>>testing failed for:', t_module)
             n_fail = n_fail+1
@@ -61,7 +61,8 @@ def pfind(bashy_args, shell_obj):
 def python(bashy_args, shell_obj):
     if len(bashy_args)==0:
         help = '''Runs a python script or project. Usage: "python path/to/pyFile.py args".
--c: Concurrancy option. 0 = No concurrancy; t = seperate thread, returning a concurrent.future obj with a result() (the default); p = processes (also a future, no GIL but cannot access internals).
+--th run in seperate thread, returning a concurrent.future obj with a result() (the default)
+--pr processes (also a future, no GIL but cannot access internals); conflicts with th.
 -f: Run with our modules.module_from_file (the default) and then call a function from said module (this option conflicts with -n).
    # f uses the tail
 -n: Use runpy.run_path using your supplied name which can be '__main__' (run_path is not the default). Conflicts with -f.
@@ -73,22 +74,25 @@ def python(bashy_args, shell_obj):
     from Termpylus_lang import modules
 
     fname = bashy_args[0]
-    P = bash_helpers.option_parse(bashy_args[1:], ['-c','-n','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
+    P = bash_helpers.option_parse(bashy_args[1:], ['-n','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
 
+    # Assertions.
     if '-n' in kv:
         if '-f' in kv or '-rmph' in kv or '-m' in kv:
             raise Exception('Incompatible arguments: -n vs (-f -rmph or -m).')
+    if '--th' in fl and '--pr' in fl:
+        raise Exception('Incompatible arguments: --th vs --pr.')
 
+    # Compute the path to the Python file:
     abs_path = bash_helpers.path_given_shell(fname, shell_obj)
     if not os.path.exists(abs_path):
         raise Exception('File/folder does not exist: '+str(abs_path))
-
     if os.path.isdir(abs_path):
         if not os.path.exists(abs_path+'/main.py'):
             raise Exception('No main.py found in:'+abs_path+'; thus a .py file, not a folder, must be specified.')
         abs_path = abs_path+'/main.py'
 
-    def core_fn(): #Will be called directly or put into a future.
+    def core_fn(): #Will be called directly OR put into a future.
         if '-n' in kv:
             return runpy.run_path(abs_path, init_globals=None, run_name=kv['-n'])
         else:
@@ -105,21 +109,20 @@ def python(bashy_args, shell_obj):
                 modules.pop_from_path()
             return out
 
-    c_opt = str(kv.get('-c', 't')).lower()
-    if c_opt=='t':
+    # Concurrency options:
+    if '--th' in fl:
         from concurrent.futures import ThreadPoolExecutor
         executor = ThreadPoolExecutor(max_workers=1)
         out = executor.submit(core_fn)
-    elif c_opt=='p':
+    elif '--pr' in fl:
         from concurrent.futures import ProcessPoolExecutor
         executor = ProcessPoolExecutor(max_workers=1)
         out = executor.submit(core_fn)
-    elif c_opt=='0':
-        out = core_fn()
     else:
-        raise Exception('-c (the concurrent option) must be 0, t, or p')
+        out = core_fn()
+
     fast_report_exceptions = True
-    if fast_report_exceptions and c_opt != '0':
+    if fast_report_exceptions and ('--th' in fl or --pr in fl):
         try:
             ex = out.exception(timeout=0.125)
             if ex is not None:
