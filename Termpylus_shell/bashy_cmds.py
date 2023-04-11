@@ -66,7 +66,7 @@ def python(bashy_args, shell_obj):
 -f: Run with our modules.module_from_file (the default) and then call a function from said module (this option conflicts with -n).
    # f uses the tail
 -n: Use runpy.run_path using your supplied name which can be '__main__' (run_path is not the default). Conflicts with -f.
--rmph: 1 means remove the module from the path once done. Conflicts with -n.
+--rmph: Remove the module from the path once done. Conflicts with -n.
 -m: Override module name. Conflicts with -n.
 '''
         return help
@@ -78,8 +78,8 @@ def python(bashy_args, shell_obj):
 
     # Assertions.
     if '-n' in kv:
-        if '-f' in kv or '-rmph' in kv or '-m' in kv:
-            raise Exception('Incompatible arguments: -n vs (-f -rmph or -m).')
+        if '-f' in kv or '--rmph' in fl or '-m' in kv:
+            raise Exception('Incompatible arguments: -n vs (-f --rmph or -m).')
     if '--th' in fl and '--pr' in fl:
         raise Exception('Incompatible arguments: --th vs --pr.')
 
@@ -105,7 +105,7 @@ def python(bashy_args, shell_obj):
             out = modules.module_from_file(modulename, abs_path)
             if 'f' in kv:
                 out = getattr(out, kv[f])(**x) # TODO: better function call.
-            if '-rmph' in fl: # Remove path (don't make permement changes to path).
+            if '--rmph' in fl: # Remove path (don't make permement changes to path).
                 modules.pop_from_path()
             return out
 
@@ -117,12 +117,14 @@ def python(bashy_args, shell_obj):
     elif '--pr' in fl:
         from concurrent.futures import ProcessPoolExecutor
         executor = ProcessPoolExecutor(max_workers=1)
+        # TODO: gets can't pickle local object error.
+        #https://stackoverflow.com/questions/8804830/python-multiprocessing-picklingerror-cant-pickle-type-function
         out = executor.submit(core_fn)
     else:
         out = core_fn()
 
     fast_report_exceptions = True
-    if fast_report_exceptions and ('--th' in fl or --pr in fl):
+    if fast_report_exceptions and ('--th' in fl or '--pr' in fl):
         try:
             ex = out.exception(timeout=0.125)
             if ex is not None:

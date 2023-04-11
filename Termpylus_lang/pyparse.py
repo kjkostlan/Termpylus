@@ -164,6 +164,7 @@ def canon_str(code):
     return code.replace('\r\n','\n').replace('\t','    ')
 
 def line_start_ixs(code_or_lines):
+    # The character index of the first element in the line.
     if type(code_or_lines) is str:
         code_or_lines = code_or_lines.split('\n')
     ix = 0; out = []
@@ -205,13 +206,13 @@ def line_indent_levels(code):
         indent_nest.append(depth)
         last_depth = depth
 
-    return indent_nest, in_quote_line_start
+    return indent_nest, in_quote_line_start, sps_ea_line
 
 def sourcecode_defs(code, nest=True, unindent_nested=True):
     # Map from var name to def source. Option to nest inside defs and classes.
     # (nested defs will be reported here but are not seen as a module or class attribute).
     code = canon_str(code); lines = code.split('\n')
-    levels, in_quote_line_starts = line_indent_levels(code)
+    levels, in_quote_line_starts, _ = line_indent_levels(code)
     nestings = []
     out = {}
     N = len(lines)
@@ -221,6 +222,7 @@ def sourcecode_defs(code, nest=True, unindent_nested=True):
             vname = (simple_tokens(l0)+['__PARSEERROR__'])[1].strip()
             nestings.append(vname)
             vnamefull = '.'.join(filter(lambda x: len(x)>0, nestings))
+
             if nest or len(nestings)<=1:
                 src_lines = []; hit_the_body_lines = False
                 for j in range(i, len(lines)):
@@ -242,8 +244,32 @@ def sourcecode_defs(code, nest=True, unindent_nested=True):
             nestings.append('') # Non-nesting indent.
         elif i<N-1 and levels[i+1]<levels[i]: # dedent.
             nestings = nestings[0:levels[i+1]]
-
     return out
+
+def statement_contents(code, line_f, dedent=True):
+    # Extracts blocks of code for which line_f(the_line) is True.
+    code = canon_str(code); lines = code.split('\n')
+    levels, in_quote_line_starts, sps_ea_line = line_indent_levels(code)
+    N = len(lines)
+    out = []; i=0
+    while i<N-1:
+        outi = []; sp = 0; ixs = []
+        if line_f(lines[i]):
+            lev = levels[i]; sp = in_quote_line_starts[i]
+            for j in range(i+1, N):
+                if levels[j]<=lev:
+                    break; i = j
+                outi.append(lines[j]); ixs.append(j)
+        if dedent:
+            for ixi in range(len(ixs)):
+                if not in_quote_line_starts[ixs[ixi]]:
+                    for j in range(sps_ea_line[ixs[ixi]]): # inefficient but a bit more robust.
+                      if outi[ixi].startswith(' '):
+                          outi[ixi] = outi[ixi][1:]
+        if len(outi)>0:
+            out.append(outi)
+        i = i+1
+    return ['\n'.join(outi) for outi in out]
 
 def txt_edit(old_txt, new_txt):
     # If not change or old_txt is None will not make a difference.

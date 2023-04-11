@@ -1,6 +1,7 @@
 # Loading new modules and updating modules (but not file io)
-import sys, os, importlib, io
-from Termpylus_core import gl_data
+import sys, os, importlib, io, re
+from Termpylus_core import gl_data, file_io
+from . import pyparse
 
 if 'modules_globals' not in gl_data.dataset:
     mglobals = dict()
@@ -12,6 +13,7 @@ mglobals = gl_data.dataset['modules_globals']
 
 def add_to_path(folder_name):
     # https://docs.python.org/3/library/sys.html#sys.path
+    folder_name = os.path.realpath(folder_name)
     if folder_name not in set(sys.path):
         sys.path = [os.path.realpath(folder_name)]+sys.path
         mglobals['pathprepends'].add(folder_name)
@@ -81,3 +83,15 @@ def module_from_file(modulename, pyfname, exec_module=True):
     if exec_module:
         spec.loader.exec_module(foo)
     return foo
+
+def get_main_blocks(modulename):
+    # The module must be loaded.
+    # Returns a vector.
+    txt = file_io.contents(module_file(modulename))
+    def _line_f(line):
+        no_comment = re.sub(r'#.*', '', line)
+        gold = 'if __name__ == "__main__":'
+        _rep = lambda txt: txt.replace('==','is').replace(' ','').replace('"',"'").strip()
+        return _rep(no_comment)==_rep(gold)
+    main_contents = pyparse.statement_contents(txt, _line_f, dedent=True)
+    return main_contents

@@ -37,7 +37,7 @@ def path_given_shell(fname, the_shell):
     if file_io.is_path_absolute(fname):
         return file_io.absolute_path(fname)
     else:
-        return file_io.absolute_path(the_shell.cur_dir+'/'+fname)
+        return file_io.absolute_path(('.' if shell is None else the_shell.cur_dir)+'/'+fname)
 
 def bashy_file_info(fname):
     #https://flaviocopes.com/python-get-file-details/

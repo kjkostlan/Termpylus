@@ -23,7 +23,7 @@ def run_tests(module_name):
     vars.sort()
     failed_tests = []
     for v in vars:
-        if '__' in v:
+        if v.startswith('_'):
             continue
         if 'run_tests' in v:
             continue

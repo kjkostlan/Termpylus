@@ -2,6 +2,7 @@
 import sys
 from Termpylus_core import updater, todict, dwalk, dquery
 from Termpylus_lang import ppatch
+from Termpylus_shell import bashy_cmds
 from . import ttools
 
 try:
@@ -33,8 +34,10 @@ def find_gui_fn_test():
 def search_source_test():
     # Not the pythonverse itself, but a similar idea.
     # Does not test requring.
+    # TODO: more tests.
     xn = dquery.source_find('-n', 'gui_fn_test')
-    xar = dquery.source_find('-ar', '20')
+    xar = dquery.source_find('-ar','20')
+    xar = bashy_cmds.sfind(['-ar', '20'], None) # Equivalent version used in the command prompt.
     xarv = dquery.source_find('-ar', 0, '-v')
     xs = dquery.source_find('-s', "if fname not in fglobals['original_txts']")
     #print('Pieces:', 'find_gui_fn_test' in str(xn), 'todict.to_dict' in str(xar), 'Sourcevar' in str(xarv), len(xarv)>96, 'contents_on_first_call' in str(xs))

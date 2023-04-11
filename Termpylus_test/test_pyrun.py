@@ -1,18 +1,41 @@
 #Tests running python and updating changes to python.
-import sys, os, imp
+import sys, os, imp, re
 from Termpylus_core import var_watch, updater, file_io
+from Termpylus_lang import pyparse
 from Termpylus_shell import bashy_cmds, shellpython
 from Termpylus_lang import ppatch, modules
 from . import ttools
+
+project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
+project_main_files = ['/main.py', '/bench.py']
+outside_folder = file_io.absolute_path('../__softwaredump__/Termpylus/sample_projs')
+leaf_samples = [url.split('/')[-1] for url in project_urls]
+sample_github_folders = [outside_folder+'/'+leaf_sample for leaf_sample in leaf_samples]
+
+def _fetch_sample_githubs():
+    # Fetch sample githubs into an external softwaredump folder.
+    print('Fetching GIT samples')
+    ask_for_permiss = False
+    if ask_for_permiss:
+        x = input('These tests needs to download GitHub code to ' + outside_folder + ' y to preceed.')
+        if x.strip() != 'y':
+            return False
+    qwrap = lambda txt: '"'+txt+'"'
+    file_io.fdelete(outside_folder)
+    file_io.fcreate(outside_folder, True)
+    for i in range(len(project_urls)):
+        url = project_urls[i]
+        local_folder = outside_folder+'/'+url.split('/')[-1]
+        cmd = ' '.join(['git','clone',qwrap(url), qwrap(local_folder)])
+        os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder.
+    print('Git Clones saved into this folder:', outside_folder)
 
 def test_py_import0():
     # Optional extra test. Returns True unless there is a simplypyimport test folder
     # outside of our main directory for which it will try importing it.
     # If this test fails (with the right folder & contents) opening a project will fail.
     kys0 = list(sys.modules.keys())
-    folder = os.path.dirname(os.path.realpath(__file__)).replace('\\','/')
-    folder = folder.replace('Termpylus','')+'/../simplypyimport/'
-    if not os.path.exists(folder):
+    if not os.path.exists(outside_folder):
         print('Warning: external directory for testing does not exist.')
         return True
 
@@ -47,7 +70,6 @@ def test_py_update():
     updater.save_py_file(fname, txt, assert_py_module=True) # revert.
 
     last_ed = eds1[-1]
-
     ed_len = (len(eds1)==len(eds0)+1)
     ed_test = last_ed[4] == '1234' and last_ed[5] == '4321'
 
@@ -118,38 +140,56 @@ def bar(foo):
 
     return out
 
+def test_main_extract():
+    # Tests whether we can extract the if __name__ is __main__ part.
+    # ALSO tests loadiing a module.
+
+    foalder = sample_github_folders[0]
+    piefile = project_main_files[0]; modname = piefile.replace('.py','').replace('/','')
+
+    # TWO ways to import:
+    run_module_directly = False
+    if run_module_directly:
+        _ = bashy_cmds.python([sample_github_folders[0]+'/'+piefile, '--th'], None) # Needed to load the repo.
+    else:
+        import importlib
+        modules.add_to_path(outside_folder+'/'+leaf_samples[0])
+        #Not helpful: modules.add_to_path(outside_subfolder)
+        print('Checking the path:', os.path.realpath(outside_folder+'/'+leaf_samples[0]) in sys.path, outside_folder+'/'+leaf_samples[0])
+        #file_io.fsave(outside_folder+'/__init__.py','')
+        #importlib.import_module(outside_subfolder)
+        #from load_sprite import load_sprite
+        #importlib.import_module(modname)
+        #importlib.import_module(leaf_samples[0]+'.'+modname)
+    out = True
+    modules.module_fnames(True)
+    if_name_main_blocks = modules.get_main_blocks(modname)
+    #contents = file_io.contents(sample_github_folders[0]+'/'+project_main_files[0])
+
+    out = out and len(if_name_main_blocks) == 2
+    out = out and "pygame.display.set_caption('arkanoid')" in if_name_main_blocks[0]
+    out = out and "bricks, platform, ball, bricks_quantity = game_field_init()" in if_name_main_blocks[1]
+    return out
 
 def test_python_openproject():
     # BIG TEST!
-    # Our "python" command tries to launch a python program.
-    # A github project is downloaded into an alternate folder.
-
-    project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
-    project_main_files = ['/main.py', '/bench.py']
-    outside_folder = file_io.absolute_path('../__softwaredump__')
-    print('Git Clones into this folder:', outside_folder)
-    ask_for_permiss = False
-    if ask_for_permiss:
-        x = input('This test needs to download GitHub code to ' + outside_folder + ' y to preceed.')
-        if x.strip() != 'y':
-            return False
-    qwrap = lambda txt: '"'+txt+'"'
-    file_io.fdelete(outside_folder)
-    file_io.fcreate(outside_folder, True)
+    # TODO: test all teh differene cases (threads, modules, etc)
+    # Launch a program in an external folder, and try to connect with it.
+    nproj = len(project_main_files)
     shell_obj = shellpython.Shell()
-    for i in range(len(project_urls)):
-        if i==1:
+    for i in range(nproj):
+        if i==1: # TODO
             return False
-        url = project_urls[i]
-        local_folder = outside_folder+'/'+url.split('/')[-1]
-        main_py_file = file_io.absolute_path(local_folder+'/'+project_main_files[i])
+        main_py_file = file_io.absolute_path(sample_github_folders[i]+'/'+project_main_files[i])
         main_py_folder = os.path.dirname(main_py_file) # TODO: use this.
-        cmd = ' '.join(['git','clone',qwrap(url),qwrap(local_folder)])
-        #print('Cmd is:', cmd); return False
-        os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder.
         # -th = Thread, -pr = process. Neither = Not applicable.
-        x = bashy_cmds.python([main_py_folder, '--th'], shell_obj)
+        print('About to run the script:', main_py_file)
+        x = bashy_cmds.python([main_py_file, '--pr'], shell_obj)
+        #x = bashy_cmds.python([main_py_file, '--th'], shell_obj)
+        #x = bashy_cmds.python([main_py_file], shell_obj)
+        print('x is:', x)
     return False # TODO.
 
 def run_tests():
+    _fetch_sample_githubs()
     return ttools.run_tests(__name__)
