@@ -13,9 +13,9 @@ mglobals = gl_data.dataset['modules_globals']
 
 def add_to_path(folder_name):
     # https://docs.python.org/3/library/sys.html#sys.path
-    folder_name = os.path.realpath(folder_name)
+    folder_name = file_io.termp_abs_path(folder_name)
     if folder_name not in set(sys.path):
-        sys.path = [os.path.realpath(folder_name)]+sys.path
+        sys.path = [file_io.termp_abs_path(folder_name)]+sys.path
         mglobals['pathprepends'].add(folder_name)
 
 def pop_from_path():
@@ -46,7 +46,7 @@ def module_file(m):
         m = sys.modules[m]
     if '__file__' not in m.__dict__ or m.__file__ is None:
         return None
-    return os.path.abspath(m.__file__).replace('\\','/')
+    return file_io.termp_abs_path(m.__file__).replace('\\','/')
 
 def module_fnames(user_only=False):
     # Only modules that have files, and dict values are module names.
@@ -67,11 +67,11 @@ def module_from_file(modulename, pyfname, exec_module=True):
             #update_one_module(modulename, False) # Shouldn't be necessary as long as update_user_changed_modules is bieng called.
             return sys.modules[modulename]
         elif pyfname0 is not None:
-            pyfname = os.path.realpath(pyfname).replace('\\','/')
+            pyfname = file_io.termp_abs_path(pyfname).replace('\\','/')
             if pyfname != pyfname0:
                 raise Exception('Shadowing modulename: '+modulename+' Old py.file: '+pyfname0+ 'New py.file '+pyfname)
 
-    folder_name = os.path.dirname(pyfname)
+    folder_name = os.path.dirname(file_io.termp_abs_path(pyfname))
     add_to_path(folder_name)
 
     #https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path

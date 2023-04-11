@@ -8,7 +8,7 @@ from . import ttools
 
 project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
 project_main_files = ['/main.py', '/bench.py']
-outside_folder = file_io.absolute_path('../__softwaredump__/Termpylus/sample_projs')
+outside_folder = file_io.termp_abs_path('../__softwaredump__/Termpylus/sample_projs')
 leaf_samples = [url.split('/')[-1] for url in project_urls]
 sample_github_folders = [outside_folder+'/'+leaf_sample for leaf_sample in leaf_samples]
 
@@ -35,7 +35,7 @@ def test_py_import0():
     # outside of our main directory for which it will try importing it.
     # If this test fails (with the right folder & contents) opening a project will fail.
     kys0 = list(sys.modules.keys())
-    if not os.path.exists(outside_folder):
+    if not os.path.exists(file_io.termp_abs_path(outside_folder)):
         print('Warning: external directory for testing does not exist.')
         return True
 
@@ -105,7 +105,7 @@ def test_file_caches():
     t0 = len(mglob['filecontents'])>8
     t1 = set(mglob['filecontents'].keys())==set(mglob['filemodified'].keys())
     t2 = 'test_file_caches' in mglob['filecontents'][fnamemap['Termpylus_test.test_pyrun']]
-    t3 = os.path.isfile(list(fnamemap.values())[4])
+    t3 = os.path.isfile(file_io.termp_abs_path(list(fnamemap.values())[4]))
     return t0 and t1 and t2 and t3
 
 def test_dynamic_add_fn():
@@ -155,9 +155,10 @@ def test_main_extract():
         import importlib
         modules.add_to_path(outside_folder+'/'+leaf_samples[0])
         #Not helpful: modules.add_to_path(outside_subfolder)
-        print('Checking the path:', os.path.realpath(outside_folder+'/'+leaf_samples[0]) in sys.path, outside_folder+'/'+leaf_samples[0])
+        print('Checking the path:', file_io.termp_abs_path(outside_folder+'/'+leaf_samples[0]) in sys.path, outside_folder+'/'+leaf_samples[0])
         #file_io.fsave(outside_folder+'/__init__.py','')
         #importlib.import_module(outside_subfolder)
+        #https://linuxize.com/post/python-get-change-current-working-directory/
         #from load_sprite import load_sprite
         #importlib.import_module(modname)
         #importlib.import_module(leaf_samples[0]+'.'+modname)
@@ -180,8 +181,8 @@ def test_python_openproject():
     for i in range(nproj):
         if i==1: # TODO
             return False
-        main_py_file = file_io.absolute_path(sample_github_folders[i]+'/'+project_main_files[i])
-        main_py_folder = os.path.dirname(main_py_file) # TODO: use this.
+        main_py_file = file_io.termp_abs_path(sample_github_folders[i]+'/'+project_main_files[i])
+        main_py_folder = os.path.dirname(file_io.termp_abs_path(main_py_file)) # TODO: use this.
         # -th = Thread, -pr = process. Neither = Not applicable.
         print('About to run the script:', main_py_file)
         x = bashy_cmds.python([main_py_file, '--pr'], shell_obj)

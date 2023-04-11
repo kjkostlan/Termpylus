@@ -1,7 +1,7 @@
 # Querying nested dicts.
 # SOme functions are generic while others are specalized to searching through source, etc.
 #Look for weighted combination of keywords, uses, etc.
-import sys, re, inspect
+import re, inspect
 from . import dwalk, file_io, var_watch
 from Termpylus_lang import pyparse, modules, ppatch
 from Termpylus_shell import bash_helpers

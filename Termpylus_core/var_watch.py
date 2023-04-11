@@ -100,7 +100,7 @@ def bashy_set_watchers(*bashy_args):
     # Bashy commands favor brevity.
     TODO
 
-def on_module_update(modulename):
+def just_after_module_update(modulename):
     # Need to re-add them:
     watchers = vglobals['module_watcher_codes']
     for varq_name in watchers.keys():

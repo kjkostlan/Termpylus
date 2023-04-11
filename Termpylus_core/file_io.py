@@ -6,11 +6,8 @@ printouts = False
 debug_restrict_disk_modifications_to_these = None
 
 if 'fileio_globals' not in gl_data.dataset:
-    gl_data.dataset['fileio_globals'] = {'original_txts':{}}
+    gl_data.dataset['fileio_globals'] = {'original_txts':{}, 'original_cwd':os.path.realpath('.')}
 fglobals = gl_data.dataset['fileio_globals']
-
-def absolute_path(fname):
-    return os.path.realpath(fname).replace('\\','/')
 
 def is_path_absolute(fname):
     # Different rules for linux and windows.
@@ -21,7 +18,19 @@ def is_path_absolute(fname):
         return True
     return False
 
+def termp_abs_path(fname): #fname = file_io.Termp_abs_path(fname)
+    # The absolute path assuming the working directory is the Termpylus project folder.
+    # (the working directory changes to the projects directory when running a project).
+    # (here realpath is used to make an absolute path absolute).
+    if is_path_absolute(fname):
+        return os.path.realpath(fname).replace('\\','/')
+    out = os.path.realpath(fglobals['original_cwd']+'/'+fname).replace('\\','/')
+    if not is_path_absolute(out):
+        raise Exception('Output path not absolute assert bug in this code.')
+    return out
+
 def contents(fname):
+    fname = termp_abs_path(fname)
     if not os.path.isfile(fname):
         return None
     with io.open(fname, mode="r", encoding="utf-8") as file_obj:
@@ -35,18 +44,22 @@ def contents(fname):
         return out
 
 def is_folder(fname):
+    fname = termp_abs_path(fname)
     return os.path.isdir(fname)
 
 def contents_on_first_call(fname):
+    fname = termp_abs_path(fname)
     # The contents of the file on the first time said function was called.
     if fname not in fglobals['original_txts']:
         return contents(fname)
     return fglobals['original_txts'][fname]
 
 def date_mod(fname):
+    fname = termp_abs_path(fname)
     return os.path.getmtime(fname)
 
 def is_hidden(fname):
+    fname = termp_abs_path(fname)
     return fname.split('/')[-1][0] == '.'
 
 def _unwindoze_attempt(f, name, tries, retry_delay):
@@ -72,9 +85,11 @@ def _fsave1(fname, txt, mode, tries=12, retry_delay=1.0):
     _unwindoze_attempt(f, fname, tries, retry_delay)
 
 def fsave(fname, txt, tries=12, retry_delay=1.0):
+    fname = termp_abs_path(fname)
     _fsave1(fname, txt, "w", tries, retry_delay)
 
 def fdelete(fname, tries=12, retry_delay=1.0):
+    fname = termp_abs_path(fname)
     version2 = False # (I think) V1 and V2 are equivalent.
 
     # Works on files and folders.
@@ -83,7 +98,7 @@ def fdelete(fname, tries=12, retry_delay=1.0):
             if is_folder(fname):
                 for root, dirs, files in os.walk(fname):
                     for fname1 in files:
-                        full_path = os.path.join(root, fname1)
+                        full_path = root+'/'+fname1
                         os.chmod(full_path ,stat.S_IWRITE)
             shutil.rmtree(fname)
     else: #https://stackoverflow.com/questions/1889597/deleting-read-only-directory-in-python
@@ -100,6 +115,7 @@ def fdelete(fname, tries=12, retry_delay=1.0):
     _unwindoze_attempt(f, fname, tries, retry_delay)
 
 def fcreate(fname, is_folder):
+    fname = termp_abs_path(fname)
     if is_folder:
         folder = fname
     else:
@@ -111,12 +127,14 @@ def fcreate(fname, is_folder):
             pass
 
 def fappend(fname, txt):
+    fname = termp_abs_path(fname)
     _fsave1(fname, txt, "a")
 
 def clear_pycache(filename):
+    filename = termp_abs_path(filename)
     # This can intefere with updating.
     cachefolder = os.path.dirname(filename)+'/__pycache__'
-    leaf = os.path.basename(filename).replace('.py','')
+    leaf = os.path.basename(filename).replace('.py','').replace('\\','/')
     if os.path.isdir(cachefolder):
         leaves = os.listdir(cachefolder)
         for l in leaves:
@@ -127,12 +145,12 @@ def clear_pycache(filename):
 
 def files_in_folder1(fname):
     # Fullpath.
-    fname = absolute_path(fname)
+    fname = termp_abs_path(fname)
     files = os.listdir(fname)
     return [(fname+'/'+file).replace('//','/') for file in files]
 
 def recursive_files(fname, include_folders=False, filter_fn=None, max_folder_depth=65536):
-    fname = absolute_path(fname)
+    fname = termp_abs_path(fname)
     if os.path.isdir(fname):
         files1 = files_in_folder1(fname)
         out = []
@@ -157,11 +175,11 @@ def recursive_files(fname, include_folders=False, filter_fn=None, max_folder_dep
 
 def _fileallow(fname):
     keeplist = debug_restrict_disk_modifications_to_these
-    fname = absolute_path(fname)
+    fname = termp_abs_path(fname)
     if keeplist is not None:
         if type(keeplist) is str:
             keeplist = [keeplist]
-        keeplist = [absolute_path(kl) for kl in keeplist]
+        keeplist = [termp_abs_path(kl) for kl in keeplist]
         allow = False
         for k in keeplist:
             if fname.startswith(k):
@@ -172,7 +190,7 @@ def _fileallow(fname):
 
 def gaurded_delete(fname, allow_folders=False):
     # Deleting is dangerous.
-    fname = absolute_path(fname)
+    fname = termp_abs_path(fname)
     if not _fileallow(fname):
         raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows deleting this filename: '+fname)
     if os.path.isdir(fname) and not allow_folders:
@@ -182,7 +200,7 @@ def gaurded_delete(fname, allow_folders=False):
 def guarded_create(fname, is_folder):
     # Creating files isn't all that dangerous, but still can be annoying.
     # Skips files that already exist.
-    fname = absolute_path(fname)
+    fname = termp_abs_path(fname)
     if not _fileallow(fname):
         raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows creating this filename: '+fname)
     fcreate(fname, is_folder)

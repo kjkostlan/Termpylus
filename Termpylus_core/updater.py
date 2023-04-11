@@ -1,5 +1,5 @@
 # Call this to update several functions.
-import sys, os, importlib, time
+import sys, importlib, time
 from . import gl_data, var_watch, file_io, todict
 from Termpylus_lang import modules, ppatch
 
@@ -40,8 +40,10 @@ class ModuleUpdate:
                 self.old_new_pairs[k] = [old_vars[k], new_vars[k]]
 
 def _fupdate(fname, modulename):
+    if modulename=='Termpylus_core.gl_data':
+        raise Exception('No nice way to update Termpylus_core.gl_data; restart program recommended.')
     old_vars = ppatch.get_vars(modulename)
-    fname = os.path.abspath(fname).replace('\\','/')
+    fname = file_io.termp_abs_path(fname).replace('\\','/')
 
     file_io.clear_pycache(fname)
     importlib.reload(sys.modules[modulename])
@@ -63,7 +65,7 @@ def _fupdate(fname, modulename):
 
 def save_py_file(py_file, contents, assert_py_module=False):
     # Saves a python file and makes all the needed updates to the modules.
-    py_file = os.path.abspath(py_file).replace('\\','/')
+    py_file = file_io.termp_abs_path(py_file).replace('\\','/')
 
     old_txt = file_io.contents(py_file)
     file_io.fsave(py_file, contents)
@@ -78,7 +80,7 @@ def save_py_file(py_file, contents, assert_py_module=False):
         raise Exception('Filename not in listed modules:' + py_file)
 
 def needs_update(modulename, update_on_first_see=True, use_date=False):
-    fname = modules.module_file(modulename)
+    fname = file_io.termp_abs_path(modules.module_file(modulename))
     if fname not in uglobals['filecontents']: # first time seen.
         return update_on_first_see
     elif use_date:
@@ -92,14 +94,15 @@ def update_one_module(modulename, fname=None, assert_main=True):
         raise Exception('Cannot update the main module for some reason. Need to restart when the Termpylus_main.py file changes.')
     elif modulename == '__main__':
         return
-    print('Updating MODULE:', modulename)
     if fname is None:
         fname = modules.module_file(modulename)
     if fname is None:
         raise Exception('No fname supplied and cannot find the file.')
-    var_watch.on_module_update(modulename)
+    print('Updating MODULE:', modulename, fname)
 
-    return _fupdate(fname, modulename)
+    out = _fupdate(fname, modulename)
+    var_watch.just_after_module_update(modulename)
+    return out
 
 def update_user_changed_modules(update_on_first_see=True, use_date=False):
     # Updates modules that aren't pip packages or builtin.

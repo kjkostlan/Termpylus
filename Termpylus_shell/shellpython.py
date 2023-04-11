@@ -1,7 +1,8 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
-import sys, re, os, importlib, traceback, subprocess
+import sys, re, importlib, traceback, subprocess
 from . import bashy_cmds
+from Termpylus_core import file_io
 from Termpylus_lang import modules, bashparse, ppatch
 
 # Extra imports to make the command line easier to use:
@@ -89,7 +90,7 @@ class Shell:
             setattr(us, fn_name, c.get_f())
 
     def send(self, input, include_newline=True):
-        self.cur_dir = os.path.realpath(self.cur_dir).replace('\\','/')
+        self.cur_dir = file_io.termp_abs_path(self.cur_dir).replace('\\','/')
         input = input.strip()
         if len(input)>0:
             self.make_module_closures()

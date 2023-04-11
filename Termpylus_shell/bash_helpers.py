@@ -1,5 +1,5 @@
 #Helpers for implementing bash functions. Not the funcions themselves (they are in bashy_cmds).
-import sys, os, fnmatch, re, pathlib, operator
+import os, fnmatch, re, pathlib, operator
 from tkinter import messagebox
 from Termpylus_core import file_io
 
@@ -35,9 +35,9 @@ def option_parse(args, paired_opts):
 def path_given_shell(fname, the_shell):
     # Absolute and relative paths behave differently.
     if file_io.is_path_absolute(fname):
-        return file_io.absolute_path(fname)
+        return file_io.termp_abs_path(fname)
     else:
-        return file_io.absolute_path(('.' if shell is None else the_shell.cur_dir)+'/'+fname)
+        return file_io.termp_abs_path(('.' if shell is None else the_shell.cur_dir)+'/'+fname)
 
 def bashy_file_info(fname):
     #https://flaviocopes.com/python-get-file-details/
