@@ -1,4 +1,5 @@
-import sys
+# Do we need the builting unittest lib?
+import sys, traceback
 import numpy as np
 from Termpylus_core import var_watch
 
@@ -16,27 +17,34 @@ def ints_eq(a,b):
         return False
     return np.sum(np.abs(np.asarray(a)-b))==0
 
-def run_tests(module_name):
-    # call as: "ttools.run_tests(__name__)"
+def run_tests(module_name, disk_write_report=True):
+    # Runs all fns that have 'test' in them, with a few exceptions.
+    # Retuns a map of what failed. The modulename must be imported.
+    if type(module_name) is type(sys):
+        module_name = module_name.__name__
+
     d = sys.modules[module_name].__dict__
     vars = list(d.keys())
     vars.sort()
-    failed_tests = []
+    failed_tests = {}
     for v in vars:
         if v.startswith('_'):
             continue
-        if 'run_tests' in v:
+        if 'run_tests' in v or 'prepare_tests' in v or 'postpare_tests' in v:
             continue
         if 'test' not in v:
             continue
         v_obj = d[v]
         if type(v_obj) is not type(sys):
-            var_watch.disk_log('Starting unit test of:', v)
-            x = v_obj()
-            if not x:
-                failed_tests.append(v)
-            var_watch.disk_log('Finished unit test of:', v, 'pass?', x)
+            if disk_write_report:
+                var_watch.disk_log('Starting unit test of:', v)
+            try:
+                x = v_obj()
+                if not x:
+                    failed_tests[module_name+'.'+v] = 'fail w/o err'
+            except Exception as e:
+                failed_tests[module_name+'.'+v] = str(traceback.format_exc())
+            if disk_write_report:
+                var_watch.disk_log('Finished unit test of:', v, 'pass?', x)
 
-    if len(failed_tests)>0:
-        print('Tests failed: '+str(failed_tests)+' for module '+module_name)
-    return len(failed_tests)==0
+    return failed_tests

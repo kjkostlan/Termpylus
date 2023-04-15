@@ -248,7 +248,7 @@ def bar():
     return False
 '''.strip()
 
-    levels, _ = pyparse.line_indent_levels(code)
+    levels, _, _ = pyparse.line_indent_levels(code)
     defs = pyparse.sourcecode_defs(code, nest=True)
     out = out and iEq(levels,[0,0,1,1,0,0,1])
     out = out and '# Bar' in defs['foo'] and '# Foo' in defs['bar']
@@ -262,7 +262,7 @@ def bar(z): # Bar code
     w = 10
 '''.strip()
 
-    levels, _ = pyparse.line_indent_levels(code)
+    levels, _, _ = pyparse.line_indent_levels(code)
     out = out and iEq(levels,[0,0,1,1,0,1]) # the second last 1 could also be a 0.
     defs = pyparse.sourcecode_defs(code, nest=True)
 
@@ -340,6 +340,3 @@ def bar(z): # Bar code
     out = out and 'cycling = 20' in defs['bar']
 
     return out
-
-def run_tests():
-    return ttools.run_tests(__name__)

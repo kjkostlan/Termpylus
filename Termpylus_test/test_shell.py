@@ -18,7 +18,7 @@ def _setup_tfiles():
     shell_obj = shellpython.Shell()
 
     shell_obj.cur_dir = './softwaredump_'
-    test_folder = os.path.abspath(file_io.Termp_abs_path(shell_obj.cur_dir))
+    test_folder = os.path.abspath(file_io.termp_abs_path(shell_obj.cur_dir))
     file_io.debug_restrict_disk_modifications_to_these = [test_folder]
     file_io.gaurded_delete(test_folder, allow_folders=True)
 
@@ -146,7 +146,5 @@ def test_others():
     # Less important bash fns go here.
     return False
 
-def run_tests():
-    out = ttools.run_tests(__name__)
+def postpare_tests():
     file_io.debug_restrict_disk_modifications_to_these = None # reset.
-    return out

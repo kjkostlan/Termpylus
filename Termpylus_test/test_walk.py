@@ -11,6 +11,3 @@ def test_dict_instanced_function():
     k = 'maybe_click_history'
     t0 = (k in dc) and not (k in di) and (hasattr(class_inst, k)) and not (k in class_inst.__dict__) and (k in dir(class_inst))
     return t0
-
-def run_tests():
-    return ttools.run_tests(__name__)

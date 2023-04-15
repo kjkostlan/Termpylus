@@ -7,6 +7,7 @@
 # Most of the vanilla bash commands don't seem to have libraries available thus the need to write them.
 import sys, os, subprocess, operator
 from . import bash_helpers
+from Termpylus_test import ttools
 
 ############################### Custom commands ################################
 
@@ -38,13 +39,19 @@ def utest(bashy_args, shell_obj):
     # Unitests.
     print('**************Running unit tests**************')
     from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun
-    n_fail = 0
+    failures = {}
     for t_module in [test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun]:
-        if not t_module.run_tests():
-            print('>>testing failed for:', t_module)
-            n_fail = n_fail+1
-    print('!!>>!!>>Number of failed modules:', n_fail)
-    return n_fail==0
+        if hasattr(t_module,'prepare_tests'):
+            t_module.prepare_tests()
+        failures = {**failures, **ttools.run_tests(t_module)}
+        if hasattr(t_module,'postpare_tests'):
+            t_module.postpare_tests()
+    print('Failures; errors have debug info:')
+    for k in failures.keys():
+        print(k, failures[k])
+    print('These failed:', list(failures.keys()))
+    print('# failed:', len(failures))
+    return len(failures)==0
 
 def sfind(bashy_args, shell_obj):
     from Termpylus_core import dquery

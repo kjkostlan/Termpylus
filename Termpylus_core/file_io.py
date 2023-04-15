@@ -6,7 +6,10 @@ printouts = False
 debug_restrict_disk_modifications_to_these = None
 
 if 'fileio_globals' not in gl_data.dataset:
-    gl_data.dataset['fileio_globals'] = {'original_txts':{}, 'original_cwd':os.path.realpath('.')}
+    ph = os.path.realpath('.').replace('\\','/')
+    gl_data.dataset['fileio_globals'] = {'original_txts':{},
+                                         'original_cwd':ph,
+                                         'user_paths':[ph]}
 fglobals = gl_data.dataset['fileio_globals']
 
 def is_path_absolute(fname):
@@ -17,6 +20,9 @@ def is_path_absolute(fname):
     if linux_abspath or win_abspath: # Two ways of getting absolute paths.
         return True
     return False
+
+def user_paths():
+    return fglobals['user_paths'].copy()
 
 def termp_abs_path(fname): #fname = file_io.Termp_abs_path(fname)
     # The absolute path assuming the working directory is the Termpylus project folder.

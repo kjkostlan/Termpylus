@@ -107,6 +107,3 @@ def test_logging_var():
     test4 = ed1_1==ed1
     test5 = np.sum([len(logi) for logi in var_watch.get_logs().values()])==0
     return test0 and test1 and test2 and test3 and test4 and test5
-
-def run_tests():
-    return ttools.run_tests(__name__)

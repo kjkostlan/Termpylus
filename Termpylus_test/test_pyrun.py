@@ -191,6 +191,5 @@ def test_python_openproject():
         print('x is:', x)
     return False # TODO.
 
-def run_tests():
+def prepare_tests():
     _fetch_sample_githubs()
-    return ttools.run_tests(__name__)

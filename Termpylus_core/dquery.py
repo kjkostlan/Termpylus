@@ -16,7 +16,11 @@ class Regexp():
         return self.val
 
 def str_str_match(x, query):
-    # Simple string string match. Always room to improve partial matches.
+    # Simple string string match. Ways to improve partial matches TODO:
+    #  Spell check.
+    #  Thesaouros/word vector distances.
+    #  Underscores vs CamelCase vs etc.
+    #  ...
     if str(x)==str(query):
         return 1.0
     if str(x).lower()==str(query).lower():
@@ -87,14 +91,16 @@ class Sourcevar:
             f = ppatch.get_var(modulename, varname)
         except AttributeError:
             f = None
-            pass
         if f is not None:
-            self.signature = inspect.signature(f)
+            try:
+                self.signature = inspect.signature(f)
+            except Exception as e:
+                raise Exception(f'signature error on {modulename}.{varname}: {e}')
+
+####### Metrics that return 0 (no match) through 1 (perfect match) #############
 
 def fnname_metric(sourcevar, query):
-    # These metric functions match query (a string, function, or target object) to sym_qual.
-    # 0 is no match at all and 1 is a perfect match.
-    # This matches the function to the qualified name of the symbol.
+    # Matches the function to the qualified name of the symbol.
     #print('Fn name match:', sourcevar.modulename+sourcevar.varname, query, str_str_match(sourcevar.modulename+sourcevar.varname, query))
     return str_str_match(sourcevar.modulename+sourcevar.varname, query)
 

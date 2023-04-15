@@ -37,7 +37,7 @@ def path_given_shell(fname, the_shell):
     if file_io.is_path_absolute(fname):
         return file_io.termp_abs_path(fname)
     else:
-        return file_io.termp_abs_path(('.' if shell is None else the_shell.cur_dir)+'/'+fname)
+        return file_io.termp_abs_path(('.' if the_shell is None else the_shell.cur_dir)+'/'+fname)
 
 def bashy_file_info(fname):
     #https://flaviocopes.com/python-get-file-details/
@@ -53,7 +53,7 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
     #   If wildcard ends in a folder, all files inside will be choosen.
     #   If wildcard ends in a filename, the filename and any others that match will be choosen.
 
-    wildcard = file_io.absolute_path(wildcard)
+    wildcard = file_io.termp_abs_path(wildcard)
 
     def leaf_star(leafname, leaf_wild):
         # Includes regexps, but they can't have forward slashes.

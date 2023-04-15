@@ -1,45 +1,38 @@
 # Loading new modules and updating modules (but not file io)
 import sys, os, importlib, io, re
-from Termpylus_core import gl_data, file_io
+from Termpylus_core import gl_data, file_io, updater
 from . import pyparse
 
 if 'modules_globals' not in gl_data.dataset:
     mglobals = dict()
-    mglobals['pathprepends'] = set() # keep track of what is added to the import path.
     mglobals['varflush_queue'] = [] # Updating these can be a heavy task.
-
     gl_data.dataset['modules_globals'] = mglobals
 mglobals = gl_data.dataset['modules_globals']
 
 def add_to_path(folder_name):
+    # Also adds the updater paths.
     # https://docs.python.org/3/library/sys.html#sys.path
     folder_name = file_io.termp_abs_path(folder_name)
     if folder_name not in set(sys.path):
         sys.path = [file_io.termp_abs_path(folder_name)]+sys.path
-        mglobals['pathprepends'].add(folder_name)
+    updater.add_user_path(folder_name)
 
 def pop_from_path():
-    mglobals['pathprepends'].remove(sys.path[0])
-    sys.path = sys.path[1:]
+    # Used much less often.
+    if len(updater.uglobals['user_paths'])>1:
+        updater.uglobals['user_paths'] = updater.uglobals['user_paths'][1:]
+        sys.path = sys.path[1:]
 
-def is_user(modulename, filename):
-    # Only change user files. TODO: maybe there is a better way to handle this?
-    filename = filename.replace('\\','/')
-    if 'syspyfolderlist' not in mglobals: # what modules
-        test_modules = ['os', 'importlib', 'io']
-        folders = set()
-        for t in test_modules:
-            folders.add(sys.modules[t].__file__.replace('\\','/').replace(t+'.py','').replace('__init__.py',''))
-        mglobals['syspyfolderlist'] = folders
-    no_list = mglobals['syspyfolderlist']
-    if 'PythonSoftwareFoundation.Python' in filename: # Heuristic that worked with numpy:
+def is_user(modulename):
+    # Only change user files.
+    fname = module_file(sys.modules[modulename])
+    if fname is not None:
+        phs = updater.get_user_paths()
+        for ph in phs:
+            if ph in fname:
+                return True
         return False
-    if filename.endswith('.pyd'):
-        return False # User files don't use .pyd
-    for n in no_list:
-        if n in filename:
-            return False
-    return True
+    return False
 
 def module_file(m):
     if type(m) is str:
@@ -54,7 +47,7 @@ def module_fnames(user_only=False):
     out = {}
     for k in sys.modules.keys():
         fname = module_file(sys.modules[k])
-        if fname is not None and (not user_only or is_user(k, fname)):
+        if fname is not None and (not user_only or is_user(k)):
             out[k] = fname.replace('\\','/')
     return out
 

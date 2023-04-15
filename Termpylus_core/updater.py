@@ -8,6 +8,7 @@ if 'updater_globals' not in gl_data.dataset:
     uglobals['filecontents'] = {}
     uglobals['filemodified'] = {} # Alternative to checking contents.
     uglobals['varflush_queue'] = []
+    uglobals['user_paths'] = [file_io.termp_abs_path('.')]
     gl_data.dataset['updater_globals'] = uglobals
 uglobals = gl_data.dataset['updater_globals']
 
@@ -38,6 +39,15 @@ class ModuleUpdate:
         for k in new_vars.keys():
             if k in old_vars and old_vars[k] is not new_vars[k]:
                 self.old_new_pairs[k] = [old_vars[k], new_vars[k]]
+
+def add_user_path(ph):
+    # Put your project folders here.
+    ph = file_io.termp_abs_path(ph)
+    if ph not in uglobals['user_paths']:
+        uglobals['user_paths'].append(ph)
+
+def get_user_paths():
+    return uglobals['user_paths'].copy()
 
 def _fupdate(fname, modulename):
     if modulename=='Termpylus_core.gl_data':
@@ -81,6 +91,8 @@ def save_py_file(py_file, contents, assert_py_module=False):
 
 def needs_update(modulename, update_on_first_see=True, use_date=False):
     fname = file_io.termp_abs_path(modules.module_file(modulename))
+    if True not in ['!'+ph in '!'+fname for ph in uglobals['user_paths']]:
+        return False # Active paths only.
     if fname not in uglobals['filecontents']: # first time seen.
         return update_on_first_see
     elif use_date:
@@ -108,7 +120,7 @@ def update_user_changed_modules(update_on_first_see=True, use_date=False):
     # Updates modules that aren't pip packages or builtin.
     # use_date True should be faster but maybe miss some files?
     # Returns {mname: ModuleUpdate object}
-    fnames = modules.module_fnames(True)
+    fnames = modules.module_fnames(user_only=True)
     #print('Updating USER MODULES, '+str(len(uglobals['filecontents']))+' files currently cached,', str(len(fnames)), 'user modules recognized.')
 
     out = {}
