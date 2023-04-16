@@ -44,7 +44,7 @@ class Closure():
                 raise Exception('Bash cmd error in '+self.fname+'. Trace printed to print().') from e
         return f2
 
-################################ Running bash commands #########################
+################################ Print out fns #################################
 
 def exc_to_str(e):
     # Includes stack trace.
@@ -60,6 +60,37 @@ def exc_to_str(e):
     lines[0] = lines[0].replace('File "<string>"','Commandbox').replace('in <module>','').strip()
     return (err+'\nTraceback:\n'+'\n'.join(lines)).strip()
 
+def simple_assigned_vars(txt):
+    # Which vars are assigned with an = sign?
+    # Not fool-proof, but should cover most cases.
+    lines = txt.replace(';','\n').split('\n')
+    vars = []
+    lines = txt.split('\n')
+    for line in lines:
+        pieces = line.split('=')
+        if len(pieces)>1:
+            vs = pieces[0].split(',') # i.e.  x, y = 1, 2
+            for v in vs:
+                vars.append(v.strip())
+    return vars
+
+def vdif_report(vars0, vars1, assigned_list, err):
+    assigned_list = set(assigned_list)
+    n_change = 0
+    report_list = []
+    for ky in vars1.keys():
+        if vars1[ky] is not vars0.get(ky, None) and str(vars1[ky]) != str(vars0.get(ky, None)):
+            n_change = n_change+1
+            report_list.append(str(ky)+' = '+str1(vars1[ky]))
+        elif ky in assigned_list:
+            report_list.append('('+str(ky)+' = '+str1(vars1[ky])+')')
+    if n_change==0 and len(err)==0:
+        report_list = report_list+['Command succeeded, no vars changed']
+    var_str = '\n'.join(report_list)
+    return var_str
+
+################################ The core shell ################################
+
 class Shell:
     def __init__(self):
 
@@ -69,8 +100,8 @@ class Shell:
         self.last_err = None # stderr.
         self.listenerf = None
 
-    def autocorrect(self, input):
-        return bashparse.maybe_bash2py_console_input(input)
+    def autocorrect(self, the_input):
+        return bashparse.maybe_bash2py_console_input(the_input)
 
     def make_module_closures(self):
         # "considered evil" zone ahead: we add properties to the parent module
@@ -89,30 +120,23 @@ class Shell:
             c = Closure(m.__dict__[fn_name], mname+'.'+fn_name, self, g)
             setattr(us, fn_name, c.get_f())
 
-    def send(self, input, include_newline=True):
+    def send(self, the_input, include_newline=True):
         self.cur_dir = file_io.termp_abs_path(self.cur_dir).replace('\\','/')
-        input = input.strip()
-        if len(input)>0:
+        the_input = the_input.strip()
+        if len(the_input)>0:
             self.make_module_closures()
 
             vars0 = _module_vars()
             err = ''
             try:
                 #https://stackoverflow.com/questions/23168282/setting-variables-with-exec-inside-a-function
-                exec(input, globals(), globals())
-                #print('Exed input:', input, 'dict:', sys.modules[__name__].__dict__.keys())
+                exec(the_input, globals(), globals())
             except Exception as e:
                 err = exc_to_str(e)
 
             vars1 = _module_vars()
-            new_vars = []
-            for ky in vars1.keys():
-                if vars1[ky] is not vars0.get(ky, None):
-                    if str(vars1[ky]) != str(vars0.get(ky, None)):
-                        new_vars.append(str(ky)+' = '+str1(vars1[ky]))
-            if len(new_vars)==0 and len(err)==0:
-                new_vars = ['Command succeeded, no vars changed']
-            var_str = '\n'.join(new_vars)
+
+            var_str = vdif_report(vars0, vars1, simple_assigned_vars(the_input), err)
 
             if len(var_str)>0:
                 self.outputs.append([var_str, False, self.input_ix])
