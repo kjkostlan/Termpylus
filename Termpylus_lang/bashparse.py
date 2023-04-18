@@ -643,7 +643,7 @@ def add_varset(ast_obj):
         wrap = True
 
     if wrap:
-        return [Symbol('='), Symbol('_'), ast_obj]
+        return [Symbol('='), Symbol('ans'), ast_obj]
     else:
         return ast_obj
 

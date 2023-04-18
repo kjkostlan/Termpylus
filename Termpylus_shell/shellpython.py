@@ -74,17 +74,35 @@ def simple_assigned_vars(txt):
                 vars.append(v.strip())
     return vars
 
-def vdif_report(vars0, vars1, assigned_list, err):
-    assigned_list = set(assigned_list)
+def vdif_report(vars0, vars1, the_input, err):
+    assigned_list = simple_assigned_vars(the_input)
     n_change = 0
     report_list = []
+
+    changed = set()
     for ky in vars1.keys():
         if vars1[ky] is not vars0.get(ky, None) and str(vars1[ky]) != str(vars0.get(ky, None)):
-            n_change = n_change+1
-            report_list.append(str(ky)+' = '+str1(vars1[ky]))
-        elif ky in assigned_list:
-            report_list.append('('+str(ky)+' = '+str1(vars1[ky])+')')
-    if n_change==0 and len(err)==0:
+            changed.add(ky)
+    def rep(v):
+        if v in vars1:
+            if v in changed:
+                report_list.append(str(v)+' = '+str1(vars1[v]))
+            else:
+                report_list.append('('+str(v)+' = '+str1(vars1[v])+')')
+    for v in assigned_list:
+        if not v.startswith('_'):
+            rep(v)
+    for ch in changed:
+        if not ch.startswith('_') and ch not in assigned_list:
+            rep(ch)
+
+    lines = the_input.strip().split('\n') # Allow a simple repeat of a var as the last line.
+    if len(lines)>0:
+        l1 = lines[-1].replace(';','').strip()
+        if l1.startswith('_') and l1 in vars1:
+            rep(l1)
+
+    if len(changed)==0 and len(err)==0:
         report_list = report_list+['Command succeeded, no vars changed']
     var_str = '\n'.join(report_list)
     return var_str
@@ -136,7 +154,7 @@ class Shell:
 
             vars1 = _module_vars()
 
-            var_str = vdif_report(vars0, vars1, simple_assigned_vars(the_input), err)
+            var_str = vdif_report(vars0, vars1, the_input, err)
 
             if len(var_str)>0:
                 self.outputs.append([var_str, False, self.input_ix])

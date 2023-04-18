@@ -1,7 +1,35 @@
 # testing the parsers.
 from Termpylus_lang import pyparse, bashparse
+from Termpylus_shell import shellpython
 import numpy as np
 from . import ttools
+
+def test_assigned_var_parse():
+    out = True
+    f = shellpython.simple_assigned_vars
+    out = out and f('x = 1')==['x']
+    txt = '''
+foo = [1,2,3]
+bar,baz = 4,5
+'''
+    out = out and f(txt)==['foo','bar','baz']
+    return out
+
+def test_vdif_report():
+    f = shellpython.vdif_report
+    out = True
+    #vdif_report(vars0, vars1, the_input, err)
+    x = f({'x':0},{'x':0}, 'x = 1', '')
+    out = out and '(x = 0)' in x and 'no vars changed' in x
+    x = f({'x':0, 'y':0},{'x':1, 'y':0}, 'x = 1', '')
+    out = out and '(' not in x and 'x = 1' in x and 'no vars' not in x and 'y' not in x
+    x = f({'x':0, 'y':0},{'x':1, 'y':1}, 'x = 1', '')
+    out = out and 'y' in x
+    x = f({'_x':0},{'_x':1}, '_x = 1', '')
+    out = out and len(x)<5
+    x = f({'_x':0},{'_x':1}, '_x = 1\n_x', '')
+    out = out and '_x' in x
+    return out
 
 def test_bash_parse():
     # Bash parsing (tokens and AST).
