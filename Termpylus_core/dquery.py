@@ -9,33 +9,6 @@ from Termpylus_shell import bash_helpers
 
 ##########################Lower-level fns#############################
 
-class Regexp():
-    #String literal that signales leaf_match to use regexp matching.
-    def __init__(self, val):
-        self.val = val
-    def __str__(self):
-        return self.val
-    def match_score(self, txt):
-        if re.match(self.val, txt) is not None:
-            return 1.0
-        return 0.0
-
-def str_str_match(x, query):
-    # Simple string string match. Ways to improve partial matches TODO:
-    #  Spell check.
-    #  Thesaouros/word vector distances.
-    #  Underscores vs CamelCase vs etc.
-    #  ...
-    if str(x)==str(query):
-        return 1.0
-    if str(x).lower()==str(query).lower():
-        return 0.75
-    if str(x).lower() in str(query).lower():
-        return 0.5
-    if str(query).lower() in str(x).lower():
-        return 0.5
-    return 0.0
-
 def leaf_match(x, query):
     # Matches are zero to 1.
     # Flexible as to what the function matches.
@@ -44,7 +17,7 @@ def leaf_match(x, query):
 
     if type(query) is str:
         # Simple str matching.
-        return str_str_match(x, query)
+        return bash_helpers.flex_match(query, x, gradation=True)
     elif type(query) is Regexp:
         # Match regexp.
         return query.match_score(x)
@@ -140,8 +113,7 @@ class Sourcevar:
 
 def fnname_metric(sourcevar, query):
     # Matches the function to the qualified name of the symbol.
-    #print('Fn name match:', sourcevar.modulename+sourcevar.varname, query, str_str_match(sourcevar.modulename+sourcevar.varname, query))
-    return str_str_match(sourcevar.modulename+sourcevar.varname, query)
+    return flex_match(query, sourcevar.modulename+sourcevar.varname)
 
 def fn_arity_metric(sourcevar, query):
     # Includes optional args.
@@ -153,7 +125,7 @@ def fn_arity_metric(sourcevar, query):
 def source_metric(sourcevar, query):
     # Text-based matches to the source code. Naive to the syntax.
     # Module-level metrics and global-level metrics return a dict from the qualed name to the score.
-    return str_str_match(sourcevar.src_txt, query)
+    return flex_match(query, sourcevar.src_txt)
 
 def source_edit_metric(sourcevar, query=None):
     # How much has the source been edited?
@@ -234,10 +206,9 @@ def source_find(*bashy_args):
            '-s':['Source code text-match.', source_metric],
            '-se':['Edits to this fn in the source code.', source_edit_metric],
            '-u':['Uses of the leaf name in all the source texts.', use_count],
-           '-sr':['Source code text-match, regexp only (useful when entering as a bash cmd).', lambda q: source_metric(Regexp(q))],
            '-i':['Function inputs match. Requires watchers to be set up. May skim over very large datasets.', fninputs_metric],
            '-o':['Function output match. Requires watchers to be set up. May skim over very large datasets.', fnreturn_metric],
-           '-ncall':['Function call count. Requires watchers to be set up.', fninputs_metric]}
+           '-ncall':['Function call count. Requires watchers to be set up.', fcallcount_metric]}
     if len(bashy_args)==0: # Help mode.
         out = 'Search through python defs at module level or class level. Includes defs in classes.'
         out = out+' The search returns the top results. Querys can be string or object. The following search criteria are allowed:'
@@ -257,7 +228,7 @@ def source_find(*bashy_args):
         wt = re.sub(r"\D", '', opt)
         wt = 1 if wt=='' else int(wt)
         fn = fns[re.sub(r"\d", '', opt)][1]
-        triplets.append([wt, fn, kv[opt]])
+        triplets.append([wt, fn, Regexp(kv[opt])])
 
     #print('tail is:', x, 'fl is:', fl, 'kv is:', kv)
     verbose_mode = verbose_key in fl

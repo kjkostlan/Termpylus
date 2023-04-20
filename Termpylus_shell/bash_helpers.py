@@ -30,6 +30,37 @@ def option_parse(args, paired_opts):
             out['tail'].append(a)
     return out
 
+def flex_match(pattern, txt, gradation=False, spellcheck=False):
+    # Flexible match which includes regexp + more "standard" matches + bashy wildcards.
+    if spellcheck: # English-aware matches.
+        # Ways to improve partial matches TODO:
+        #  Spell check.
+        #  Thesaouros/word vector distances.
+        #  Underscores vs CamelCase vs etc.
+        #  ...
+        TODO
+    txt = str(txt)
+    out = 0
+    if txt==pattern:
+        out = 1.0
+    if txt.lower()==pattern.lower():
+        out = max(out, 0.5)
+    if pattern in txt:
+        out = max(out, 0.5)
+    if pattern.lower() in txt.lower():
+        out = max(out, 0.375)
+    if fnmatch.fnmatch(txt, pattern):
+        out = max(out, 0.75)
+    try:
+       if re.search(pattern, txt) is not None:
+           out = max(out,0.75)
+    except re.error:
+        pass
+    if gradation:
+        return out
+    else:
+        return out>0.01
+
 ############################### Directory stuff ################################
 
 def path_given_shell(fname, the_shell):
@@ -55,19 +86,6 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
 
     wildcard = file_io.termp_abs_path(wildcard)
 
-    def leaf_star(leafname, leaf_wild):
-        # Includes regexps, but they can't have forward slashes.
-        if leafname==leaf_wild:
-            return True
-        if fnmatch.fnmatch(leafname, leaf_wild):
-            return True
-        try:
-            if re.fullmatch(leaf_wild, leafname) is not None:
-                return True
-        except re.error:
-            return False
-        return False
-
     def filter_fn(fname_global):
         pieces = fname_global.split('/') #regexs allowed if they dont have *forward* slash.
         path_pieces = wildcard.split('/')
@@ -75,10 +93,9 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
         n_glob = len(path_pieces)
         if n_piece>n_glob: # Digging deeper.
             return True
-        elif leaf_star(pieces[n_piece-1], path_pieces[n_piece-1]):
+        elif flex_match(path_pieces[n_piece-1], pieces[n_piece-1]):
             return True
         else:
-            #print('Leaf star test:', pieces[n_piece-1], path_pieces[n_piece-1], leaf_star(pieces[n_piece-1], path_pieces[n_piece-1]))
             return False
         return False
 
