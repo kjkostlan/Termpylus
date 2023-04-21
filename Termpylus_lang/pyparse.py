@@ -276,7 +276,7 @@ def txt_edit(old_txt, new_txt):
     #https://stackoverflow.com/questions/18715688/find-common-substring-between-two-strings
     #https://docs.python.org/3/library/difflib.html
     if old_txt is None or old_txt == new_txt:
-        return [0,0,''] # Null edit. Please don't add this.
+        return [0,0,'',''] # Null edit. Please don't add this.
     if type(old_txt) is not str:
         raise TypeError('Both inputs must be a str but old_txt isnt.')
     if type(new_txt) is not str:

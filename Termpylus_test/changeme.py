@@ -5,4 +5,8 @@
 def mathy_function(x):
     return x + 1234
 
+def see_changes_here(foo,bar):
+    some_string = '_Baz123_'
+    return some_string+foo+bar
+
 #(What a simple function)

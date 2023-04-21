@@ -15,8 +15,7 @@ def option_parse(args, paired_opts):
         if skip:
             skip = False
             continue
-        a = args[i]
-        a = a.strip()
+        a = str(args[i]).strip()
         a1 = a+'  '
         if a1[0]=='-' and (a in paired_opts or a.replace('-','') in paired_opts):
             out['pairs'][a] = args[i+1]

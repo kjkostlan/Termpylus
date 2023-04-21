@@ -56,8 +56,11 @@ def is_folder(fname):
 def contents_on_first_call(fname):
     fname = termp_abs_path(fname)
     # The contents of the file on the first time said function was called.
+    # OR just before the first time the file was saved.
     if fname not in fglobals['original_txts']:
-        return contents(fname)
+        txt = contents(fname)
+        fglobals['original_txts'][fname] = txt # may be none, calling this before the file was created.
+        return txt
     return fglobals['original_txts'][fname]
 
 def date_mod(fname):
@@ -91,6 +94,8 @@ def _fsave1(fname, txt, mode, tries=12, retry_delay=1.0):
     _unwindoze_attempt(f, fname, tries, retry_delay)
 
 def fsave(fname, txt, tries=12, retry_delay=1.0):
+    # Automatically stores the original txts.
+    contents_on_first_call(fname) # Save the old contents.
     fname = termp_abs_path(fname)
     _fsave1(fname, txt, "w", tries, retry_delay)
 
