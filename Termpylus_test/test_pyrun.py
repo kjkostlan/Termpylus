@@ -143,7 +143,7 @@ def bar(foo):
 def test_main_extract():
     # Tests whether we can extract the if __name__ is __main__ part.
     # ALSO tests loadiing a module.
-
+    out = True
     foalder = sample_github_folders[0]
     piefile = project_main_files[0]; modname = piefile.replace('.py','').replace('/','')
 
@@ -153,16 +153,35 @@ def test_main_extract():
         _ = bashy_cmds.python([sample_github_folders[0]+'/'+piefile, '--th'], None) # Needed to load the repo.
     else:
         import importlib
-        modules.add_to_path(outside_folder+'/'+leaf_samples[0])
+        ark_fold = outside_folder+'/'+leaf_samples[0]
+        modules.add_to_path(ark_fold)
+
+        #https://linuxize.com/post/python-get-change-current-working-directory/
+        #Change dir so that the file loads.
+        os.chdir(ark_fold)
+
+        in_the_path = file_io.termp_abs_path(ark_fold) in sys.path
+        out = out and in_the_path
+        print('Arkanoid folder:', ark_fold, 'Added to the system path:', in_the_path)
+
+        try:
+            importlib.import_module('main')
+        except Exception as e:
+            if 'cannot convert without pygame.display initialized' not in str(e):
+                raise e
+        print('Main module:', str(sys.modules.get('main',None)))
+        #print('Module imported:', main)
+        #importlib.import_module('main')
+        #out = out and 'main' in sys.modules
+
         #Not helpful: modules.add_to_path(outside_subfolder)
-        print('Checking the path:', file_io.termp_abs_path(outside_folder+'/'+leaf_samples[0]) in sys.path, outside_folder+'/'+leaf_samples[0])
         #file_io.fsave(outside_folder+'/__init__.py','')
         #importlib.import_module(outside_subfolder)
         #https://linuxize.com/post/python-get-change-current-working-directory/
         #from load_sprite import load_sprite
         #importlib.import_module(modname)
         #importlib.import_module(leaf_samples[0]+'.'+modname)
-    out = True
+
     modules.module_fnames(True)
     if_name_main_blocks = modules.get_main_blocks(modname)
     #contents = file_io.contents(sample_github_folders[0]+'/'+project_main_files[0])
