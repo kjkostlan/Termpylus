@@ -1,4 +1,4 @@
-# File io simple wrappers.
+# Simple, error resistant file wrappers which keep track of the old files
 import os, io, pathlib, shutil, time, stat
 from . import gl_data
 
@@ -9,8 +9,11 @@ if 'fileio_globals' not in gl_data.dataset:
     ph = os.path.realpath('.').replace('\\','/')
     gl_data.dataset['fileio_globals'] = {'original_txts':{},
                                          'original_cwd':ph,
-                                         'user_paths':[ph]}
+                                         'user_paths':[ph],
+                                         'created_files':set()}
 fglobals = gl_data.dataset['fileio_globals']
+
+################################# Pathing ######################################
 
 def is_path_absolute(fname):
     # Different rules for linux and windows.
@@ -35,6 +38,41 @@ def termp_abs_path(fname): #fname = file_io.Termp_abs_path(fname)
         raise Exception('Output path not absolute assert bug in this code.')
     return out
 
+#####################################Querying###################################
+
+def is_folder(fname):
+    fname = termp_abs_path(fname)
+    return os.path.isdir(fname)
+
+def files_in_folder1(fname): # Returns full absolute paths.
+    fname = termp_abs_path(fname)
+    files = os.listdir(fname)
+    return [(fname+'/'+file).replace('//','/') for file in files]
+
+def recursive_files(fname, include_folders=False, filter_fn=None, max_folder_depth=65536):
+    fname = termp_abs_path(fname)
+    if os.path.isdir(fname):
+        files1 = files_in_folder1(fname)
+        out = []
+        for f in files1:
+            if filter_fn is not None and not filter_fn(f):
+                continue
+            if os.path.isdir(f):
+                if include_folders:
+                    out.append(f)
+                if len(fname.split('/'))<max_folder_depth:
+                    out = out+recursive_files(f, include_folders, filter_fn, max_folder_depth)
+            else:
+                out.append(f)
+        return out
+    else:
+        if filter_fn(fname):
+            return [fname]
+        else:
+            return []
+
+####################################Loading#####################################
+
 def contents(fname):
     fname = termp_abs_path(fname)
     if not os.path.isfile(fname):
@@ -49,17 +87,14 @@ def contents(fname):
             fglobals['original_txts'][fname] = out
         return out
 
-def is_folder(fname):
-    fname = termp_abs_path(fname)
-    return os.path.isdir(fname)
-
 def contents_on_first_call(fname):
     fname = termp_abs_path(fname)
     # The contents of the file on the first time said function was called.
     # OR just before the first time the file was saved.
     if fname not in fglobals['original_txts']:
         txt = contents(fname)
-        fglobals['original_txts'][fname] = txt # may be none, calling this before the file was created.
+        if txt is not None:
+            fglobals['original_txts'][fname] = txt
         return txt
     return fglobals['original_txts'][fname]
 
@@ -70,6 +105,8 @@ def date_mod(fname):
 def is_hidden(fname):
     fname = termp_abs_path(fname)
     return fname.split('/')[-1][0] == '.'
+
+#####################################Saving#####################################
 
 def _unwindoze_attempt(f, name, tries, retry_delay):
     for i in range(tries):
@@ -87,6 +124,7 @@ def _unwindoze_attempt(f, name, tries, retry_delay):
 def _fsave1(fname, txt, mode, tries=12, retry_delay=1.0):
     # Does not need any enclosing folders to already exist.
     #https://stackoverflow.com/questions/12517451/automatically-creating-directories-with-file-output
+    fname = termp_abs_path(fname)
     def f():
         os.makedirs(os.path.dirname(fname), exist_ok=True)
         with io.open(fname, mode=mode, encoding="utf-8") as file_obj:
@@ -95,9 +133,33 @@ def _fsave1(fname, txt, mode, tries=12, retry_delay=1.0):
 
 def fsave(fname, txt, tries=12, retry_delay=1.0):
     # Automatically stores the original txts.
-    contents_on_first_call(fname) # Save the old contents.
     fname = termp_abs_path(fname)
+    if os.path.exists(fname):
+        contents_on_first_call(fname) # Save the old contents.
+    else:
+        fglobals.created_files.add(fname)
     _fsave1(fname, txt, "w", tries, retry_delay)
+
+def fcreate(fname, is_folder):
+    # Creates an empty file.
+    fname = termp_abs_path(fname)
+    if not os.path.exists(fname):
+        fglobals.created_files.add(fname)
+    if is_folder:
+        folder = fname
+    else:
+        folder, _ = os.path.split(fname)
+    #https://stackoverflow.com/questions/273192/how-can-i-safely-create-a-nested-directory
+    pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
+    if not is_folder:
+        with open(fname,'a') as _:
+            pass
+
+def fappend(fname, txt):
+    fname = termp_abs_path(fname)
+    _fsave1(fname, txt, "a")
+
+#####################################Deleting###################################
 
 def fdelete(fname, tries=12, retry_delay=1.0):
     fname = termp_abs_path(fname)
@@ -125,27 +187,11 @@ def fdelete(fname, tries=12, retry_delay=1.0):
                 os.remove(fname)
     _unwindoze_attempt(f, fname, tries, retry_delay)
 
-def fcreate(fname, is_folder):
+def clear_pycache(fname):
     fname = termp_abs_path(fname)
-    if is_folder:
-        folder = fname
-    else:
-        folder, _ = os.path.split(fname)
-    #https://stackoverflow.com/questions/273192/how-can-i-safely-create-a-nested-directory
-    pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
-    if not is_folder:
-        with open(fname,'a') as _:
-            pass
-
-def fappend(fname, txt):
-    fname = termp_abs_path(fname)
-    _fsave1(fname, txt, "a")
-
-def clear_pycache(filename):
-    filename = termp_abs_path(filename)
     # This can intefere with updating.
-    cachefolder = os.path.dirname(filename)+'/__pycache__'
-    leaf = os.path.basename(filename).replace('.py','').replace('\\','/')
+    cachefolder = os.path.dirname(fname)+'/__pycache__'
+    leaf = os.path.basename(fname).replace('.py','').replace('\\','/')
     if os.path.isdir(cachefolder):
         leaves = os.listdir(cachefolder)
         for l in leaves:
@@ -154,35 +200,7 @@ def clear_pycache(filename):
                     print('Deleting cached file:', cachefolder+'/'+l)
                 os.remove(cachefolder+'/'+l)
 
-def files_in_folder1(fname):
-    # Fullpath.
-    fname = termp_abs_path(fname)
-    files = os.listdir(fname)
-    return [(fname+'/'+file).replace('//','/') for file in files]
-
-def recursive_files(fname, include_folders=False, filter_fn=None, max_folder_depth=65536):
-    fname = termp_abs_path(fname)
-    if os.path.isdir(fname):
-        files1 = files_in_folder1(fname)
-        out = []
-        for f in files1:
-            if filter_fn is not None and not filter_fn(f):
-                continue
-            if os.path.isdir(f):
-                if include_folders:
-                    out.append(f)
-                if len(fname.split('/'))<max_folder_depth:
-                    out = out+recursive_files(f, include_folders, filter_fn, max_folder_depth)
-            else:
-                out.append(f)
-        return out
-    else:
-        if filter_fn(fname):
-            return [fname]
-        else:
-            return []
-
-####################################Debug safety features#######################
+#################################Debug safety and testing#######################
 
 def _fileallow(fname):
     keeplist = debug_restrict_disk_modifications_to_these
