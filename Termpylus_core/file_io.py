@@ -10,6 +10,7 @@ if 'fileio_globals' not in gl_data.dataset:
     gl_data.dataset['fileio_globals'] = {'original_txts':{},
                                          'original_cwd':ph,
                                          'user_paths':[ph],
+                                         'checkpoints':{},
                                          'created_files':set()}
 fglobals = gl_data.dataset['fileio_globals']
 
@@ -108,6 +109,15 @@ def is_hidden(fname):
 
 #####################################Saving#####################################
 
+def _update_checkpoints_before_saving(fname):
+    fname = termp_abs_path(fname)
+    if len(fglobals['checkpoints'])==0:
+        return
+    txt = contents(fname) # May be None, which means reverting = deleting this file.
+    for k in fglobals['checkpoints'].keys():
+        if fname not in fglobals['checkpoints'][k]:
+            fglobals['checkpoints'][k][fname] = txt
+
 def _unwindoze_attempt(f, name, tries, retry_delay):
     for i in range(tries):
         try:
@@ -134,6 +144,7 @@ def _fsave1(fname, txt, mode, tries=12, retry_delay=1.0):
 def fsave(fname, txt, tries=12, retry_delay=1.0):
     # Automatically stores the original txts.
     fname = termp_abs_path(fname)
+    _update_checkpoints_before_saving(fname)
     if os.path.exists(fname):
         contents_on_first_call(fname) # Save the old contents.
     else:
@@ -157,12 +168,21 @@ def fcreate(fname, is_folder):
 
 def fappend(fname, txt):
     fname = termp_abs_path(fname)
-    _fsave1(fname, txt, "a")
+    if len(fglobals['checkpoints'])>0: # Requires a load+save.
+        fsave(fname, contents(fname)+txt)
+    else:
+        _fsave1(fname, txt, "a")
 
-#####################################Deleting###################################
+def save_checkpoint(name):
+    # Save a checkpoint which can be reverted to. Overwrite if name already exists.
+    fglobals['checkpoints'][name] = {}
+
+##############################Deleting############################
 
 def fdelete(fname, tries=12, retry_delay=1.0):
+    # Can be reverted IF there is a checkpoint saved.
     fname = termp_abs_path(fname)
+    _update_checkpoints_before_saving(fname)
     version2 = False # (I think) V1 and V2 are equivalent.
 
     # Works on files and folders.
@@ -200,6 +220,26 @@ def clear_pycache(fname):
                     print('Deleting cached file:', cachefolder+'/'+l)
                 os.remove(cachefolder+'/'+l)
 
+def delete_checkpoint(name):
+    if name in fglobals['checkpoints']:
+        del fglobals['checkpoints'][name]
+
+############################### Changes to several files at once ###############
+
+def f_impose(fname2txt):
+    # Creates or deletes files. Uses fsave, which ensures folders are created if need be.
+    for k in fname2txt.keys():
+        if fname2txt[k] is None:
+            fdelete(fname2txt[k])
+        else:
+            fsave(k, fname2txt[k])
+
+def revert_checkpoint(check_name):
+    # Revert to a given checkpoint.
+    fname2txt = fglobals['checkpoints'][check_name].copy() # The copy is important since it is modified inside the for loop!
+
+
+
 #################################Debug safety and testing#######################
 
 def _fileallow(fname):
@@ -234,3 +274,34 @@ def guarded_create(fname, is_folder):
         raise Exception('debug_restrict_disk_modifications_to_these is set to: '+str(debug_restrict_disk_modifications_to_these).replace('\\\\','/')+' and disallows creating this filename: '+fname)
     fcreate(fname, is_folder)
     return fname
+
+def with_modifications(fname2contents, f, blanck_original_txts=False):
+    # Allows temporary file modifications.
+    # Runs f with the modified fname2contents.
+    cname = '_tmp_with_modifications_checkpoint'; inw = '_inside_with_modifications'
+    if fglobals.get(inw,None) is not None:
+        raise Exception('Cannot nest with_modifications.')
+    fglobals[inw] = True
+    original_txts = fglobals['original_txts']
+    if blanck_original_txts:
+        fglobals['original_txts'] = {}
+
+    save_checkpoint(cname)
+    try:
+        f_impose(fname2contents)
+    except Exception as e:
+        revert_checkpoint(cname)
+        raise e
+
+    exc = None
+    try:
+        f()
+    except Exception as e:
+        exc = e
+    revert_checkpoint(cname)
+    fglobals[inw] = False
+    if blanck_original_txts:
+        fglobals['original_txts'] = original_txts
+    if exc is not None:
+        print('Problem inside the function passed to with_modifications (see error below).')
+        raise exc
