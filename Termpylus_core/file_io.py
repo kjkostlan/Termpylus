@@ -239,7 +239,6 @@ def revert_checkpoint(check_name):
     fname2txt = fglobals['checkpoints'][check_name].copy() # The copy is important since it is modified inside the for loop!
 
 
-
 #################################Debug safety and testing#######################
 
 def _fileallow(fname):

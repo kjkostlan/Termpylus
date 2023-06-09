@@ -12,6 +12,7 @@
 import sys, re, numba, copy
 import numpy as np
 from . import pyparse
+import Termpylus_shell.bashy_cmds as bashy_cmds
 
 # False: Bash behaves more consistently and intuitivly.
 # True: Bash behaves more like Bash.
@@ -561,6 +562,8 @@ def _ast_core(ptxts):
         raise SyntaxError('Ast parse attempt on empty substring.')
     if len(txt)==1:
         return str(txt) if ptxt.token[0]==3 else Symbol(txt)
+    if txt=='{}' or txt == '()' or txt == '[]':
+        raise Exception('This is from Python land and a syntax error in Bash')
     if txt[0]=='$':
         if txt[1]=='(' and txt[2]=='(':
             raise SyntaxError('Arithmetic parsing not supported in this limited bash parser.')
@@ -670,57 +673,62 @@ def lines_vs_python(code, striplines=True):
     return plines
 
 def is_line_bash(pline_py, assert_decision=True):
-    # Decide between bash and python, for a single line.
+    # Decide between bash and python, for a single line. None means a judgement neither as as True or False.
     # Looks for key syntatical hints (namely the $ and a space between tokens).
     # Can be overiden with a trailing #!bash/#!python.
     line = pline_py.txt; tok_py = pline_py.token; paren_py = pline_py.paren
-
     if len(line)>0 and pline_py.quote[0] >-1: # not python.
         raise Exception('Pline must be with python=True')
 
     if len(line.strip())<len(line):
-        raise Exception('The line must be stripped in a way to preserve the arrays.')
-    line1 = line.replace('2','3').replace('3','')
+        raise Exception('The line must be strip() to preserve the arrays.')
+    line1 = line.replace('2','3').replace('3','').strip()
     if line1.endswith('#!/bin/bash') or line.endswith('#!bash'):
         return True
     if line1.endswith('#!/bin/python') or line1.endswith('#!python'):
         return False
-
     if len(line)==0 or line.startswith('#'):
-        return False # Empty line either way.
+        return None # Empty line either way.
     if tok_py[0]==3 or tok_py[0]==6 or (paren_py[0]-(tok_py[0]==4))>0:
-        return False # Part of a multiline blob.
+        return False # Multiline line. For simplicity we only allow Python here.
 
+    # Replace stuff in quotes or comments with blob.
     line_ord = np.asarray([ord(c) for c in line])
     line_ord[tok_py==3] = ord('A'); line_ord[tok_py==6] = ord(' ') # Comments to spaces.
+    blob_string_comments = ''.join([chr(c) for c in line_ord]) # Strings to A and comments to spaces.
 
-    line_deblobbed = ''.join([chr(c) for c in line_ord])
-    line_ord[paren_py>0] = ord('A')
-    is_outerlev = np.asarray(paren_py)==0
-    line_deblobbed2 = ''.join([chr(c) for c in line_ord])
+    line_ord[paren_py>0] = ord('A') # Inclusive of the () themselves.
+    blob_string_paren_comments = ''.join([chr(c) for c in line_ord])
 
-    tok_deb = set(line_deblobbed2.split(' '))
-    if 'if' in tok_deb and 'else' in tok_deb:
-        return False # 1line if-else statements.
-
-    sub_lines = line_deblobbed.split(';')
+    sub_lines = blob_string_comments.split(';')
     for sub_line in sub_lines:
         if (sub_line.strip().split(' ')+['...'])[0] in pyparse.py_kwds:
             return False # "import foo" has a bash-like syntax but is actually Python.
+    if '()' in blob_string_comments or '[]' in blob_string_comments or '{}' in blob_string_comments:
+        return False # This is Python only territory.
 
-    if '$' in line_deblobbed:
+    if '$' in blob_string_comments:
         return True # $ is never valid python syntax unless it is buried in a quote/comment.
-    if re.search('[a-zA-Z0-9] +[a-zA-Z0-9]', line_deblobbed2) is not None:
+    if ' if ' in blob_string_paren_comments and ' fi ' not in blob_string_paren_comments:
+        return False # One line Python inline if.
+    if re.search('[a-zA-Z0-9] +[a-zA-Z0-9]', blob_string_paren_comments) is not None:
         return True # "foo bar" *at the outer indent level* means bash.
-    if len(line_deblobbed2.replace(' =','=').replace('= ','='))<len(line_deblobbed):
+    if len(blob_string_paren_comments.replace(' =','=').replace('= ','='))<len(blob_string_comments):
         return False # Outer level foo = bar *with a space* before or after the = means Python.
     if re.match('^[a-zA-Z0-9]+$', line) is not None:
-        return True # One token command such as "ls"
+        return None # One token command such as "ls" is also valid Python.
 
     if assert_decision:
         raise SyntaxError('Couldnt classify this line as bash or python (ambigious or this fn is incomplete): '+line)
     else:
         return None # Neither True nor False. Maybe better to treat as Python?
+
+def bashy_heuristic(line):
+    # For lines for which is_bash is None, are they more likly to be bash?
+    line = line.strip()
+    if line.split(' ')[0] in dir(bashy_cmds): # ls, grep, etc are likely bash lines.
+        return True
+    return False
 
 def maybe_bash2py_console_input(txt):
     # Converts bash to python when it detects lines of bash.
@@ -728,8 +736,8 @@ def maybe_bash2py_console_input(txt):
     if strict_mode:
         raise Exception('Strict mode will only be supported if a lot of bash is used; it would be generally less powerful since it makes it harder to nest statements, etc.')
     txt = txt.strip().replace('\r\n','\n')
-    plines = lines_vs_python(txt, striplines=True)
-    lines = [pline.txt for pline in plines]
+    plines_stripped = lines_vs_python(txt, striplines=True)
+    lines = txt.split('\n')
 
     if len(lines)==0:
         return ''
@@ -743,12 +751,17 @@ def maybe_bash2py_console_input(txt):
         return '\n'.join(lines)
 
     prev_bash = False
+    non_comment_hit = False
     for i in range(len(lines)):
-        is_bash = is_line_bash(plines[i], False)
+        is_bash = is_line_bash(plines_stripped[i], False)
+        if not non_comment_hit and is_bash is None and bashy_heuristic(lines[i]):
+            is_bash = True # Special case for the first real line of code.
         if is_bash or (is_bash==None and prev_bash):
             prev_bash = True
-            lines[i] = bash2py(lines[i])
+            lines[i] = bash2py(lines[i].strip())
         else:
             prev_bash = False
+        if not non_comment_hit and (lines[i]+'#').strip()[0] !='#':
+            non_comment_hit = True
 
     return '\n'.join(lines)

@@ -81,50 +81,54 @@ def test_bash2py():
 
     out = True
 
+    x = 'foo.bar()'; y = None
+    out = out and not is_bash(x)
+
     x = 'x = 1'; y = None
     out = out and not is_bash(x)
 
     x = 'ls'; y = bashparse.bash2py(x).replace('"',"'")
-    out = out and is_bash(x) and y.strip()=='_ = ls()'
+    out = out and (is_bash(x) is None) and y.strip()=='ans = ls()' # Even though is_bash is None, it likely is a Bash line.
 
     x = 'echo $bar'; y = bashparse.bash2py(x).replace('"',"'")
-    out = out and is_bash(x) and y.strip()=='_ = echo(bar)'
+    out = out and is_bash(x) and y.strip()=='ans = echo(bar)'
 
     x = 'echo bar'; y = bashparse.bash2py(x).replace('"',"'")
-    out = out and is_bash(x) and y.strip()=="_ = echo('bar')"
+    out = out and is_bash(x) and y.strip()=="ans = echo('bar')"
 
     x = 'x=$(ls -a -r)'; y = bashparse.bash2py(x).replace('"',"'") # This example is wrong!
     out = out and is_bash(x) and y.strip()=="x = ls('-a', '-r')"
 
     x = '_ans, _err = run("blender", [])'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'import foo'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'from foo import bar'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'def some_test(*args):'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'return foo'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'assert foo'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'x=grep if ls>1 else touch'; y = None # Trick question.
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
+    print('Stuff:', is_bash(x))
 
     x = 'foo: Foo'; y = None # Trick question.
-    out = out and not is_bash(x, False)
+    out = out and (is_bash(x, False) is None)
 
     x = 'x= a[b]'; y = None # Trick question.
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'x=a[b]'; y = None # Trick question.
-    out = out and not is_bash(x, False)
+    out = out and (is_bash(x, False) is None)
 
     x = 'a = 1 #!/bin/bash'; y = None
     out = out and is_bash(x)
@@ -133,10 +137,13 @@ def test_bash2py():
     out = out and is_bash(x)
 
     x = 'a = 1 #a is a scalar and this is a comment.'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
 
     x = 'grep foo #!/bin/python'; y = None
-    out = out and not is_bash(x)
+    out = out and (is_bash(x) is False)
+
+    x = 'ls -a'; y = None # Trick question, since 10 -3 is valid Python.
+    out = out and (is_bash(x, False) is None)
 
     return out
 
