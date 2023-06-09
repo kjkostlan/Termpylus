@@ -119,7 +119,6 @@ def test_bash2py():
 
     x = 'x=grep if ls>1 else touch'; y = None # Trick question.
     out = out and (is_bash(x) is False)
-    print('Stuff:', is_bash(x))
 
     x = 'foo: Foo'; y = None # Trick question.
     out = out and (is_bash(x, False) is None)
@@ -144,6 +143,12 @@ def test_bash2py():
 
     x = 'ls -a'; y = None # Trick question, since 10 -3 is valid Python.
     out = out and (is_bash(x, False) is None)
+
+    x = 'ls -n "foo" -b bar'; y = bashparse.bash2py(x).replace('"',"'")
+    out = out and y == "ans = ls('-n', 'foo', '-b', 'bar')"
+
+    x = 'mv foo $bar'; y = bashparse.bash2py(x).replace('"',"'")
+    out = out and y == "ans = mv('foo', bar)"
 
     return out
 

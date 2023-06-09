@@ -597,6 +597,8 @@ def _ast_core(ptxts):
     elif ptxt.token[0]==1: # A symbol, to be called as a fn.
         return [Symbol(txt)]
     elif ptxt.token[0]==3: # A string.
+        if txt[0] == '"' or txt[0] == "'":
+            return txt[1:-1]
         return txt
 
 def ast_bash(txt):
@@ -660,7 +662,18 @@ def bash2py(txt, prepend_spaces=0):
 
 ################################### BASH vs python ########################
 
-def lines_vs_python(code, striplines=True):
+def blob(pline):
+    # Blob over strings and comments. And also nested parens.
+    line = pline.txt; tok_py = pline.token; paren_py = pline.paren
+    line_ord = np.asarray([ord(c) for c in line])
+    line_ord[tok_py==3] = ord('A'); line_ord[tok_py==6] = ord(' ') # Comments to spaces.
+    blob_string_comments = ''.join([chr(c) for c in line_ord]) # Strings to A and comments to spaces.
+
+    line_ord[paren_py>0] = ord('A') # Inclusive of the () themselves.
+    blob_string_paren_comments = ''.join([chr(c) for c in line_ord])
+    return blob_string_comments, blob_string_paren_comments
+
+def lines_vs_python(code):
     # Per line parsing, returns Ptxt array.
     code = code.replace('\r\n','\n')
     lines = code.split('\n'); N = len(lines)
@@ -668,14 +681,13 @@ def lines_vs_python(code, striplines=True):
     en_ixs = [st_ixs[i]+len(lines[i]) for i in range(N)] #en_ix[i]+1=start_ix[i+1]
 
     plines = ParsedStr(code, python=True).substrings(st_ixs, en_ixs)
-    if striplines:
-        plines = [pline.strip() for pline in plines]
     return plines
 
 def is_line_bash(pline_py, assert_decision=True):
     # Decide between bash and python, for a single line. None means a judgement neither as as True or False.
     # Looks for key syntatical hints (namely the $ and a space between tokens).
     # Can be overiden with a trailing #!bash/#!python.
+    pline_py = pline_py.strip()
     line = pline_py.txt; tok_py = pline_py.token; paren_py = pline_py.paren
     if len(line)>0 and pline_py.quote[0] >-1: # not python.
         raise Exception('Pline must be with python=True')
@@ -693,12 +705,7 @@ def is_line_bash(pline_py, assert_decision=True):
         return False # Multiline line. For simplicity we only allow Python here.
 
     # Replace stuff in quotes or comments with blob.
-    line_ord = np.asarray([ord(c) for c in line])
-    line_ord[tok_py==3] = ord('A'); line_ord[tok_py==6] = ord(' ') # Comments to spaces.
-    blob_string_comments = ''.join([chr(c) for c in line_ord]) # Strings to A and comments to spaces.
-
-    line_ord[paren_py>0] = ord('A') # Inclusive of the () themselves.
-    blob_string_paren_comments = ''.join([chr(c) for c in line_ord])
+    blob_string_comments, blob_string_paren_comments = blob(pline_py)
 
     sub_lines = blob_string_comments.split(';')
     for sub_line in sub_lines:
@@ -736,8 +743,8 @@ def maybe_bash2py_console_input(txt):
     if strict_mode:
         raise Exception('Strict mode will only be supported if a lot of bash is used; it would be generally less powerful since it makes it harder to nest statements, etc.')
     txt = txt.strip().replace('\r\n','\n')
-    plines_stripped = lines_vs_python(txt, striplines=True)
-    lines = txt.split('\n')
+    plines = lines_vs_python(txt)
+    lines = [pline.txt for pline in plines]
 
     if len(lines)==0:
         return ''
@@ -753,7 +760,17 @@ def maybe_bash2py_console_input(txt):
     prev_bash = False
     non_comment_hit = False
     for i in range(len(lines)):
-        is_bash = is_line_bash(plines_stripped[i], False)
+        blob_string_comments, blob_string_paren_comments = blob(plines[i])
+        if '=:' in blob_string_paren_comments: # Shorthand to indiate that the RHS is bashy.
+            ix = blob_string_paren_comments.index('=:')
+            lhs = lines[i][0:ix]; rhs = lines[i][ix+2:]
+            lines[i] = lhs + ' = ' + bash2py(rhs.strip()).replace('ans = ','')
+            lines[i] = lines[i].replace('  ',' ')
+            prev_bash = True
+            non_comment_hit = True
+            continue
+
+        is_bash = is_line_bash(plines[i], False)
         if not non_comment_hit and is_bash is None and bashy_heuristic(lines[i]):
             is_bash = True # Special case for the first real line of code.
         if is_bash or (is_bash==None and prev_bash):
