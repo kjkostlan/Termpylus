@@ -1,7 +1,7 @@
 #Tests running python and updating changes to python.
 import sys, os, imp, re
 from Termpylus_core import var_watch, updater, file_io
-from Termpylus_lang import pyparse
+from Termpylus_lang import pyparse, projects
 from Termpylus_shell import bashy_cmds, shellpython
 from Termpylus_lang import ppatch, modules
 from . import ttools
@@ -9,8 +9,7 @@ from . import ttools
 project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
 project_main_files = ['/main.py', '/bench.py']
 outside_folder = file_io.termp_abs_path('../__softwaredump__/Termpylus/sample_projs')
-leaf_samples = [url.split('/')[-1] for url in project_urls]
-sample_github_folders = [outside_folder+'/'+leaf_sample for leaf_sample in leaf_samples]
+
 
 def _fetch_sample_githubs():
     # Fetch sample githubs into an external softwaredump folder.
@@ -146,6 +145,8 @@ def test_main_extract():
     out = True
     foalder = sample_github_folders[0]
     piefile = project_main_files[0]; modname = piefile.replace('.py','').replace('/','')
+    leaf_samples = [url.split('/')[-1] for url in project_urls]
+    sample_github_folders = [outside_folder+'/'+leaf_sample for leaf_sample in leaf_samples]
 
     # TWO ways to import:
     run_module_directly = False
@@ -191,24 +192,42 @@ def test_main_extract():
     out = out and "bricks, platform, ball, bricks_quantity = game_field_init()" in if_name_main_blocks[1]
     return out
 
-def test_python_openproject():
+try:
+    ark_proj
+except:
+    ark_proj = [None]
+
+def test_run_arkanoid():
     # BIG TEST!
     # TODO: test all teh differene cases (threads, modules, etc)
     # Launch a program in an external folder, and try to connect with it.
-    nproj = len(project_main_files)
-    shell_obj = shellpython.Shell()
-    for i in range(nproj):
-        if i==1: # TODO
-            return False
-        main_py_file = file_io.termp_abs_path(sample_github_folders[i]+'/'+project_main_files[i])
-        main_py_folder = os.path.dirname(file_io.termp_abs_path(main_py_file)) # TODO: use this.
-        # -th = Thread, -pr = process. Neither = Not applicable.
-        print('About to run the script:', main_py_file)
-        x = bashy_cmds.python([main_py_file, '--pr'], shell_obj)
-        #x = bashy_cmds.python([main_py_file, '--th'], shell_obj)
-        #x = bashy_cmds.python([main_py_file], shell_obj)
-        print('x is:', x)
-    return False # TODO.
+
+    folder = outside_folder+'/arkanoid'
+    mods = None # TODO: add mods.
+    always_update = False
+    if ark_proj[0] is None or always_update:
+        print('About to download Arkanoid')
+        ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0], mods=None, refresh_dt=3600) #(folder=folder, github_URL=project_urls[0], mods=None, git_refresh_time=3600)
+    the_proj = ark_proj[0]
+
+    print('About to run Arkanoid')
+    the_proj.run()
+
+    #main_py_file = file_io.termp_abs_path(sample_github_folders[0]+'/'+project_main_files[0])
+    #main_py_folder = os.path.dirname(file_io.termp_abs_path(main_py_file)) # TODO: use this.
+    # -th = Thread, -pr = process. Neither = Not applicable.
+    #print('About to run the script:', main_py_file)
+    #shell_obj = shellpython.Shell()
+    #x = bashy_cmds.python([main_py_file, '--pr'], shell_obj)
+    #x = bashy_cmds.python([main_py_file, '--th'], shell_obj)
+    #x = bashy_cmds.python([main_py_file], shell_obj)
+    #print('x is:', x)
+    #return False # TODO.
 
 def prepare_tests():
+    ask_for_permiss = False
+    if ask_for_permiss:
+        x = input('These tests needs to download GitHub code to ' + outside_folder + ' y to preceed.')
+        if x.strip() != 'y':
+            return False
     _fetch_sample_githubs()

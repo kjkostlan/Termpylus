@@ -135,9 +135,9 @@ def python(bashy_args, shell_obj):
         try:
             ex = out.exception(timeout=0.125)
             if ex is not None:
-                print("Attempting to launch "+abs_path+" quickly caused this exception and shut down it's Thread/Process:\n", repr(ex))
+                raise Exception("Attempting to launch "+abs_path+" quickly caused this exception and shut down it's Thread/Process:\n"+repr(ex))
         except TimeoutError:
-            pass
+            pass # Keeps running.
     return out
 
 def pwatch(bashy_args, shell_obj):

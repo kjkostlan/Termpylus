@@ -148,18 +148,19 @@ def fsave(fname, txt, tries=12, retry_delay=1.0):
     if os.path.exists(fname):
         contents_on_first_call(fname) # Save the old contents.
     else:
-        fglobals.created_files.add(fname)
+        fglobals['created_files'].add(fname)
     _fsave1(fname, txt, "w", tries, retry_delay)
 
 def fcreate(fname, is_folder):
     # Creates an empty file.
     fname = termp_abs_path(fname)
     if not os.path.exists(fname):
-        fglobals.created_files.add(fname)
+        fglobals['created_files'].add(fname)
     if is_folder:
         folder = fname
     else:
         folder, _ = os.path.split(fname)
+
     #https://stackoverflow.com/questions/273192/how-can-i-safely-create-a-nested-directory
     pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
     if not is_folder:
@@ -237,7 +238,6 @@ def f_impose(fname2txt):
 def revert_checkpoint(check_name):
     # Revert to a given checkpoint.
     fname2txt = fglobals['checkpoints'][check_name].copy() # The copy is important since it is modified inside the for loop!
-
 
 #################################Debug safety and testing#######################
 
