@@ -8,9 +8,9 @@ except:
 def _install_gitpacks(): # Runs once on "import proj"
     # Installs elegant games, for a more socialized age:
     packs = {}
-    packs['./Termpylus_extern/FaSTatine'] = ['https://github.com/kjkostlan/FaSTatine', '../FaSTatine']
-    packs['./Termpylus_extern/Slitherlisp'] = ['https://github.com/kjkostlan/Slitherlisp', '../Slitherlisp']
-    packs['./Termpylus_extern/Waterworks'] = ['https://github.com/kjkostlan/Waterworks', '../Waterworks']
+    packs['./Termpylus_extern/fastatine'] = ['https://github.com/kjkostlan/fastatine', '../FaSTatine']
+    packs['./Termpylus_extern/slitherlisp'] = ['https://github.com/kjkostlan/slitherlisp', '../Slitherlisp']
+    packs['./Termpylus_extern/waterworks'] = ['https://github.com/kjkostlan/waterworks', '../Waterworks']
 
     for k, v in packs.items():
         k = k.replace('\\','/')
@@ -19,8 +19,8 @@ def _install_gitpacks(): # Runs once on "import proj"
         code_in_a_box.download(v[0], k, clear_folder=False)
 
     # Package-package interaction which is a bit messy:
-    import Termpylus_extern.slitherlisp
-    Termpylus_extern.slitherlisp.integrate(['FaSTatine'], ['Termpylus_extern.FaSTatine'])
+    import Termpylus_extern.slitherlisp.cross_package
+    Termpylus_extern.slitherlisp.cross_package.integrate(['FaSTatine'], ['Termpylus_extern.FaSTatine'])
 
 ########################## Boilerplate code below ##############################
 ########### (some of our pacakges depend on global_get and proj.dump_folder) ##########
