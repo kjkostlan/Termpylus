@@ -1,9 +1,10 @@
 # Tests variable modifications and tracking.
 import sys
 import numpy as np
-from Termpylus_core import updater, var_watch
+from Termpylus_extern.waterworks import updater, var_watch
+from Termpylus_extern.slitherlisp import ppatch
+
 from . import ttools
-from Termpylus_lang import ppatch
 
 def test_var_get():
     # Basic test for variable getting.

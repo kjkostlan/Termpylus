@@ -1,7 +1,7 @@
 #Helpers for implementing bash functions. Not the funcions themselves (they are in bashy_cmds).
 import os, fnmatch, re, pathlib, operator
 from tkinter import messagebox
-from Termpylus_core import file_io
+from Termpylus_extern.waterworks import file_io
 
 def option_parse(args, paired_opts):
     # Bash-like handling of arguments.

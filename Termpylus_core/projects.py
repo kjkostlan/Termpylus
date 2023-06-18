@@ -1,7 +1,7 @@
 # Handles projects.
 import sys, os, time, shutil
-from Termpylus_core import file_io
 from Termpylus_shell import bashy_cmds, shellpython
+from Termpylus_extern.waterworks import file_io
 
 class PyProj():
     def __init__(self, origin, dest, run_file, mods=None, refresh_dt=3600):

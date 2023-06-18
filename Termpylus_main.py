@@ -7,7 +7,7 @@ import traceback, sys
 import proj # Runs the project dependency installation.
 from Termpylus_shell import shellpython
 from Termpylus_UI import evt_check, layout, slowprint, hotkeys
-from Termpylus_core import updater, file_io
+from Termpylus_extern.waterworks import py_updater, file_io
 
 debug_show_keypress = False
 
@@ -126,7 +126,7 @@ class GUI(tk.Frame):
             input_to_shell=self.text_input.get("1.0","end-1c")
             if len(input_to_shell.strip())==0:
                 return None
-            updater.update_user_changed_modules() # Update modules.
+            py_updater.update_user_changed_modules() # Update modules.
 
             autocorrect_err_prepend = '#Autocorrect error (see the background console for the error)\n'
             try:
@@ -162,7 +162,7 @@ class GUI(tk.Frame):
             self.historybox.see(tk.END)
 
             new_modules = set(sys.modules.keys())-set(mo0.keys())
-            updater.startup_cache_sources(new_modules)
+            py_updater.startup_cache_sources(new_modules)
 
     def maybe_clear_app(self, *args):
         if evt_check.emacs(args[0], 'C+l'): # Bash default clear.
@@ -178,7 +178,7 @@ class GUI(tk.Frame):
 
 if __name__=='__main__':
     print_state_singleton = slowprint.PrinterState()
-    updater.startup_cache_sources()
+    py_updater.startup_cache_sources()
     #shell = shellnative.Shell()
     shell = shellpython.Shell()
     try:

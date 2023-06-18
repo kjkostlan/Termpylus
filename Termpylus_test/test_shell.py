@@ -4,7 +4,8 @@ import os
 import tkinter.messagebox
 from Termpylus_shell import shellpython, bashy_cmds
 from Termpylus_UI import hotkeys
-from Termpylus_core import file_io
+from Termpylus_extern.waterworks import file_io
+
 from . import ttools
 
 def _alltrue(x):

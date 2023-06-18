@@ -11,12 +11,13 @@ def _install_gitpacks(): # Runs once on "import proj"
     packs['./Termpylus_extern/fastatine'] = ['https://github.com/kjkostlan/fastatine', '../FaSTatine']
     packs['./Termpylus_extern/slitherlisp'] = ['https://github.com/kjkostlan/slitherlisp', '../Slitherlisp']
     packs['./Termpylus_extern/waterworks'] = ['https://github.com/kjkostlan/waterworks', '../Waterworks']
+    dev_mode_local_packs = True # Install from local folders, not from GitHub
 
     for k, v in packs.items():
         k = k.replace('\\','/')
         if k == '.' or k[0:2] != './':
             raise Exception('Forgot the ./<folder>')
-        code_in_a_box.download(v[0], k, clear_folder=False)
+        code_in_a_box.download(v[1 if dev_mode_local_packs else 0], k, clear_folder=False)
 
     # Package-package interaction which is a bit messy:
     import Termpylus_extern.slitherlisp.cross_package

@@ -3,9 +3,12 @@
 #Look for weighted combination of keywords, uses, etc.
 import re, inspect
 import numpy as np
-from . import dwalk, file_io, var_watch, gl_data
-from Termpylus_lang import pyparse, modules, ppatch
+from . import dwalk
 from Termpylus_shell import bash_helpers
+from Termpylus_extern.waterworks import file_io, modules
+from Termpylus_extern.slitherlisp import var_watch, ppatch
+from Termpylus_extern.fastatine import python_parse
+import proj
 
 ##########################Lower-level fns#############################
 
@@ -83,7 +86,7 @@ class Sourcevar:
         self.varname = varname
         self.src_txt_old = src_txt0
         self.src_txt = src_txt1 # Txt of the function body.
-        src_edit = pyparse.txt_edit(src_txt0, src_txt1)
+        src_edit = python_parse.txt_edit(src_txt0, src_txt1)
         self.src_edit = src_edit # Edit on the fn body since program startup.
         self.src_datemod = src_datemod
         self.signature = None
@@ -198,11 +201,11 @@ def get_all_sourcevars():
     for k in fnames.keys():
         contents = file_io.contents(fnames[k]); date_mod = file_io.date_mod(fnames[k])
         contents0 = file_io.contents_on_first_call(fnames[k])
-        src_pieces = pyparse.simple_tokens(contents)
+        src_pieces = python_parse.simple_tokens(contents)
         for p in src_pieces:
             src_token_counts[p] = src_token_counts.get(p,0)+1
-        defs = pyparse.sourcecode_defs(contents, nest=True)
-        defs0 = pyparse.sourcecode_defs(contents0, nest=True)
+        defs = python_parse.sourcecode_defs(contents, nest=True)
+        defs0 = python_parse.sourcecode_defs(contents0, nest=True)
         for dk in defs.keys():
             out.append(Sourcevar(k, dk, defs0.get(dk,''), defs[dk], date_mod))
     return out, src_token_counts
@@ -222,12 +225,12 @@ def source_find(*bashy_args):
     all_src_vars = None
     while i<len(bashy_args):
         ky = str(bashy_args[i]).lower(); query = bashy_args[i+1]
-        if ky==pkp and bool(query) and 'dquery_globals' in gl_data.dataset and 'src_vars' in gl_data.dataset['dquery_globals']:
-            all_src_vars = gl_data.dataset['dquery_globals']['src_vars']
+        if ky==pkp and bool(query) and 'dquery_globals' in proj.dataset and 'src_vars' in proj.dataset['dquery_globals']:
+            all_src_vars = proj.dataset['dquery_globals']['src_vars']
         i = i+2
     if all_src_vars is None:
         all_src_vars, _ = get_all_sourcevars()
-        gl_data.dataset['dquery_globals'] = {'src_vars':all_src_vars}
+        proj.dataset['dquery_globals'] = {'src_vars':all_src_vars}
     def use_count(sourcevar, query): # Avoid recalculating all_src_vars for each src_var.
         return usecount_metric(sourcevar, query, all_src_vars)
 

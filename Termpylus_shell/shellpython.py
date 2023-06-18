@@ -2,15 +2,9 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, importlib, traceback, subprocess
 from . import bashy_cmds
-from Termpylus_core import file_io
-from Termpylus_lang import modules, bashparse, ppatch
-
-# Extra imports to make the command line easier to use:
-from Termpylus_core import *
-from Termpylus_shell import *
-from Termpylus_test import *
-from Termpylus_UI import *
-from Termpylus_lang import *
+from Termpylus_extern.waterworks import file_io, modules
+from Termpylus_extern.fastatine import bash_parse
+from Termpylus_extern.slitherlisp import ppatch
 
 def str1(x):
     sx = str(x)
@@ -119,13 +113,13 @@ class Shell:
         self.listenerf = None
 
     def autocorrect(self, the_input):
-        return bashparse.maybe_bash2py_console_input(the_input)
+        return bash_parse.maybe_bash2py_console_input(the_input)
 
     def make_module_closures(self):
         # "considered evil" zone ahead: we add properties to the parent module
         # so that they can be used without qualifications in the command line.
         # (due to the need to closure over self we can't use from ... import *)
-        bashparse.add_bash_syntax_fns(__name__)
+        bash_parse.add_bash_syntax_fns(__name__)
         us = sys.modules[__name__]
         mname = 'Termpylus_shell.bashy_cmds'; m = sys.modules[mname]
         kys = ppatch.get_vars(mname)

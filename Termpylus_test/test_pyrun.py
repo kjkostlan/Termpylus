@@ -1,9 +1,9 @@
 #Tests running python and updating changes to python.
 import sys, os, imp, re
-from Termpylus_core import var_watch, updater, file_io
-from Termpylus_lang import pyparse, projects
+from Termpylus_core import projects
 from Termpylus_shell import bashy_cmds, shellpython
-from Termpylus_lang import ppatch, modules
+from Termpylus_extern.slitherlisp import var_watch, ppatch
+from Termpylus_extern.waterworks import py_updater, file_io, modules
 from . import ttools
 
 project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']

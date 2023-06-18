@@ -1,12 +1,13 @@
 # Determines if code is bash and if so converts to Py.
 # Very simple! Only useful for interactive command line/hotkeys since bash can be so extremly brief.
+from Termpylus_extern.fastatine import bash_parse, python_parse
 
 class ParsedStr():
     def __init__(self, txt, python=False):
         x = np.frombuffer(txt.encode('UTF-32-LE'), dtype=np.uint32)
         self.txt = txt
         if python:
-            self.token, self.paren, _ = pyparse.fsm_parse(txt)
+            self.token, self.paren, _ = python_parse.fsm_parse(txt)
             self.quote = -1*np.ones_like(self.token) # Not calculated.
         else:
             self.token, self.paren, self.quote = _fsm_core_bash(x)
@@ -323,7 +324,7 @@ def lines_vs_python(code):
     # Per line parsing, returns Ptxt array.
     code = code.replace('\r\n','\n')
     lines = code.split('\n'); N = len(lines)
-    st_ixs = pyparse.line_start_ixs(code)
+    st_ixs = python_parse.line_start_ixs(code)
     en_ixs = [st_ixs[i]+len(lines[i]) for i in range(N)] #en_ix[i]+1=start_ix[i+1]
 
     plines = ParsedStr(code, python=True).substrings(st_ixs, en_ixs)
@@ -355,7 +356,7 @@ def is_line_bash(pline_py, assert_decision=True):
 
     sub_lines = blob_string_comments.split(';')
     for sub_line in sub_lines:
-        if (sub_line.strip().split(' ')+['...'])[0] in pyparse.py_kwds:
+        if (sub_line.strip().split(' ')+['...'])[0] in python_parse.py_kwds:
             return False # "import foo" has a bash-like syntax but is actually Python.
     if '()' in blob_string_comments or '[]' in blob_string_comments or '{}' in blob_string_comments:
         return False # This is Python only territory.

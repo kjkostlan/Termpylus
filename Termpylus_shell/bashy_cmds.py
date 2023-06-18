@@ -19,21 +19,21 @@ def help(bashy_args, shell_obj):
 
 def test1(bashy_args, shell_obj):
     if len(bashy_args)==0:
-        print('This test is running the test.scratchpad function. Best used when debugging a single unit test.')
+        return 'This test runs the code in Termpylus_test/scratchpad.py; such a file is intended for scratchwork. Similar use cases as startup.py.'
     from Termpylus_test import scratchpad # Delay import b/c it is importing many modules.
     return scratchpad.some_test(*bashy_args)
 
 def dunwrap(bashy_args, shell_obj):
     if len(bashy_args)==0:
         return 'Unwraps a nested dictionary recursivly. see also to_dict.to_dict.'
-    from Termpylus_py import walk
-    return walk.unwrap(bashy_args[0])
+    from Termpylus_core import dwalk
+    return dwalk.unwrap(bashy_args[0])
 
 def pflush(bashy_args, shell_obj):
     if len(bashy_args)==0:
-        print('Attempting to replace function references with updated versions (if there is any updated src code that is). Will not work on Tkinter callbacks.')
-    from Termpylus_py import mload
-    return mload.function_flush()
+        return 'Attempting to replace function references with updated versions (if there is any updated src code that is). Will not work on Tkinter callbacks.'
+    from waterworks import py_updator
+    return py_updater.function_flush()
 
 def utest(bashy_args, shell_obj):
     # Unitests.
@@ -83,6 +83,7 @@ def _python_core(**kwargs): # Outer level so that we can run the function in a s
         return out
 
 def python(bashy_args, shell_obj):
+    # Different options from the vanilla Python command.
     if len(bashy_args)==0:
         help = '''Runs a python script or project. Usage: "python path/to/pyFile.py args".
 --th run in seperate thread, returning a concurrent.future obj with a result() (the default)
@@ -95,7 +96,7 @@ def python(bashy_args, shell_obj):
 '''
         return help
 
-    from Termpylus_lang import modules
+    from Termpylus_extern.waterworks import modules
 
     fname = bashy_args[0]
     P = bash_helpers.option_parse(bashy_args[1:], ['-n','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
@@ -144,19 +145,19 @@ def python(bashy_args, shell_obj):
     return out
 
 def pwatch(bashy_args, shell_obj):
-    from Termpylus_core import var_watch
+    from Termpylus_extern.slitherlisp import var_watch
     return var_watch.bashy_set_watchers(*bashy_args)
 
 def edits(bashy_args, shell_obj):
-    from Termpylus_core import var_watch
+    from Termpylus_extern.slitherlisp import var_watch
     return var_watch.bashy_get_txt_edits(*bashy_args)
 
 def grep(bashy_args, shell_obj):
     #grep [options] PATTERN [FILE...]
     #grep [options] [-e PATTERN | -f FILE] [FILE...]
     #Note: "grep foo ." will check all files in this folder for foo. This is slightly different behavior from is a directory.
-    import Termpylus_extern.RonenNess_grepfunc as grep_core
-    from Termpylus_core import file_io
+    from . import RonenNess_grepfunc as grep_core
+    from Termpylus_extern.waterworks import file_io
     P = bash_helpers.option_parse(bashy_args, ['-e','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
     pattern = kv.get('-e', x[-2])
     fname1 = bash_helpers.path_given_shell(x[-1], shell_obj)
@@ -181,7 +182,7 @@ def grep(bashy_args, shell_obj):
 ############################### Vanilla commands ###############################
 
 def ls(bashy_args, shell_obj):
-    from Termpylus_core import file_io
+    from Termpylus_extern.waterworks import file_io
     P = bash_helpers.option_parse(bashy_args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail'] # kv is empty
     if len(x)==0:
         fname = '.'
@@ -230,7 +231,7 @@ def ls(bashy_args, shell_obj):
     return sep.join([showfile(f) for f in flist])
 
 def cd(bashy_args, shell_obj):
-    from Termpylus_core import file_io
+    from Termpylus_extern.waterworks import file_io
     fname = bashy_args[0]
     fname1 = bash_helpers.path_given_shell(fname, shell_obj)
     flist = bash_helpers.filelist_wildcard(fname1, False, include_folders=True)

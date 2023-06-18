@@ -1,9 +1,12 @@
 # Tests that need the pythonverse. It is slow to call the pythonverse so it gets reused.
 import sys
-from Termpylus_core import updater, todict, dwalk, dquery, file_io, gl_data
-from Termpylus_lang import ppatch
+from Termpylus_core import todict, dwalk, dquery
 from Termpylus_shell import bashy_cmds
+from Termpylus_extern.slitherlisp import ppatch
+from Termpylus_extern.waterworks import file_io, updater
+
 from . import ttools
+import proj
 
 try:
     _pyverse
@@ -59,7 +62,7 @@ def search_source_test():
     old_txt = '_Baz123_'
     new_txt = '_Bets123_'
     file_io.fsave(fname, file_io.contents(fname).replace(new_txt, old_txt))
-    gl_data.dataset['fileio_globals']['original_txts'] = {}; print('Wiped out file_globals original txt for testing') # Wipe this out.
+    proj.dataset['fileio_globals']['original_txts'] = {}; print('Wiped out file_globals original txt for testing') # Wipe this out.
     xch0 = dquery.source_find('-ed', 1.0); out = out and len(xch0)==0
     file_io.fsave(fname, file_io.contents(fname).replace(old_txt, new_txt))
     xch1 = dquery.source_find('-ed', 1.0); out = out and 'see_changes_here' in str(xch1)
