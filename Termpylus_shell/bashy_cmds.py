@@ -65,6 +65,23 @@ def pfind(bashy_args, shell_obj):
     TODO # -ch for cache.
     return dquery.generic_find(bashy_args, pythonverse)
 
+def _python_core(**kwargs): # Outer level so that we can run the function in a subprocess.
+    if '-n' in kwargs['bashy_kv']:
+        return runpy.run_path(kwargs['abs_path'], init_globals=None, run_name=kwargs['bashy_kv']['-n'])
+    else:
+        if '-m' in kv: # Not sure if this is useful.
+            modulename = kwargs['bashy_kv']['-m']
+        else: # Assume we are calling the root module name.
+            leaf = kwargs['abs_path'].split('/')[-1]
+            modulename = leaf.split('.')[0] # Remove the extension if any.
+
+        out = modules.module_from_file(modulename, kwargs['abs_path'])
+        if 'f' in kwargs['bashy_kv']:
+            out = getattr(out, kwargs['bashy_kv'][f])(**x) # TODO: better function call.
+        if kwargs['rm_path_when_done']: # Remove path (don't make permement changes to path).
+            modules.pop_from_path()
+        return out
+
 def python(bashy_args, shell_obj):
     if len(bashy_args)==0:
         help = '''Runs a python script or project. Usage: "python path/to/pyFile.py args".
@@ -99,45 +116,31 @@ def python(bashy_args, shell_obj):
             raise Exception('No main.py found in:'+abs_path+'; thus a .py file, not a folder, must be specified.')
         abs_path = abs_path+'/main.py'
 
-    def core_fn(): #Will be called directly OR put into a future.
-        if '-n' in kv:
-            return runpy.run_path(abs_path, init_globals=None, run_name=kv['-n'])
-        else:
-            if '-m' in kv: # Not sure if this is useful.
-                modulename = kv['-m']
-            else: # Assume we are calling the root module name.
-                leaf = abs_path.split('/')[-1]
-                modulename = leaf.split('.')[0] # Remove the extension if any.
-
-            out = modules.module_from_file(modulename, abs_path)
-            if 'f' in kv:
-                out = getattr(out, kv[f])(**x) # TODO: better function call.
-            if '--rmph' in fl: # Remove path (don't make permement changes to path).
-                modules.pop_from_path()
-            return out
-
     # Concurrency options:
     if '--th' in fl:
         from concurrent.futures import ThreadPoolExecutor
         executor = ThreadPoolExecutor(max_workers=1)
-        out = executor.submit(core_fn)
+        out = executor.submit(_python_core, bashy_kv=kv,abs_path=abs_path, rm_path_when_done='--rmph' in fl)
     elif '--pr' in fl:
         from concurrent.futures import ProcessPoolExecutor
         executor = ProcessPoolExecutor(max_workers=1)
         # TODO: gets can't pickle local object error.
         #https://stackoverflow.com/questions/8804830/python-multiprocessing-picklingerror-cant-pickle-type-function
-        out = executor.submit(core_fn)
+        out = executor.submit(_python_core, bashy_kv=kv,abs_path=abs_path, rm_path_when_done='--rmph' in fl)
     else:
-        out = core_fn()
+        out = _python_core()
 
     fast_report_exceptions = True
     if fast_report_exceptions and ('--th' in fl or '--pr' in fl):
         try:
             ex = out.exception(timeout=0.125)
-            if ex is not None:
+            if ex is not None and 'concurrent.futures._base.TimeoutError' not in str(ex):
                 raise Exception("Attempting to launch "+abs_path+" quickly caused this exception and shut down it's Thread/Process:\n"+repr(ex))
         except TimeoutError:
             pass # Keeps running.
+        except Exception as e:
+            if 'concurrent.futures._base.TimeoutError' not in str(type(e)):
+                raise e
     return out
 
 def pwatch(bashy_args, shell_obj):

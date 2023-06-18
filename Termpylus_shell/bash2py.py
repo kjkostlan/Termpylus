@@ -1,230 +1,5 @@
-# Simple bash-like parsing tools and Python vs bash dection.
-# Used in the command line to convert slick bash one-liners to Python and save typing.
-# DEFINITELY NOT intended to be a comprehensive bash parser or intrepreter.
-# But 90% of what a user types into a bash shell is <10% of the full syntax and is one-line cmds.
-    # (And I don't know enough bash!)
-    # (A much more comprehesive C implementation: https://github.com/clarity20/bash2py)
-
-#https://www.cyberciti.biz/tips/bash-shell-parameter-substitution-2.html
-#https://www.gnu.org/software/bash/manual/html_node/Shell-Parameter-Expansion.html
-#https://opensource.com/article/18/5/you-dont-know-bash-intro-bash-arrays
-#https://linuxhint.com/simulate-bash-array-of-arrays/     Bash has no nested arrays!?
-import sys, re, numba, copy
-import numpy as np
-from . import pyparse
-import Termpylus_shell.bashy_cmds as bashy_cmds
-
-# False: Bash behaves more consistently and intuitivly.
-# True: Bash behaves more like Bash.
-strict_mode = False
-
-################################### The BASH-runtime world ########################
-
-def BRG(start, end, step=1):
-    # Bash range. Can be letter or number range.
-    if type(start) is str:
-        return [chr(i) for i in range(ord(start),ord(end),step)]
-    else:
-        return list(range(start, end, step))
-
-def BVC(*items):
-    return items
-
-def BEX(*items):
-    # Brace expansion. Odd indexes are expanded.
-    # See: https://unix.stackexchange.com/questions/402315/nested-brace-expansion-mystery-in-bash
-    dims = len(items)
-    items1 = []
-    if dims==0:
-        return ''
-    kvals = []
-    for i in range(dims):
-        if i%2==0:
-            kvals.append(1)
-            items1.append([str(items[i])])
-        elif type(items[i]) is list or type(items[i]) is tuple:
-            kvals.append(len(items[i]))
-            items1.append([str(itm) for itm in items[i]])
-        else:
-            kvals.append(1)
-            items1.append([str(items[i])])
-
-    ixss = [x.ravel(order='F') for x in np.meshgrid(*[np.arange(k) for k in kvals])]
-    out = []
-    for i in range(len(ixss)):
-        ixs = [ixss[o][i] for o in range(dims)]
-        out.append(''.join([items1[j] for j in range(dims)]))
-
-    return out
-
-def BCT(*items):
-    # Concatenation with string output.
-    return ' '.join(items)
-
-def BIF(cond, if_true, if_false):
-    # Requires wrapping the true and false in lambdas.
-    return if_true() if bool(cond) else if_false()
-
-def add_bash_syntax_fns(module_name):
-    # setattr for functions with specific bash syntatical constructs, such as A{1,2}B
-    m = sys.modules[module_name]
-    fns = {'BRG':BRG,'BVC':BVC,'BEX':BEX,'BCT':BCT,'BIF':BIF}
-    for k,v in fns.items():
-        setattr(m, k, v)
-
-################################### The BASH-compiletime world ########################
-
-class Symbol:
-    # Symbols are string literals except that they don't get quoted.
-    def __init__(self, val):
-        self.val = str(val)
-    def __str__(self):
-        return self.val
-    def __repr__(self):
-        return self.val
-
-#@numba.njit # The compile time is slower than the time saved in this case (but not in the pyparse case).
-def _fsm_core_bash(x):
-    #https://devhints.io/bash
-    #https://riptutorial.com/bash/example/2465/quoting-literal-text
-    #https://tldp.org/HOWTO/Bash-Prog-Intro-HOWTO-5.html
-    # Notes:
-    #  a=b must not have space around the = else command not found instead of var set.
-    #In bash some strings are not quoted (i.e. taken as literals).
-    #Note: The bash syntax is very complex. This function is not intended to handle all cases as our use of bash syntax is minimal.
-
-    singleline_comment = False # # = 35; \n = 10,
-    colon_comment = False # : = 58, ' = 39. Only recognizes :' or : ' one space (space = 32). : is a do-nothing used in other places.
-    double_gt_comment_ix_start = -1 #<<comment\n\ncomment. Note that comment can be replaced with any matching pair of normal txt.
-    double_gt_comment_ix_end = -1 # Range check. Reset to -1 when it is no longer in comment mode. Exclusive ix.
-    escape = False # Much like Python!
-    plus_minus_as_alphanum = True # Most of the time they count.
-    quote = 0 # Single and double quotes are also Pythonesque. But we set it to 3 to indicate a naked quote.
-    freshness_deluxe = 1 # The first command in a line or $() or after-; is not quote=3 but instead a symbol.
-    paren_lev = 0
-    in_multiplex_brace = 0
-    aln = pyparse.alphanum_status(x)
-
-    N = len(x)
-
-    token_types = np.zeros(N, dtype=np.int32)
-    inclusive_paren_nests = np.zeros(N, dtype=np.int32)
-    quote_types = np.zeros(N, dtype=np.int32)
-
-    ci1 = -1; ci2 = -1; ci3=-1
-    for i in range(N):
-        ci = x[i]
-        if i<N-1:
-            ci1 = x[i+1]
-        if i<N-2:
-            ci2 = x[i+2]
-        if i<N-3:
-            ci3 = x[i+3]
-        inclusive_paren_nests[i] = paren_lev # Default.
-
-        escape1 = escape; quote1 = quote; double_gt_comment_ix_start1 = double_gt_comment_ix_start
-        singleline_comment1 = singleline_comment; colon_comment1 = colon_comment; freshness_deluxe1 = freshness_deluxe
-        in_multiplex_brace1 = in_multiplex_brace
-        in_comment = singleline_comment or colon_comment or (double_gt_comment_ix_start>-1)
-        open_paren = ci==0x28 or ci==0x5B or ci==0x7B
-        close_paren = ci==0x29 or ci==0x5D or ci==0x7D
-        paren_valid = not escape and (quote==0 or quote==3 or (i>0 and x[i-1]==0x24 and (i==1 or x[i-2] != 0x5C)))
-        alni_plus = aln[i] or (plus_minus_as_alphanum and (ci==0x2d or ci==0x2b)) # - and + can act like alpahum sometimes.
-
-        if escape:
-            token_types[i] = token_types[i-1]
-            escape1 = False
-        if quote==1 and not in_comment and not escape:
-            if ci==0x27:
-                quote1 = 0
-            token_types[i] = 3; quote_types[i]=1
-        if quote==2 and not in_comment and not escape:
-            if ci==0x22:
-                quote1 = 0
-            elif ci==0x24: # $
-                token_types[i] = 2; quote_types[i]=0; freshness_deluxe1=1; quote1 = 0
-            token_types[i] = 3; quote_types[i]=2
-        if quote==3 and not in_comment and not escape:
-            if ci==0xA or ci==0x20 or ci==0x9: # Space newline.
-                quote1 = 0; token_types[i] = 0; quote_types[i]=0
-            elif ci==0x24: # $
-                token_types[i] = 2; quote_types[i]=0; freshness_deluxe1=1; quote1 = 0
-            else:
-                token_types[i] = 3; quote_types[i]=3
-        if singleline_comment:
-            if ci==0xA:
-                token_types[i] = 0
-                singleline_comment1 = False
-            else:
-                token_types[i] = 6
-        if colon_comment:
-            if ci==0x27:
-                colon_comment1 = False
-            token_types[i] = 6
-        if double_gt_comment_ix_start>-1 and not escape:
-            if aln[i]>0: # Ignores plus_minus_as_alphanum I think.
-                all_match = True
-                K = double_gt_comment_ix_end - double_gt_comment_ix_start
-                for j in range(K): # Equal token check.
-                    j0 = double_gt_comment_ix_start+j; j1 = i-K+j+1 # When j = K-1 we get j1 = i is the last letter.
-                    if j1>=N or x[j1] != x[j0]:
-                        all_match = False; break
-                if all_match:
-                    double_gt_comment_ix_start1 = -1
-                    double_gt_comment_ix_end = -1
-        if paren_valid and close_paren:
-            freshness_deluxe1 = 0 # It forces a quote next.
-            in_multiplex_brace1 = 0 # Clear.
-        if ci==0x5C and not in_comment and not escape:
-            escape1 = True
-        if not escape and not in_comment and quote==0:
-            if alni_plus>0 and freshness_deluxe==0:
-                token_types[i] = 3; quote1 = 3; quote_types[i]=3
-            if alni_plus>0 and freshness_deluxe>0:
-                token_types[i] = 1
-            if ci==0x20 or ci==0x29 and freshness_deluxe>0:
-                freshness_deluxe1 = 0
-            if ci==0xA: # Newline or ; makes things very fresh.
-                freshness_deluxe1 = 1
-            if ci==0x3D: # = sign quotes the next thing.
-                freshness_deluxe1 = 0
-            if (ci==0x20 or ci==0xA or ci==0x9) and ci1==0x23: # Space/newline then # enters in a comment.
-                singleline_comment1 = True
-            if i==0 and ci==0x23:
-                singleline_comment1 = True; token_types[i] = 6
-            if ci==0x24: # dollar sign breaks the quote.
-                freshness_deluxe1 = 1
-                token_types[i] = 2
-            if ci==0x2a or ci==0x2f or ci==0x25 or ci==0x3d or ci==0x26 or ci==0x7c or ci==0x5e or ci==0x3e or ci==0x3c or ci==0x7e or ci==0x40 or ci==0x2e or (not plus_minus_as_alphanum and (ci==0x2d or ci==0x2b)):
-                token_types[i] = 2 #Maybe more symbolic chars belong here?
-            if (ci==0x20 or ci==0xA) and ci1==0x3A and (ci2==0x27 or (ci2==0x20 and ci3==0x27)): # The :'  comment.
-                colon_comment1 = True; token_types[i] = 6
-            if ci==0x27:
-                quote1 = 1; token_types[i] = 3; quote_types[i]=1
-            if ci==0x22:
-                quote1 = 2; token_types[i] = 3; quote_types[i]=2
-        if open_paren and paren_valid:
-            paren_lev = paren_lev+1; token_types[i] = 4
-            inclusive_paren_nests[i] = paren_lev
-            quote_types[i]=0 # just for the paren itself.
-        if close_paren and paren_valid:
-            paren_lev = paren_lev-1; token_types[i] = 5
-            quote_types[i]=0
-        if (escape or ci != 0x24) and ci1==0x7B and (quote==3 or quote1==3):
-            in_multiplex_brace1 = 1 # Special multiplex braces make the commas into spaced tokens.
-
-        if in_multiplex_brace and not escape and ci==0x2C:
-            token_types[i] = 0 # Commas in the special brace expansion.
-        escape = escape1; quote = quote1; double_gt_comment_ix_start = double_gt_comment_ix_start1
-        singleline_comment = singleline_comment1; colon_comment = colon_comment1; freshness_deluxe = freshness_deluxe1
-        in_multiplex_brace = in_multiplex_brace1
-
-    return token_types, inclusive_paren_nests, quote_types
-
-def fsm_parse_bash(txt):
-    #token, paren, quote_type
-    x = np.frombuffer(txt.encode('UTF-32-LE'), dtype=np.uint32)
-    return _fsm_core_bash(x)
+# Determines if code is bash and if so converts to Py.
+# Very simple! Only useful for interactive command line/hotkeys since bash can be so extremly brief.
 
 class ParsedStr():
     def __init__(self, txt, python=False):
@@ -495,121 +270,6 @@ def eq_split(ptxt:ParsedStr):
     ptxt1.txt = ptxt1.txt.replace('=',' ')
     return spacetoken_split(ptxt1)
 
-def _ast_core(ptxts):
-    if len(ptxts)>1: # Space-seperated statements.
-        fchunks = fortran_flavor_tag_chunk(ptxts[1:])
-        if len(fchunks)>1:
-            processed_chunks = []
-            for ch in fchunks:
-                cif = if_chunk(ch)
-                cfor = for_chunk(ch)
-                cwhile = while_chunk(ch)
-                if len(cif)>0:
-                    x=[Symbol('BIF'), _ast_core(cif[0])]+[[Symbol('lambda'), [], _ast_core(c)] for c in if_chunk[1:]]
-                    processed_chunks.append(x)
-                elif len(cfor)>0:
-                    x=[Symbol('for')]+[_ast_core(c) for c in cfor]
-                elif len(cwhile)>0:
-                    x=[Symbol('while')]+[_ast_core(c) for c in cwhile]
-                else:
-                    x = _ast_core(ch)
-            return [Symbol(ptxts[0].txt)]+processed_chunks
-        else:
-            return [Symbol(ptxts[0].txt)]+[_ast_core([p]) for p in ptxts[1:]]
-
-    ptxt = ptxts[0]
-    recur = lambda ptxt1: _ast_core(standard_split(ptxt1))
-    pieces = eq_split(ptxt)
-    if len(pieces)>1: # Should only have 2 pieces.
-        return [Symbol('=')]+[recur(pieces[0]), recur(pieces[1])]
-    pieces = var_paren_split(ptxt)
-    if len(pieces)>1:
-        #https://stackoverflow.com/questions/2188199/how-to-use-double-or-single-brackets-parentheses-curly-braces
-        pieces1 = brace_multiplex_split(ptxt) # foo{bar,baz}123
-        if len(pieces1)>1: # This one is annoying and takes priority.
-            out = []
-            for i in range(len(pieces1)):
-                p = pieces1[i]
-                is_braced = p.txt[0]=='{'
-                if len(out)%2==0 and is_braced:
-                    out.append('') # Empty space so that BEX treats it as not having {}.
-                if is_braced:
-                    p1 = p.substring(1,-1)
-                    dsplit = double_dot_split(p1)
-                    csplit = comma_split(p1)
-                    if len(csplit)>1:
-                        out.append([Symbol('ARR')]+[recur(pi) for pi in csplit])
-                    elif len(dsplit)>1: # Range specified.
-                        out.append([Symbol('BRG')]+[recur(ds) for ds in dsplit])
-                    else:
-                        out.append([Symbol('ARR'), recur(p1)])
-                else:
-                    out.append(recur(p))
-            return [Symbol('BEX')]+out
-
-        # Vanilla split and deal with array access:
-        processed = []
-        for i in range(len(pieces)):
-            if i>0 and pieces[i].txt[0]=='[':
-                processed[i-1] = [Symbol('ARR'), processed[i-1], recur(pieces[i].substring(1,-1))]
-            else:
-                processed.append(recur(pieces[i]))
-        return [Symbol('BCT')]+processed
-
-    # Leaf cases (but once the outer level is stripped may not be leaf):
-    txt = ptxt.txt
-    if len(txt)==0: # Does this ever happen?
-        raise SyntaxError('Ast parse attempt on empty substring.')
-    if len(txt)==1:
-        return str(txt) if ptxt.token[0]==3 else Symbol(txt)
-    if txt=='{}' or txt == '()' or txt == '[]':
-        raise Exception('This is from Python land and a syntax error in Bash')
-    if txt[0]=='$':
-        if txt[1]=='(' and txt[2]=='(':
-            raise SyntaxError('Arithmetic parsing not supported in this limited bash parser.')
-        elif txt[1]=='(': # $(this statement is evaled)
-            return recur(ptxt.substring(2, -1))
-        elif txt[1]=='[': # $[] and if [ ... ] are both booleans.
-            return [Symbol('bool'), ptxt.substring(1, -1)]
-        #https://stackoverflow.com/questions/5163144/what-are-the-special-dollar-sign-shell-variables
-        elif txt[1] in '0123456789@*#':
-            raise SyntaxError('Bash script name and positional parameters not supported in this limited bash parser.')
-        elif txt[1]=='-':
-            raise SyntaxError('Current shell options set not supported in this limited interpreter.')
-        elif txt[1]=='$':
-            return [Symbol('pid')]
-        elif txt[1:4]=='IFS':
-            return ' \t\n'
-        elif txt[1]=='_':
-            return Symbol('_')
-        elif txt[1]=='?':
-            raise SyntaxError('Foreground pipeline exit status not supported in this limited bash parser.')
-        elif txt[1]=='!':
-            raise SyntaxError('PID of the most recent background command not supported in this limited bash parser.')
-        else:
-            return Symbol(txt[1:]) # Should always be leaf.
-    if txt[0]=='[' and txt[1]=='[': # Booleans
-        return [Symbol('bool'), recur(ptxt.substring(2, -2))]
-    elif txt[0]=='[':
-        return [Symbol('bool'), recur(ptxt.substring(1, -1))]
-    elif txt[0]=='(': # () without $ makes an array (bash has no nested arrays!).
-        [Symbol('BCT')]+recur(ptxt.substring(1, -1))
-    elif ptxt.token[0]==1: # A symbol, to be called as a fn.
-        return [Symbol(txt)]
-    elif ptxt.token[0]==3: # A string.
-        if txt[0] == '"' or txt[0] == "'":
-            return txt[1:-1]
-        return txt
-
-def ast_bash(txt):
-    # Nested list AST. The intermediate step in bash2python.
-    #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Shell-Expansions
-    #https://unix.stackexchange.com/questions/270274/how-to-understand-the-order-between-expansions
-    #https://stackoverflow.com/questions/5163144/what-are-the-special-dollar-sign-shell-variables
-    ptxt = ParsedStr(txt)
-    pieces = standard_split(ptxt)
-    return _ast_core(pieces)
-
 def ast2py(ast_obj):
     # The simplified rules of the the AST subset we support makes it easier.
     # (Still not designed to be comprehensive; Termpylus *isn't* a bash interpreter).
@@ -637,20 +297,6 @@ def ast2py(ast_obj):
     else: # Symbols, numbers, etc.
         return str(ast_obj)
 
-def add_varset(ast_obj):
-    # The result of the command should go into a varible.
-    wrap = False
-    if type(ast_obj) is not list and type(ast_obj) is not tuple:
-        wrap = True
-    elif len(ast_obj) != 3:
-        wrap = True
-    elif ast_obj[0].val != '=':
-        wrap = True
-
-    if wrap:
-        return [Symbol('='), Symbol('ans'), ast_obj]
-    else:
-        return ast_obj
 
 def bash2py(txt, prepend_spaces=0):
     tree = ast_bash(txt)
@@ -782,3 +428,133 @@ def maybe_bash2py_console_input(txt):
             non_comment_hit = True
 
     return '\n'.join(lines)
+
+def add_varset(ast_obj):
+    # The result of the command should go into a varible.
+    wrap = False
+    if type(ast_obj) is not list and type(ast_obj) is not tuple:
+        wrap = True
+    elif len(ast_obj) != 3:
+        wrap = True
+    elif ast_obj[0].val != '=':
+        wrap = True
+
+    if wrap:
+        return [Symbol('='), Symbol('ans'), ast_obj]
+    else:
+        return ast_obj
+
+def _ast_core(ptxts):
+    if len(ptxts)>1: # Space-seperated statements.
+        fchunks = fortran_flavor_tag_chunk(ptxts[1:])
+        if len(fchunks)>1:
+            processed_chunks = []
+            for ch in fchunks:
+                cif = if_chunk(ch)
+                cfor = for_chunk(ch)
+                cwhile = while_chunk(ch)
+                if len(cif)>0:
+                    x=[Symbol('BIF'), _ast_core(cif[0])]+[[Symbol('lambda'), [], _ast_core(c)] for c in if_chunk[1:]]
+                    processed_chunks.append(x)
+                elif len(cfor)>0:
+                    x=[Symbol('for')]+[_ast_core(c) for c in cfor]
+                elif len(cwhile)>0:
+                    x=[Symbol('while')]+[_ast_core(c) for c in cwhile]
+                else:
+                    x = _ast_core(ch)
+            return [Symbol(ptxts[0].txt)]+processed_chunks
+        else:
+            return [Symbol(ptxts[0].txt)]+[_ast_core([p]) for p in ptxts[1:]]
+
+    ptxt = ptxts[0]
+    recur = lambda ptxt1: _ast_core(standard_split(ptxt1))
+    pieces = eq_split(ptxt)
+    if len(pieces)>1: # Should only have 2 pieces.
+        return [Symbol('=')]+[recur(pieces[0]), recur(pieces[1])]
+    pieces = var_paren_split(ptxt)
+    if len(pieces)>1:
+        #https://stackoverflow.com/questions/2188199/how-to-use-double-or-single-brackets-parentheses-curly-braces
+        pieces1 = brace_multiplex_split(ptxt) # foo{bar,baz}123
+        if len(pieces1)>1: # This one is annoying and takes priority.
+            out = []
+            for i in range(len(pieces1)):
+                p = pieces1[i]
+                is_braced = p.txt[0]=='{'
+                if len(out)%2==0 and is_braced:
+                    out.append('') # Empty space so that BEX treats it as not having {}.
+                if is_braced:
+                    p1 = p.substring(1,-1)
+                    dsplit = double_dot_split(p1)
+                    csplit = comma_split(p1)
+                    if len(csplit)>1:
+                        out.append([Symbol('ARR')]+[recur(pi) for pi in csplit])
+                    elif len(dsplit)>1: # Range specified.
+                        out.append([Symbol('BRG')]+[recur(ds) for ds in dsplit])
+                    else:
+                        out.append([Symbol('ARR'), recur(p1)])
+                else:
+                    out.append(recur(p))
+            return [Symbol('BEX')]+out
+
+        # Vanilla split and deal with array access:
+        processed = []
+        for i in range(len(pieces)):
+            if i>0 and pieces[i].txt[0]=='[':
+                processed[i-1] = [Symbol('ARR'), processed[i-1], recur(pieces[i].substring(1,-1))]
+            else:
+                processed.append(recur(pieces[i]))
+        return [Symbol('BCT')]+processed
+
+    # Leaf cases (but once the outer level is stripped may not be leaf):
+    txt = ptxt.txt
+    if len(txt)==0: # Does this ever happen?
+        raise SyntaxError('Ast parse attempt on empty substring.')
+    if len(txt)==1:
+        return str(txt) if ptxt.token[0]==3 else Symbol(txt)
+    if txt=='{}' or txt == '()' or txt == '[]':
+        raise Exception('This is from Python land and a syntax error in Bash')
+    if txt[0]=='$':
+        if txt[1]=='(' and txt[2]=='(':
+            raise SyntaxError('Arithmetic parsing not supported in this limited bash parser.')
+        elif txt[1]=='(': # $(this statement is evaled)
+            return recur(ptxt.substring(2, -1))
+        elif txt[1]=='[': # $[] and if [ ... ] are both booleans.
+            return [Symbol('bool'), ptxt.substring(1, -1)]
+        #https://stackoverflow.com/questions/5163144/what-are-the-special-dollar-sign-shell-variables
+        elif txt[1] in '0123456789@*#':
+            raise SyntaxError('Bash script name and positional parameters not supported in this limited bash parser.')
+        elif txt[1]=='-':
+            raise SyntaxError('Current shell options set not supported in this limited interpreter.')
+        elif txt[1]=='$':
+            return [Symbol('pid')]
+        elif txt[1:4]=='IFS':
+            return ' \t\n'
+        elif txt[1]=='_':
+            return Symbol('_')
+        elif txt[1]=='?':
+            raise SyntaxError('Foreground pipeline exit status not supported in this limited bash parser.')
+        elif txt[1]=='!':
+            raise SyntaxError('PID of the most recent background command not supported in this limited bash parser.')
+        else:
+            return Symbol(txt[1:]) # Should always be leaf.
+    if txt[0]=='[' and txt[1]=='[': # Booleans
+        return [Symbol('bool'), recur(ptxt.substring(2, -2))]
+    elif txt[0]=='[':
+        return [Symbol('bool'), recur(ptxt.substring(1, -1))]
+    elif txt[0]=='(': # () without $ makes an array (bash has no nested arrays!).
+        [Symbol('BCT')]+recur(ptxt.substring(1, -1))
+    elif ptxt.token[0]==1: # A symbol, to be called as a fn.
+        return [Symbol(txt)]
+    elif ptxt.token[0]==3: # A string.
+        if txt[0] == '"' or txt[0] == "'":
+            return txt[1:-1]
+        return txt
+
+def ast_bash(txt):
+    # Nested list AST. The intermediate step in bash2python.
+    #https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#Shell-Expansions
+    #https://unix.stackexchange.com/questions/270274/how-to-understand-the-order-between-expansions
+    #https://stackoverflow.com/questions/5163144/what-are-the-special-dollar-sign-shell-variables
+    ptxt = ParsedStr(txt)
+    pieces = standard_split(ptxt)
+    return _ast_core(pieces)

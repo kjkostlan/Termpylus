@@ -163,3 +163,7 @@ cython_debug/
 softwaredump_/
 # User startup:
 user_startup.py
+
+# External libries go here:
+code_in_a_box.py
+Termpylus_extern/
