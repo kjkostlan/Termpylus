@@ -19,12 +19,20 @@ def _install_gitpacks(): # Runs once on "import proj"
             raise Exception('Forgot the ./<folder>')
         code_in_a_box.download(v[1 if dev_mode_local_packs else 0], k, clear_folder=False)
 
-    # Package-package interaction which is a bit messy:
+    # Package-package interaction which requires manually calling the functions (TODO: not have this need).
     import Termpylus_extern.slitherlisp.cross_package
-    Termpylus_extern.slitherlisp.cross_package.integrate(['FaSTatine'], ['Termpylus_extern.FaSTatine'])
+    Termpylus_extern.slitherlisp.cross_package.integrate({'Waterworks':'Termpylus_extern.waterworks'})
 
 ########################## Boilerplate code below ##############################
 ########### (some of our pacakges depend on global_get and proj.dump_folder) ##########
+def global_get(name, initial_value):
+    # Proj, by our convention, also handles is where global variables are stored.
+    # Any packages that use Proj should use some sort of qualifier to avoid dict key-collisions.
+    # This fn is a get function which sets an initial_value if need be.
+    if name not in dataset:
+        dataset[name] = initial_value
+    return dataset[name]
+
 import os
 try:
     x
@@ -40,11 +48,3 @@ except:
 
     _install_gitpacks()
     #os.unlink('./'+leaf) # Optional delete step.
-
-def global_get(name, initial_value):
-    # Proj, by our convention, also handles is where global variables are stored.
-    # Any packages that use Proj should use some sort of qualifier to avoid dict key-collisions.
-    # This fn is a get function which sets an initial_value if need be.
-    if name not in dataset:
-        dataset[name] = initial_value
-    return dataset[name]

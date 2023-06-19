@@ -5,7 +5,7 @@ import re, inspect
 import numpy as np
 from . import dwalk
 from Termpylus_shell import bash_helpers
-from Termpylus_extern.waterworks import file_io, modules
+from Termpylus_extern.waterworks import file_io, modules, fittings
 from Termpylus_extern.slitherlisp import var_watch, ppatch
 from Termpylus_extern.fastatine import python_parse
 import proj
@@ -86,7 +86,7 @@ class Sourcevar:
         self.varname = varname
         self.src_txt_old = src_txt0
         self.src_txt = src_txt1 # Txt of the function body.
-        src_edit = python_parse.txt_edit(src_txt0, src_txt1)
+        src_edit = fittings.txt_edit(src_txt0, src_txt1)
         self.src_edit = src_edit # Edit on the fn body since program startup.
         self.src_datemod = src_datemod
         self.signature = None

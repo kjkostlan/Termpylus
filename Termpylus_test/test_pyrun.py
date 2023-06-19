@@ -2,6 +2,7 @@
 import sys, os, imp, re
 from Termpylus_core import projects
 from Termpylus_shell import bashy_cmds, shellpython
+from Termpylus_extern.fastatine import python_parse
 from Termpylus_extern.slitherlisp import var_watch, ppatch
 from Termpylus_extern.waterworks import py_updater, file_io, modules
 from . import ttools
@@ -13,14 +14,14 @@ outside_folder = file_io.abs_path('../__softwaredump__/Termpylus/sample_projs', 
 
 def _fetch_sample_githubs():
     # Fetch sample githubs into an external softwaredump folder.
-    print('Fetching GIT samples')
+    print('Fetching GIT samples into', outside_folder)
     ask_for_permiss = False
     if ask_for_permiss:
         x = input('These tests needs to download GitHub code to ' + outside_folder + ' y to preceed.')
         if x.strip() != 'y':
             return False
     qwrap = lambda txt: '"'+txt+'"'
-    file_io.fdelete(outside_folder)
+    file_io.power_delete(outside_folder)
     file_io.fcreate(outside_folder, True)
     for i in range(len(project_urls)):
         url = project_urls[i]
@@ -30,6 +31,7 @@ def _fetch_sample_githubs():
     print('Git Clones saved into this folder:', outside_folder)
 
 def test_py_import0():
+    # TODO: not sure if this teast is really testing it properly...
     # Optional extra test. Returns True unless there is a simplypyimport test folder
     # outside of our main directory for which it will try importing it.
     # If this test fails (with the right folder & contents) opening a project will fail.
@@ -39,14 +41,17 @@ def test_py_import0():
         return True
 
     shell_obj = shellpython.Shell()
-    mdle = bashy_cmds.python([folder+"smain.py"], shell_obj)
+    mdle = bashy_cmds.python([outside_folder+"/smain.py"], shell_obj)
     return True
 
 def test_py_update():
     # Tests making changes to the source code.
+    if py_updater.record_txt_update_fn is None:
+        raise Exception('Linking the record_txt_update_fn to the py_updater module was not done.')
+
     from . import changeme # adds to the sys.modules
     val0 = changeme.mathy_function(1000)
-    updater.update_one_module(changeme.__name__)
+    py_updater.update_one_module(changeme.__name__)
     #print('Val00 is:', val0)
     fname = './Termpylus_test/changeme.py'
     #x0 = modules.update_all_modules(use_date=False, update_on_first_see=False)
@@ -61,12 +66,12 @@ def test_py_update():
     txt1 = txt.replace('1234','4321')
     if txt1==txt:
         raise Exception('The change failed.')
-    updater.save_py_file(fname, txt1, assert_py_module=True)
+    py_updater.save_py_file(fname, txt1, assert_py_module=True)
 
     val1 = changeme.mathy_function(1000)
     eds1 = var_watch.get_txt_edits()
     T1 = val1==1000+4321
-    updater.save_py_file(fname, txt, assert_py_module=True) # revert.
+    py_updater.save_py_file(fname, txt, assert_py_module=True) # revert.
 
     last_ed = eds1[-1]
     ed_len = (len(eds1)==len(eds0)+1)
@@ -82,7 +87,7 @@ def test_eval():
     out = True
     x = evl('Termpylus_test.test_pyrun', '_x_ = test_py_update')
     out = out and x['_x_'] is test_py_update
-    y = evl('Termpylus_core.file_io', '_y_ = is_path_absolute("./bar"); _z_ = 2')
+    y = evl('Termpylus_extern.waterworks.file_io', '_y_ = is_path_absolute("./bar"); _z_ = 2')
     out = out and y['_y_'] is False
     out = out and '_y_' not in file_io.__dict__
     z = evl('Termpylus_core.todict', '_z_ = default_blockset({},[])')
@@ -92,14 +97,14 @@ def test_eval():
         out = False
     except:
         pass
-    w = evl('Termpylus_core.file_io', '_w_ = is_path_absolute("./bar")', False)
+    w = evl('Termpylus_extern.waterworks.file_io', '_w_ = is_path_absolute("./bar")', False)
     out = out and '_w_' in file_io.__dict__
 
     return out
 
 def test_file_caches():
-    updater.startup_cache_sources()
-    mglob = updater.uglobals
+    py_updater.startup_cache_sources()
+    mglob = py_updater.uglobals
     fnamemap = modules.module_fnames(True)
     t0 = len(mglob['filecontents'])>8
     t1 = set(mglob['filecontents'].keys())==set(mglob['filemodified'].keys())
@@ -143,7 +148,6 @@ def test_main_extract():
     # Tests whether we can extract the if __name__ is __main__ part.
     # ALSO tests loadiing a module.
     out = True
-    foalder = sample_github_folders[0]
     piefile = project_main_files[0]; modname = piefile.replace('.py','').replace('/','')
     leaf_samples = [url.split('/')[-1] for url in project_urls]
     sample_github_folders = [outside_folder+'/'+leaf_sample for leaf_sample in leaf_samples]
@@ -170,6 +174,8 @@ def test_main_extract():
         except Exception as e:
             if 'cannot convert without pygame.display initialized' not in str(e):
                 raise e
+            else:
+                print('Annoying pygame error...')
         print('Main module:', str(sys.modules.get('main',None)))
         #print('Module imported:', main)
         #importlib.import_module('main')
@@ -184,7 +190,7 @@ def test_main_extract():
         #importlib.import_module(leaf_samples[0]+'.'+modname)
 
     modules.module_fnames(True)
-    if_name_main_blocks = modules.get_main_blocks(modname)
+    if_name_main_blocks = python_parse.get_main_blocks(file_io.fload(modules.module_file(modname)))
     #contents = file_io.fload(sample_github_folders[0]+'/'+project_main_files[0])
 
     out = out and len(if_name_main_blocks) == 2

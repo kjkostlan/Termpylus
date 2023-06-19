@@ -1,15 +1,15 @@
 # Tests variable modifications and tracking.
 import sys
 import numpy as np
-from Termpylus_extern.waterworks import updater, var_watch
-from Termpylus_extern.slitherlisp import ppatch
+from Termpylus_extern.waterworks import py_updater, fittings
+from Termpylus_extern.slitherlisp import ppatch, var_watch
 
 from . import ttools
 
 def test_var_get():
     # Basic test for variable getting.
-    v0_gold = sys.modules['Termpylus_core.updater'].save_py_file
-    v0_green = ppatch.get_var('Termpylus_core.updater', 'save_py_file')
+    v0_gold = sys.modules['Termpylus_extern.waterworks.py_updater'].save_py_file
+    v0_green = ppatch.get_var('Termpylus_extern.waterworks.py_updater', 'save_py_file')
     if v0_gold is not v0_green:
         return False
 
@@ -82,29 +82,31 @@ def test_instance_method():
     fn0 = Foo.method1
 
     test0 = fn1_0 is not fn1_1
-    test1 = updater.same_inst_method(fn1_0, fn1_1)
-    test2 = not updater.same_inst_method(fn0, fn1_0)
-    test3 = not updater.same_inst_method(fn1_0, fn2)
+    test1 = py_updater.same_inst_method(fn1_0, fn1_1)
+    test2 = not py_updater.same_inst_method(fn0, fn1_0)
+    test3 = not py_updater.same_inst_method(fn1_0, fn2)
 
     return test0 and test1 and test2 and test3
 
 def test_logging_var():
-    # Tests the logger system.
+    # Tests the logger system. If this test works all the other tests should as well barring any refactors which change the names around.
     # Logging, unlogging, logs, etc.
     var_watch.remove_all_watchers()
     var_watch.remove_all_logs()
     test0 = np.sum([len(logi) for logi in var_watch.get_logs().values()])==0
-    import Termpylus_lang.pyparse as pyparse
-    var_watch.add_fn_watcher('Termpylus_lang.pyparse', 'txt_edit') #ed = txt_edit(old_txt, new_txt)
-    ed0 = pyparse.txt_edit('What is this world around the orange dwarf?', 'What is this planet around the orange dwarf?')
-    ed1 = pyparse.txt_edit('Foo', new_txt='Bar')
-    logs1 = var_watch.get_logs()['Termpylus_lang.pyparse.txt_edit']
+    modname = 'Termpylus_extern.waterworks.fittings'
+    import importlib
+    importlib.import_module(modname)
+    var_watch.add_fn_watcher(modname, 'txt_edit') #ed = txt_edit(old_txt, new_txt)
+    ed0 = fittings.txt_edit('What is this world around the orange dwarf?', 'What is this planet around the orange dwarf?')
+    ed1 = fittings.txt_edit('Foo', new_txt='Bar')
+    logs1 = var_watch.get_logs()[modname+'.txt_edit']
     test1 = len(logs1)==2
     test2 = logs1[0]['return']==ed0 and logs1[1][0]=='Foo' and logs1[1]['new_txt']=='Bar'
     var_watch.remove_all_logs()
     var_watch.remove_all_watchers()
     test3 = len(var_watch.get_logs())==0
-    ed1_1 = pyparse.txt_edit('Foo', 'Bar')
+    ed1_1 = fittings.txt_edit('Foo', 'Bar')
     test4 = ed1_1==ed1
     test5 = np.sum([len(logi) for logi in var_watch.get_logs().values()])==0
     return test0 and test1 and test2 and test3 and test4 and test5

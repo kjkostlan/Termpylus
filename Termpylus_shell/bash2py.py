@@ -3,6 +3,7 @@
 import re, copy
 import numpy as np
 from Termpylus_extern.fastatine import bash_parse, python_parse
+from . import bashy_cmds
 
 class ParsedStr():
     def __init__(self, txt, python=False):

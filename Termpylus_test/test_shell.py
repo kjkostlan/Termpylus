@@ -21,7 +21,7 @@ def _setup_tfiles():
     shell_obj.cur_dir = './softwaredump_'
     test_folder = os.path.abspath(file_io.abs_path(shell_obj.cur_dir, True))
     file_io.debug_restrict_disk_modifications_to_these = [test_folder]
-    file_io.gaurded_delete(test_folder, allow_folders=True)
+    file_io.guarded_delete(test_folder, allow_folders=True, powerful=True)
 
     subfiles = ['./foo.txt','./bar.txt']
     subfiles = subfiles+['./ocean/atlantic.txt', './ocean/pacific.txt']
