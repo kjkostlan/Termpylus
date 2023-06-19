@@ -1,5 +1,7 @@
 # Determines if code is bash and if so converts to Py.
 # Very simple! Only useful for interactive command line/hotkeys since bash can be so extremly brief.
+import re, copy
+import numpy as np
 from Termpylus_extern.fastatine import bash_parse, python_parse
 
 class ParsedStr():
@@ -384,6 +386,7 @@ def bashy_heuristic(line):
         return True
     return False
 
+strict_mode = False
 def maybe_bash2py_console_input(txt):
     # Converts bash to python when it detects lines of bash.
     # Python vs bash is decided *per line*.

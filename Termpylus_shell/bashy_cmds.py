@@ -7,7 +7,6 @@
 # Most of the vanilla bash commands don't seem to have libraries available thus the need to write them.
 import sys, os, subprocess, operator
 from . import bash_helpers
-from Termpylus_test import ttools
 
 ############################### Custom commands ################################
 
@@ -38,7 +37,7 @@ def pflush(bashy_args, shell_obj):
 def utest(bashy_args, shell_obj):
     # Unitests.
     print('**************Running unit tests**************')
-    from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun
+    from Termpylus_test import test_pyrun, test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun, ttools
     failures = {}
     for t_module in [test_shell, test_walk, test_varmodtrack, test_pythonverse, test_parse, test_pyrun]:
         if hasattr(t_module,'prepare_tests'):
@@ -172,7 +171,7 @@ def grep(bashy_args, shell_obj):
 
     out = {}
     for fname in flist:
-        txt = file_io.contents(fname)
+        txt = file_io.fload(fname)
         listy = grep_core.grep(txt, pattern, **kwargs)
         if len(listy)>0:
             out[fname] = listy

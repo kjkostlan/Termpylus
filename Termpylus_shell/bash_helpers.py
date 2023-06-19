@@ -65,9 +65,9 @@ def flex_match(pattern, txt, gradation=False, spellcheck=False):
 def path_given_shell(fname, the_shell):
     # Absolute and relative paths behave differently.
     if file_io.is_path_absolute(fname):
-        return file_io.termp_abs_path(fname)
+        return file_io.abs_path(fname, True)
     else:
-        return file_io.termp_abs_path(('.' if the_shell is None else the_shell.cur_dir)+'/'+fname)
+        return file_io.abs_path(('.' if the_shell is None else the_shell.cur_dir)+'/'+fname, True)
 
 def bashy_file_info(fname):
     #https://flaviocopes.com/python-get-file-details/
@@ -83,7 +83,7 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
     #   If wildcard ends in a folder, all files inside will be choosen.
     #   If wildcard ends in a filename, the filename and any others that match will be choosen.
 
-    wildcard = file_io.termp_abs_path(wildcard)
+    wildcard = file_io.abs_path(wildcard, True)
 
     def filter_fn(fname_global):
         pieces = fname_global.split('/') #regexs allowed if they dont have *forward* slash.

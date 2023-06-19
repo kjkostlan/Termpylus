@@ -22,7 +22,7 @@ class PyProj():
         self.unmods = {}
         for m in self.mods.keys():
             if os.path.exists(self.dest+'/'+self.mods[m]):
-                self.unmods[m] = file_io.contents(fname)
+                self.unmods[m] = file_io.fload(fname)
             else:
                 self.unmods[m] = None # A new file which will need to be deleted.
 
@@ -31,7 +31,7 @@ class PyProj():
             m = the_mods[k]
             fname = self.folder+'/'+k, mods[k]
             if callable(m):
-                txt = m(file_io.contents(fname))
+                txt = m(file_io.fload(fname))
                 file_io.fsave(fname, txt)
             elif not m:
                 file_io.fdelete(fname)
@@ -65,8 +65,8 @@ class PyProj():
         elif self.origin.startswith('ftp'):
             raise Exception('FTP requests not planned to be supported.')
         else:
-            folder = file_io.termp_abs_path(self.origin)
-            dest_folder = file_io.termp_abs_path(self.dest)
+            folder = file_io.abs_path(self.origin, True)
+            dest_folder = file_io.abs_path(self.dest, True)
             if folder != dest_folder:
                 if not os.path.exists(folder):
                     raise Exception(f'The origin is a folder on a local machine: {folder} but that folder does not exist.')

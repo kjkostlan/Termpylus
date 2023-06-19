@@ -199,7 +199,7 @@ def get_all_sourcevars():
     fnames = modules.module_fnames(user_only=True)
     src_token_counts = {}
     for k in fnames.keys():
-        contents = file_io.contents(fnames[k]); date_mod = file_io.date_mod(fnames[k])
+        contents = file_io.fload(fnames[k]); date_mod = file_io.date_mod(fnames[k])
         contents0 = file_io.contents_on_first_call(fnames[k])
         src_pieces = python_parse.simple_tokens(contents)
         for p in src_pieces:

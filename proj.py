@@ -46,5 +46,5 @@ def global_get(name, initial_value):
     # Any packages that use Proj should use some sort of qualifier to avoid dict key-collisions.
     # This fn is a get function which sets an initial_value if need be.
     if name not in dataset:
-        dateset[name] = initial_value
+        dataset[name] = initial_value
     return dataset[name]

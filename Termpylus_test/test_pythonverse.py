@@ -3,7 +3,7 @@ import sys
 from Termpylus_core import todict, dwalk, dquery
 from Termpylus_shell import bashy_cmds
 from Termpylus_extern.slitherlisp import ppatch
-from Termpylus_extern.waterworks import file_io, updater
+from Termpylus_extern.waterworks import file_io
 
 from . import ttools
 import proj
@@ -61,12 +61,12 @@ def search_source_test():
     fname = './Termpylus_test/changeme.py'
     old_txt = '_Baz123_'
     new_txt = '_Bets123_'
-    file_io.fsave(fname, file_io.contents(fname).replace(new_txt, old_txt))
+    file_io.fsave(fname, file_io.fload(fname).replace(new_txt, old_txt))
     proj.dataset['fileio_globals']['original_txts'] = {}; print('Wiped out file_globals original txt for testing') # Wipe this out.
     xch0 = dquery.source_find('-ed', 1.0); out = out and len(xch0)==0
-    file_io.fsave(fname, file_io.contents(fname).replace(old_txt, new_txt))
+    file_io.fsave(fname, file_io.fload(fname).replace(old_txt, new_txt))
     xch1 = dquery.source_find('-ed', 1.0); out = out and 'see_changes_here' in str(xch1)
-    file_io.fsave(fname, file_io.contents(fname).replace(new_txt, old_txt))
+    file_io.fsave(fname, file_io.fload(fname).replace(new_txt, old_txt))
 
     print('Stuff:', xch0)
     return False

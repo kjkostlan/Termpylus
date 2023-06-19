@@ -1,7 +1,7 @@
 # Python shell with some wrappers for simple linux commands.
 # It holds a current working directory to feel shell-like.
 import sys, re, importlib, traceback, subprocess
-from . import bashy_cmds
+from . import bashy_cmds, bash2py
 from Termpylus_extern.waterworks import file_io, modules
 from Termpylus_extern.fastatine import bash_parse
 from Termpylus_extern.slitherlisp import ppatch
@@ -113,7 +113,7 @@ class Shell:
         self.listenerf = None
 
     def autocorrect(self, the_input):
-        return bash_parse.maybe_bash2py_console_input(the_input)
+        return bash2py.maybe_bash2py_console_input(the_input)
 
     def make_module_closures(self):
         # "considered evil" zone ahead: we add properties to the parent module
@@ -133,7 +133,7 @@ class Shell:
             setattr(us, fn_name, c.get_f())
 
     def send(self, the_input, include_newline=True):
-        self.cur_dir = file_io.termp_abs_path(self.cur_dir).replace('\\','/')
+        self.cur_dir = file_io.abs_path(self.cur_dir).replace('\\','/')
         the_input = the_input.strip()
         if len(the_input)>0:
             self.make_module_closures()

@@ -8,7 +8,7 @@ from . import ttools
 
 project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
 project_main_files = ['/main.py', '/bench.py']
-outside_folder = file_io.termp_abs_path('../__softwaredump__/Termpylus/sample_projs')
+outside_folder = file_io.abs_path('../__softwaredump__/Termpylus/sample_projs', True)
 
 
 def _fetch_sample_githubs():
@@ -34,7 +34,7 @@ def test_py_import0():
     # outside of our main directory for which it will try importing it.
     # If this test fails (with the right folder & contents) opening a project will fail.
     kys0 = list(sys.modules.keys())
-    if not os.path.exists(file_io.termp_abs_path(outside_folder)):
+    if not os.path.exists(file_io.abs_path(outside_folder, True)):
         print('Warning: external directory for testing does not exist.')
         return True
 
@@ -50,7 +50,7 @@ def test_py_update():
     #print('Val00 is:', val0)
     fname = './Termpylus_test/changeme.py'
     #x0 = modules.update_all_modules(use_date=False, update_on_first_see=False)
-    txt = file_io.contents(fname)
+    txt = file_io.fload(fname)
     if '1234' not in txt:
         txt0 = txt.replace('4321','1234')
         file_io.fsave(fname, txt0)
@@ -104,7 +104,7 @@ def test_file_caches():
     t0 = len(mglob['filecontents'])>8
     t1 = set(mglob['filecontents'].keys())==set(mglob['filemodified'].keys())
     t2 = 'test_file_caches' in mglob['filecontents'][fnamemap['Termpylus_test.test_pyrun']]
-    t3 = os.path.isfile(file_io.termp_abs_path(list(fnamemap.values())[4]))
+    t3 = os.path.isfile(file_io.abs_path(list(fnamemap.values())[4], True))
     return t0 and t1 and t2 and t3
 
 def test_dynamic_add_fn():
@@ -161,7 +161,7 @@ def test_main_extract():
         #Change dir so that the file loads.
         os.chdir(ark_fold)
 
-        in_the_path = file_io.termp_abs_path(ark_fold) in sys.path
+        in_the_path = file_io.abs_path(ark_fold, True) in sys.path
         out = out and in_the_path
         print('Arkanoid folder:', ark_fold, 'Added to the system path:', in_the_path)
 
@@ -185,7 +185,7 @@ def test_main_extract():
 
     modules.module_fnames(True)
     if_name_main_blocks = modules.get_main_blocks(modname)
-    #contents = file_io.contents(sample_github_folders[0]+'/'+project_main_files[0])
+    #contents = file_io.fload(sample_github_folders[0]+'/'+project_main_files[0])
 
     out = out and len(if_name_main_blocks) == 2
     out = out and "pygame.display.set_caption('arkanoid')" in if_name_main_blocks[0]
@@ -213,8 +213,8 @@ def test_run_arkanoid():
     print('About to run Arkanoid')
     the_proj.run()
 
-    #main_py_file = file_io.termp_abs_path(sample_github_folders[0]+'/'+project_main_files[0])
-    #main_py_folder = os.path.dirname(file_io.termp_abs_path(main_py_file)) # TODO: use this.
+    #main_py_file = file_io.abs_path(sample_github_folders[0]+'/'+project_main_files[0])
+    #main_py_folder = os.path.dirname(file_io.abs_path(main_py_file)) # TODO: use this.
     # -th = Thread, -pr = process. Neither = Not applicable.
     #print('About to run the script:', main_py_file)
     #shell_obj = shellpython.Shell()
