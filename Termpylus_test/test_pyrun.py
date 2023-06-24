@@ -11,7 +11,6 @@ project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/oustt
 project_main_files = ['/main.py', '/bench.py']
 outside_folder = file_io.abs_path('../__softwaredump__/Termpylus/sample_projs', True)
 
-
 def _fetch_sample_githubs():
     # Fetch sample githubs into an external softwaredump folder.
     print('Fetching GIT samples into', outside_folder)
@@ -29,20 +28,6 @@ def _fetch_sample_githubs():
         cmd = ' '.join(['git','clone',qwrap(url), qwrap(local_folder)])
         os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder.
     print('Git Clones saved into this folder:', outside_folder)
-
-def test_py_import0():
-    # TODO: not sure if this teast is really testing it properly...
-    # Optional extra test. Returns True unless there is a simplypyimport test folder
-    # outside of our main directory for which it will try importing it.
-    # If this test fails (with the right folder & contents) opening a project will fail.
-    kys0 = list(sys.modules.keys())
-    if not os.path.exists(file_io.abs_path(outside_folder, True)):
-        print('Warning: external directory for testing does not exist.')
-        return True
-
-    shell_obj = shellpython.Shell()
-    mdle = bashy_cmds.python([outside_folder+"/smain.py"], shell_obj)
-    return True
 
 def test_py_update():
     # Tests making changes to the source code.
@@ -153,49 +138,35 @@ def test_main_extract():
     sample_github_folders = [outside_folder+'/'+leaf_sample for leaf_sample in leaf_samples]
 
     # TWO ways to import:
-    run_module_directly = False
-    if run_module_directly:
-        _ = bashy_cmds.python([sample_github_folders[0]+'/'+piefile, '--th'], None) # Needed to load the repo.
-    else:
-        import importlib
-        ark_fold = outside_folder+'/'+leaf_samples[0]
-        modules.add_to_path(ark_fold)
+    import importlib
+    ark_fold = outside_folder+'/'+leaf_samples[0]
+    modules.add_to_path(ark_fold)
 
-        #https://linuxize.com/post/python-get-change-current-working-directory/
-        #Change dir so that the file loads.
-        os.chdir(ark_fold)
+    #https://linuxize.com/post/python-get-change-current-working-directory/
+    #Change dir so that the file loads.
+    dir0 = os.path.realpath('.')
+    os.chdir(ark_fold)
 
-        in_the_path = file_io.abs_path(ark_fold, True) in sys.path
-        out = out and in_the_path
-        print('Arkanoid folder:', ark_fold, 'Added to the system path:', in_the_path)
+    in_the_path = file_io.abs_path(ark_fold, True) in sys.path
+    out = out and in_the_path
+    print('Arkanoid folder:', ark_fold, 'Added to the system path:', in_the_path)
 
-        try:
-            importlib.import_module('main')
-        except Exception as e:
-            if 'cannot convert without pygame.display initialized' not in str(e):
-                raise e
-            else:
-                print('Annoying pygame error...')
-        print('Main module:', str(sys.modules.get('main',None)))
-        #print('Module imported:', main)
-        #importlib.import_module('main')
-        #out = out and 'main' in sys.modules
-
-        #Not helpful: modules.add_to_path(outside_subfolder)
-        #file_io.fsave(outside_folder+'/__init__.py','')
-        #importlib.import_module(outside_subfolder)
-        #https://linuxize.com/post/python-get-change-current-working-directory/
-        #from load_sprite import load_sprite
-        #importlib.import_module(modname)
-        #importlib.import_module(leaf_samples[0]+'.'+modname)
+    try:
+        importlib.import_module('main')
+    except Exception as e:
+        if 'cannot convert without pygame.display initialized' not in str(e):
+            raise e
+        else:
+            print('Annoying pygame error...')
+    print('Main module:', str(sys.modules.get('main',None)))
 
     modules.module_fnames(True)
     if_name_main_blocks = python_parse.get_main_blocks(file_io.fload(modules.module_file(modname)))
-    #contents = file_io.fload(sample_github_folders[0]+'/'+project_main_files[0])
 
     out = out and len(if_name_main_blocks) == 2
     out = out and "pygame.display.set_caption('arkanoid')" in if_name_main_blocks[0]
     out = out and "bricks, platform, ball, bricks_quantity = game_field_init()" in if_name_main_blocks[1]
+    os.chdir(dir0)
     return out
 
 try:
@@ -205,30 +176,26 @@ except:
 
 def test_run_arkanoid():
     # BIG TEST!
-    # TODO: test all teh differene cases (threads, modules, etc)
-    # Launch a program in an external folder, and try to connect with it.
+    # Launch a messy pipe.
+    print('DEBUG reset project every time next line below this.')
+    ark_proj = [None] # DEBUG
 
     folder = outside_folder+'/arkanoid'
     mods = None # TODO: add mods.
     always_update = False
     if ark_proj[0] is None or always_update:
         print('About to download Arkanoid')
-        ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0], mods=None, refresh_dt=3600) #(folder=folder, github_URL=project_urls[0], mods=None, git_refresh_time=3600)
+        ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0],
+                                      mod_run_file='default', refresh_dt=3600, printouts=True) #(folder=folder, github_URL=project_urls[0], mods=None, git_refresh_time=3600)
     the_proj = ark_proj[0]
 
     print('About to run Arkanoid')
     the_proj.run()
-
-    #main_py_file = file_io.abs_path(sample_github_folders[0]+'/'+project_main_files[0])
-    #main_py_folder = os.path.dirname(file_io.abs_path(main_py_file)) # TODO: use this.
-    # -th = Thread, -pr = process. Neither = Not applicable.
-    #print('About to run the script:', main_py_file)
-    #shell_obj = shellpython.Shell()
-    #x = bashy_cmds.python([main_py_file, '--pr'], shell_obj)
-    #x = bashy_cmds.python([main_py_file, '--th'], shell_obj)
-    #x = bashy_cmds.python([main_py_file], shell_obj)
-    #print('x is:', x)
-    #return False # TODO.
+    print('Sleep 3 seconds then blit:')
+    import time
+    time.sleep(3)
+    print('Blitted tubo:', the_proj.blit())
+    print('Len of blitted tubo:', len(the_proj.blit()))
 
 def prepare_tests():
     ask_for_permiss = False
