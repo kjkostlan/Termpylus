@@ -10,6 +10,13 @@ from . import bash_helpers
 
 ############################### Custom commands ################################
 
+def rextern(bashy_args, shell_obj):
+    print('Refreshing Termpylus_extern.')
+    import proj
+    from Termpylus_extern.waterworks import py_updater
+    proj._install_gitpacks()
+    return py_updater.update_user_changed_modules()
+
 def help(bashy_args, shell_obj):
     # TODO: help is a dict and dict vals are more helpful.
     kys = sys.modules[__name__].__dict__.keys()
@@ -64,6 +71,23 @@ def pfind(bashy_args, shell_obj):
     TODO # -ch for cache.
     return dquery.generic_find(bashy_args, pythonverse)
 
+def python(bashy_args, shell_obj):
+    from Termpylus_core import projects
+    from Termpylus_extern.waterworks import file_io
+    orig = bashy_args[0]
+    dest = [bashy_args[0]+bashy_args[0]][1]
+    x = [orig, dest]
+    for i in range(len(x)):
+        if 'http' in x[i] or 'ftp' in x[i] or 'ssh' in ph.lower():
+            pass
+        else:
+            x[i] = bash_helpers.path_given_shell(x[i], shell_obj)
+    if x[0].ends_with('.py'):
+        x[0] = file_io.folder_file(x[0])[0]
+    x[1] = file_io.folder_file(x[1])
+    # TODO: more options
+    return projects.PyProj(x[0], x[1][0], x[1][1], mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2)
+
 def _python_core(**kwargs): # Outer level so that we can run the function in a subprocess.
     if '-n' in kwargs['bashy_kv']:
         return runpy.run_path(kwargs['abs_path'], init_globals=None, run_name=kwargs['bashy_kv']['-n'])
@@ -80,68 +104,6 @@ def _python_core(**kwargs): # Outer level so that we can run the function in a s
         if kwargs['rm_path_when_done']: # Remove path (don't make permement changes to path).
             modules.pop_from_path()
         return out
-
-def python(bashy_args, shell_obj):
-    # Different options from the vanilla Python command.
-    if len(bashy_args)==0:
-        help = '''Runs a python script or project. Usage: "python path/to/pyFile.py args".
---th run in seperate thread, returning a concurrent.future obj with a result() (the default)
---pr processes (also a future, no GIL but cannot access internals); conflicts with th.
--f: Run with our modules.module_from_file (the default) and then call a function from said module (this option conflicts with -n).
-   # f uses the tail
--n: Use runpy.run_path using your supplied name which can be '__main__' (run_path is not the default). Conflicts with -f.
---rmph: Remove the module from the path once done. Conflicts with -n.
--m: Override module name. Conflicts with -n.
-'''
-        return help
-
-    from Termpylus_extern.waterworks import modules
-
-    fname = bashy_args[0]
-    P = bash_helpers.option_parse(bashy_args[1:], ['-n','-f']); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
-
-    # Assertions.
-    if '-n' in kv:
-        if '-f' in kv or '--rmph' in fl or '-m' in kv:
-            raise Exception('Incompatible arguments: -n vs (-f --rmph or -m).')
-    if '--th' in fl and '--pr' in fl:
-        raise Exception('Incompatible arguments: --th vs --pr.')
-
-    # Compute the path to the Python file:
-    abs_path = bash_helpers.path_given_shell(fname, shell_obj)
-    if not os.path.exists(abs_path):
-        raise Exception('File/folder does not exist: '+str(abs_path))
-    if os.path.isdir(abs_path):
-        if not os.path.exists(abs_path+'/main.py'):
-            raise Exception('No main.py found in:'+abs_path+'; thus a .py file, not a folder, must be specified.')
-        abs_path = abs_path+'/main.py'
-
-    # Concurrency options:
-    if '--th' in fl:
-        from concurrent.futures import ThreadPoolExecutor
-        executor = ThreadPoolExecutor(max_workers=1)
-        out = executor.submit(_python_core, bashy_kv=kv,abs_path=abs_path, rm_path_when_done='--rmph' in fl)
-    elif '--pr' in fl:
-        from concurrent.futures import ProcessPoolExecutor
-        executor = ProcessPoolExecutor(max_workers=1)
-        # TODO: gets can't pickle local object error.
-        #https://stackoverflow.com/questions/8804830/python-multiprocessing-picklingerror-cant-pickle-type-function
-        out = executor.submit(_python_core, bashy_kv=kv,abs_path=abs_path, rm_path_when_done='--rmph' in fl)
-    else:
-        out = _python_core()
-
-    fast_report_exceptions = True
-    if fast_report_exceptions and ('--th' in fl or '--pr' in fl):
-        try:
-            ex = out.exception(timeout=0.125)
-            if ex is not None and 'concurrent.futures._base.TimeoutError' not in str(ex):
-                raise Exception("Attempting to launch "+abs_path+" quickly caused this exception and shut down it's Thread/Process:\n"+repr(ex))
-        except TimeoutError:
-            pass # Keeps running.
-        except Exception as e:
-            if 'concurrent.futures._base.TimeoutError' not in str(type(e)):
-                raise e
-    return out
 
 def pwatch(bashy_args, shell_obj):
     from Termpylus_extern.slitherlisp import var_watch
