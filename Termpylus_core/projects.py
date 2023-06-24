@@ -1,91 +1,76 @@
 # Handles projects.
-import sys, os, time, shutil
+import sys, os, time, shutil, re
+import code_in_a_box
 from Termpylus_shell import bashy_cmds, shellpython
-from Termpylus_extern.waterworks import file_io
+from Termpylus_extern.waterworks import file_io, eye_term
+
+def get_prepend(sleep_time=2):
+    # Before the main code runs we need to set up.
+    local_ph = os.path.realpath('.').replace('\\','/')
+    txt = '''
+import os, sys, traceback, threading
+
+if "LOCALPH" not in sys.path: # Add access to Termpylus code.
+    sys.path.append("LOCALPH")
+
+def run_io_loop():
+    import time
+    time.sleep(SLEEPTIME) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
+    for line in sys.stdin: # Should wait here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
+        try:
+            x = exec(str(line)) # Is line already a str?
+            print(x, file=sys.stdout)
+        except Exception as e:
+            print(traceback.format_exc(), file=sys.stderr)
+
+thread_obj = threading.Thread(target=run_io_loop)
+thread_obj.daemon = True
+thread_obj.start()
+print('Started io thread loop, proceeding to main project; cwd:', os.path.realpath('.'))
+#sys.stdout.flush() # One way to flush, but the unbuffered option helps a ton.
+
+############### Termpylus_prepend_END #################
+'''.replace('LOCALPH', local_ph).replace('SLEEPTIME',str(sleep_time))
+    return txt
 
 class PyProj():
-    def __init__(self, origin, dest, run_file, mods=None, refresh_dt=3600):
-        # mods is a list of string substituations.
+    def __init__(self, origin, dest, run_file, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2):
         # A non-None github_URL will replace the contents of the folder!
         self.origin = origin # Folder or URL.
         self.dest = dest # Must be a folder.
         self.run_file = run_file
         self.refresh_dt = refresh_dt
         self.last_refresh_time = -1e100
+        self.tubo = None # Fills in upon running.
+        self._printouts = printouts
+        self.mod_run_file = mod_run_file
 
-        self.independ = 2 # 0 = run in same thread, 1 = different thread same process, 2 = different process.
+        if self.origin != self.dest:
+            code_in_a_box.download(self.origin, self.dest, clear_folder=False)
 
-        if mods is None:
-            mods = {}
-        self.mods = mods
-        self.download()
-        self.unmods = {}
-        for m in self.mods.keys():
-            if os.path.exists(self.dest+'/'+self.mods[m]):
-                self.unmods[m] = file_io.fload(fname)
+        # Prepend the runfile with a loop which in turn handles I/O-as-code on a seperate thread.
+        if not mod_run_file:
+            return
+        run_path = self.dest+'/'+run_file
+        contents = file_io.fload(run_path)
+        if mod_run_file == 'default':
+            if 'Termpylus_prepend_END' not in contents:
+                contents1 = get_prepend(sleep_time=sleep_time)+'\n'+contents
             else:
-                self.unmods[m] = None # A new file which will need to be deleted.
-
-    def _apply_mods_core(self, the_mods):
-        for k in the_mods.keys():
-            m = the_mods[k]
-            fname = self.folder+'/'+k, mods[k]
-            if callable(m):
-                txt = m(file_io.fload(fname))
-                file_io.fsave(fname, txt)
-            elif not m:
-                file_io.fdelete(fname)
-            elif type(m) is str or type(m) is bytes:
-                file_io.fsave(fname, m)
-            else:
-                raise Exception(f'The mod must be False, a callable, or a string; not a {type(m)}')
-
-    def apply_mods(self):
-        # Any modes that need to be changed.
-        self._apply_mods_core(self.mods)
-
-    def unapply_mods(self):
-        # Call this fn when done with the project.
-        self._apply_mods_core(self.unmods)
-
-    def download(self, force_update=False):
-        # Updates the GitHub software, but only if ignore_refresh is True or git_refresh_time has elapsed.
-        if not force_update and time.time()-self.last_refresh_time < self.refresh_dt:
-            return False
-        if '//github.com' in self.origin or '//www.github.com' in self.origin:
-            print('Fetching from GitHub')
-            qwrap = lambda txt: '"'+txt+'"'
-            file_io.fdelete(self.dest)
-            file_io.fcreate(self.dest, True)
-            cmd = ' '.join(['git','clone',qwrap(self.origin), qwrap(self.dest)])
-            os.system(cmd) #i.e. git clone https://github.com/the_use/the_repo the_folder. os.system will wait for the cmd to finish.
-            print('Git Clones saved into this folder:', self.dest)
-        elif self.origin.startswith('http'):
-            raise Exception(f'TODO: support other websites besides GitHub; in this case {self.origin}')
-        elif self.origin.startswith('ftp'):
-            raise Exception('FTP requests not planned to be supported.')
+                contents1 = contents
         else:
-            folder = file_io.abs_path(self.origin, True)
-            dest_folder = file_io.abs_path(self.dest, True)
-            if folder != dest_folder:
-                if not os.path.exists(folder):
-                    raise Exception(f'The origin is a folder on a local machine: {folder} but that folder does not exist.')
-                file_io.fdelete(self.dest)
-                shutil.copytree(folder, self.dest)
-        self.last_refresh_time = time.time()
-        self.apply_mods()
-        return True
+            contents1 = mod_run_file(contents)
+        file_io.fsave(run_path, contents1)
 
     def run(self):
-        shell_obj = shellpython.Shell()
-        fname = self.dest+'/'+self.run_file
-        if self.dest not in sys.path:
-            sys.path.append(self.dest)
-        if self.independ == 0:
-            return bashy_cmds.python([sfname], shell_obj)
-        elif self.independ == 1:
-            return bashy_cmds.python([fname, '--th'], shell_obj)
-        elif self.independ == 2:
-            return bashy_cmds.python([fname, '--pr'], shell_obj)
-        elif self.independ == 3:
-            raise Exception('TODO: Cloud run option.')
+        # Launches the program as a subprocess.
+        py_path = self.dest+'/'+self.run_file
+        # The -u means "unbuffered" and thus will not need flush reminders in said project's code.
+        self.tubo = eye_term.MessyPipe(proc_type='python', proc_args=['-u', py_path], printouts=self._printouts, binary_mode=False, working_dir=self.dest)
+        self.tubo.ensure_init()
+
+    # Mirror the MessyPipe API:
+    def send(self, txt, include_newline=True, suppress_input_prints=False, add_to_packets=True):
+        return self.tubo.send(txt, include_newline=include_newline, suppress_input_prints=suppress_input_prints, add_to_packets=add_to_packets)
+    def blit(self, include_history=True):
+        return self.tubo.blit(include_history=include_history)
