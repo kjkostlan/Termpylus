@@ -30,7 +30,7 @@ def _fetch_sample_githubs():
     print('Git Clones saved into this folder:', outside_folder)
 
 def test_py_update():
-    # Tests making changes to the source code.
+    # Tests making changes to the source code: do we update the code properly and do we record the edits?
     if py_updater.record_txt_update_fn is None:
         raise Exception('Linking the record_txt_update_fn to the py_updater module was not done.')
 
@@ -176,26 +176,56 @@ except:
 
 def test_run_arkanoid():
     # BIG TEST!
-    # Launch a messy pipe.
-    print('DEBUG reset project every time next line below this.')
-    ark_proj = [None] # DEBUG
+    # Interacts with a process.
+    always_update = False
+    bashy_mode = True # True and False should do the same thing.
+    if always_update:
+        print('DEBUG reset project every time next line below this.')
 
     folder = outside_folder+'/arkanoid'
     mods = None # TODO: add mods.
-    always_update = False
     if ark_proj[0] is None or always_update:
         print('About to download Arkanoid')
-        ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0],
-                                      mod_run_file='default', refresh_dt=3600, printouts=True) #(folder=folder, github_URL=project_urls[0], mods=None, git_refresh_time=3600)
+        if bashy_mode:
+            shell_obj = shellpython.Shell()
+            bashy_cmds.python([project_urls[0], folder], shell_obj)
+        else:
+            ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0],
+                                          mod_run_file='default', refresh_dt=3600, printouts=True)
     the_proj = ark_proj[0]
-
     print('About to run Arkanoid')
     the_proj.run()
-    print('Sleep 3 seconds then blit:')
-    import time
-    time.sleep(3)
-    print('Blitted tubo:', the_proj.blit())
-    print('Len of blitted tubo:', len(the_proj.blit()))
+
+    # Test sending a simple command which returns a small nested structure:
+    TODO
+
+    # Test a source search with the Arkanoid in addition to Termpylus:
+    TODO
+
+    # Test edits (there should be no edits, but still not much of a test):
+    TODO
+
+    # Test Pythonverse, searching by a particular path; maybe this test will not work well?
+    TODO
+
+    # The bashy cmds version
+    TODO
+    #bashy_cmds.pwatch(bashy_args, shell_obj=None) # Bcasts the var_watch command.
+    #bashy_cmds.edits(bashy_args, shell_obj=None)
+    #bashy_cmds.sfind(bashy_args, shell_obj=None)
+    #bashy_cmds.pfind(bashy_args, shell_obj=None)
+
+    #projects.bcast_run(code_txt)
+    #projects.var_watch_with_bcast(fn_name, args)
+    #projects.edits_with_bcast()
+    #projects.generic_pythonverse_find_with_bcast(bashy_args)
+    #projects.generic_source_find_with_bcast(bashy_args)
+
+    #print('Sleep 3 seconds then blit TODO dedebug:')
+    #import time
+    #time.sleep(3)
+    #print('Blitted tubo:', the_proj.blit())
+    #print('Len of blitted tubo:', len(the_proj.blit()))
 
 def prepare_tests():
     ask_for_permiss = False

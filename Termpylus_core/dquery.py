@@ -291,3 +291,7 @@ def source_find(*bashy_args):
     if return_sv:
         return src_vars_hi2low[0:n_return]
     return [x.modulename+'.'+x.varname for x in src_vars_hi2low[0:n_return]]
+
+def pythonverse_find(*bashy_args, pythonverse_verse=None, exclude_Termpylus=False):
+    # Similar to source find, but over the Pythonverse.
+    TODO

@@ -17,12 +17,6 @@ def rextern(bashy_args, shell_obj):
     proj._install_gitpacks()
     return py_updater.update_user_changed_modules()
 
-def help(bashy_args, shell_obj):
-    # TODO: help is a dict and dict vals are more helpful.
-    kys = sys.modules[__name__].__dict__.keys()
-    kys1 = list(filter(lambda x:'__' not in x, kys))
-    return kys1
-
 def test1(bashy_args, shell_obj):
     if len(bashy_args)==0:
         return 'This test runs the code in Termpylus_test/scratchpad.py; such a file is intended for scratchwork. Similar use cases as startup.py.'
@@ -59,21 +53,37 @@ def utest(bashy_args, shell_obj):
     print('# failed:', len(failures))
     return len(failures)==0
 
-def sfind(bashy_args, shell_obj):
-    from Termpylus_core import dquery
-    return dquery.source_find(*bashy_args)
+def sfind(bashy_args, shell_obj=None):
+    return projects.generic_source_find_with_bcast(*bashy_args)
 
-def pfind(bashy_args, shell_obj):
+def pfind(bashy_args, shell_obj=None):
     from Termpylus_core import dquery
     if len(bashy_args)==0:
         return 'Search through the Pythonverse! Uses most of the options as sfind. Creating the pythonverse is slow, so use -ch to use the previous one.'
-    pythonverse = TODO
-    TODO # -ch for cache.
-    return dquery.generic_find(bashy_args, pythonverse)
+    return projects.generic_pythonverse_find_with_bcast(bashy_args)
 
 def python(bashy_args, shell_obj):
+    # Substantial modifications from the origina Python command.
     from Termpylus_core import projects
     from Termpylus_extern.waterworks import file_io
+    if len(bashy_args)==0:
+        return '''"python path/to/main.py" launches a Subprocess python project, prepending a modification onto main.py file to allow interaction.
+                  "python origin dest_folder/main.py arg1 arg2 arg3" downloads/copies from the origin GitHub URL/folder, and sends args1-3 sys.argv. Dest_folder must be a local folder.
+                   python -q ... quits the project.
+                   python -which ... finds a project and returns it.'''
+
+    if bashy_args[0].replace('--', '-') in ['-q','-quit']:
+        # Exit out one or more projects.
+        for qu in bashy_args[1:]:
+            pr = projects.project_lookup(qu)
+            if pr is None:
+                raise Exception('Cannot find active project given query: '+qu)
+            pr.quit()
+        return
+    if bashy_args[0].replace('--', '-') in ['-which','-who']:
+        return pr = projects.project_lookup(bashy_args[1])
+
+    # The main purpose: launching a project.
     orig = bashy_args[0]
     dest = [bashy_args[0]+bashy_args[0]][1]
     x = [orig, dest]
@@ -85,33 +95,56 @@ def python(bashy_args, shell_obj):
     if x[0].ends_with('.py'):
         x[0] = file_io.folder_file(x[0])[0]
     x[1] = file_io.folder_file(x[1])
-    # TODO: more options
-    return projects.PyProj(x[0], x[1][0], x[1][1], mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2)
-
-def _python_core(**kwargs): # Outer level so that we can run the function in a subprocess.
-    if '-n' in kwargs['bashy_kv']:
-        return runpy.run_path(kwargs['abs_path'], init_globals=None, run_name=kwargs['bashy_kv']['-n'])
+    if len(bashy_args)>2:
+        cmd_args = bashy_args[2:]
     else:
-        if '-m' in kv: # Not sure if this is useful.
-            modulename = kwargs['bashy_kv']['-m']
-        else: # Assume we are calling the root module name.
-            leaf = kwargs['abs_path'].split('/')[-1]
-            modulename = leaf.split('.')[0] # Remove the extension if any.
+        cmd_args = []
+    out = projects.PyProj(x[0], x[1][0], x[1][1], mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=cmd_args)
+    out.run()
+    return out
 
-        out = modules.module_from_file(modulename, kwargs['abs_path'])
-        if 'f' in kwargs['bashy_kv']:
-            out = getattr(out, kwargs['bashy_kv'][f])(**x) # TODO: better function call.
-        if kwargs['rm_path_when_done']: # Remove path (don't make permement changes to path).
-            modules.pop_from_path()
-        return out
-
-def pwatch(bashy_args, shell_obj):
+def pwatch(bashy_args, shell_obj=None):
     from Termpylus_extern.slitherlisp import var_watch
-    return var_watch.bashy_set_watchers(*bashy_args)
+    #Not really needed: P = bash_helpers.option_parse(bashy_args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
+    if len(bashy_args)==0:
+        txt = '''
+Adds or removes watchers to a given module. Watchers can be later queried using the -i and -o options of sfind.
+Watchers are also added to all subprocesses.
+"pwatch foo bar.baz" adds watchers to module foo and to "bar.baz" (which may be a module or a function within a module).
+"pwatch --all": Adds ALL watchers. This may cause a significant performance hit and memory consumption.
+"pwatch --rm foo bar" removes watchers from foo bar. It's possible to both add and remove watchers within one command.
+'''
+        return txt
 
-def edits(bashy_args, shell_obj):
-    from Termpylus_extern.slitherlisp import var_watch
-    return var_watch.bashy_get_txt_edits(*bashy_args)
+    rm_mode = False
+    for arg in bashy_args:
+        if arg.replace('--','-') in ['-rm','-remove', '-delete', '-del']:
+            rm_mode = True
+            continue
+        if arg.replace('--','-') in ['-a', '-all']:
+            if rm_mode:
+                projects.var_watch_remove_all_with_bcast()
+            else:
+                projects.var_watch_all_with_bcast()
+        else:
+            if rm_mode:
+                projects.var_watch_remove_with_bcast(arg)
+            else:
+                projects.var_watch_add_with_bcast(arg)
+
+def edits(bashy_args, shell_obj=None):
+    if len(bashy_args)==0:
+        return 'Returns a map from filename (if given -f) or modulename (if given -m) to edits.'
+    bashy_args = [arg.replace('--','-') for arg in bashy_args]
+    is_fname = '-f' in args or 'f' in args or '-file' in args or 'file' in args
+    is_mname = '-m' in args or 'm' in args or '-module' in args or 'module' in args
+    if is_fname and is_mname:
+        raise Exception('Either a filename (-f) or modulename (-m) option must be choosen, but not both.')
+    if not is_fname and not is_mname:
+        raise Exception('Either a filename (-f) or modulename (-m) option must be choosen.')
+    return projects.edits_with_bcast(is_fname)
+
+############################### Vanilla commands ###############################
 
 def grep(bashy_args, shell_obj):
     #grep [options] PATTERN [FILE...]
@@ -139,8 +172,6 @@ def grep(bashy_args, shell_obj):
             out[fname] = listy
 
     return out
-
-############################### Vanilla commands ###############################
 
 def ls(bashy_args, shell_obj):
     from Termpylus_extern.waterworks import file_io
@@ -228,7 +259,13 @@ def rm(bashy_args, shell_obj):
     return inner_flist
 
 def pwd(bashy_args, shell_obj):
-    return absolute_path('.')
+    return bash_helpers.absolute_path('.', shell_obj)
+
+def help(bashy_args, shell_obj):
+    # This has been simplified considerably:
+    kys = sys.modules[__name__].__dict__.keys()
+    kys1 = list(filter(lambda x:'__' not in x, kys))
+    return kys1
 
 def touch(bashy_args, shell_obj):
     TODO
@@ -285,7 +322,7 @@ def cp(bashy_args, shell_obj):
 def kill(bashy_args, shell_obj):
     TODO
 
-def sleep(bashy_args, shell_obj):
+def sleep(bashy_args, shell_obj=None):
     TODO
 
 def run(bashy_args, shell_obj):

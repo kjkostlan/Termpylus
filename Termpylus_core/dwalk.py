@@ -53,7 +53,6 @@ def unwrap(d, head='', ancestry=None):
     d = _splice_core(d)
     return d
 
-
 def get_in(x, ks):
     if len(ks)==0:
         return x

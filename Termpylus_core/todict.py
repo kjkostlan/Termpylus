@@ -10,7 +10,7 @@ def sprt(*args):
     _sprt(*args, main_printer=sys.modules['__main__'].print_state_singleton)
 
 def default_blockset(x, dict_keys):
-    # Avoid wild goose chases. Returns ids since some objects are unhasable.
+    # Allows almot everything, but prevents digging into user variables in Termpylus_shell.shellpython
     if x is sys.modules['Termpylus_shell.shellpython']:
         # Avoid digging into user variables, but these are fair game:
         ok = {'str1','_module_vars','run', 'bashyparse2pystr', 'python', 'py_kwds',
@@ -18,7 +18,17 @@ def default_blockset(x, dict_keys):
               'attempt_shell_parse', 'exc_to_str', 'Shell'}
         return set(dict_keys)-ok
     else:
-        return {}
+        return set()
+
+def module_blockset(x, dict_keys):
+    # Blocks digging into modules, in addition to the default blockset.
+    out = set()
+    for dk in dict_keys:
+        if hasattr(x, dk):
+            y = getattr(x, dk)
+            if type(y) is type(sys):
+                out.add(dk)
+    return out+default_blockset(x, dict_keys)
 
 def default_no_showset(x, dict_keys):
     # Instead of bieng blocked, these keys will be completly gone.

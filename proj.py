@@ -6,7 +6,7 @@ except:
     dump_folder = './softwaredump' # Software-generated files go here.
 
 def _install_gitpacks(): # Runs once on "import proj"
-    # Installs elegant games, for a more socialized age:
+    # Installs stream-handling and code-processing external packages.
     packs = {}
     packs['./Termpylus_extern/fastatine'] = ['https://github.com/kjkostlan/fastatine', '../FaSTatine']
     packs['./Termpylus_extern/slitherlisp'] = ['https://github.com/kjkostlan/slitherlisp', '../Slitherlisp']
