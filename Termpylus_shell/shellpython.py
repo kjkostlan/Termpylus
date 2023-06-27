@@ -2,9 +2,8 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, importlib, traceback, subprocess
 from . import bashy_cmds, bash2py
-from Termpylus_extern.waterworks import file_io, modules
+from Termpylus_extern.waterworks import file_io, modules, ppatch
 from Termpylus_extern.fastatine import bash_parse
-from Termpylus_extern.slitherlisp import ppatch
 
 def str1(x):
     sx = str(x)

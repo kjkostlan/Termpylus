@@ -19,10 +19,6 @@ def _install_gitpacks(): # Runs once on "import proj"
             raise Exception('Forgot the ./<folder>')
         code_in_a_box.download(v[1 if dev_mode_local_packs else 0], k, clear_folder=False)
 
-    # Package-package interaction which requires manually calling the functions (TODO: not have this need).
-    import Termpylus_extern.slitherlisp.cross_package
-    Termpylus_extern.slitherlisp.cross_package.integrate({'Waterworks':'Termpylus_extern.waterworks'})
-
 ########################## Boilerplate code below ##############################
 ########### (some of our pacakges depend on global_get and proj.dump_folder) ##########
 def global_get(name, initial_value):

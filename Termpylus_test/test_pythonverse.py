@@ -2,8 +2,7 @@
 import sys
 from Termpylus_core import todict, dwalk, dquery
 from Termpylus_shell import bashy_cmds
-from Termpylus_extern.slitherlisp import ppatch
-from Termpylus_extern.waterworks import file_io
+from Termpylus_extern.waterworks import file_io, ppatch
 
 from . import ttools
 import proj

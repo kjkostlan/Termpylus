@@ -1,7 +1,7 @@
 # Do we need the builting unittest lib?
 import sys, traceback
 import numpy as np
-from Termpylus_extern.slitherlisp import var_watch
+from Termpylus_extern.waterworks import var_watch
 
 def alltrue(x):
     if type(x) is dict:

@@ -1,8 +1,7 @@
 # Tests variable modifications and tracking.
 import sys
 import numpy as np
-from Termpylus_extern.waterworks import py_updater, fittings
-from Termpylus_extern.slitherlisp import ppatch, var_watch
+from Termpylus_extern.waterworks import py_updater, fittings, ppatch, var_watch
 
 from . import ttools
 

@@ -3,8 +3,7 @@ import sys, os, imp, re
 from Termpylus_core import projects
 from Termpylus_shell import bashy_cmds, shellpython
 from Termpylus_extern.fastatine import python_parse
-from Termpylus_extern.slitherlisp import var_watch, ppatch
-from Termpylus_extern.waterworks import py_updater, file_io, modules
+from Termpylus_extern.waterworks import py_updater, file_io, modules, var_watch, ppatch
 from . import ttools
 
 project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']

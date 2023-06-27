@@ -104,7 +104,7 @@ def python(bashy_args, shell_obj):
     return out
 
 def pwatch(bashy_args, shell_obj=None):
-    from Termpylus_extern.slitherlisp import var_watch
+    from Termpylus_extern.waterworks import var_watch
     #Not really needed: P = bash_helpers.option_parse(bashy_args, []); fl = set(P['flags']); kv = P['pairs']; x = P['tail']
     if len(bashy_args)==0:
         txt = '''

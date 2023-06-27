@@ -5,8 +5,7 @@ import re, inspect
 import numpy as np
 from . import dwalk
 from Termpylus_shell import bash_helpers
-from Termpylus_extern.waterworks import file_io, modules, fittings
-from Termpylus_extern.slitherlisp import var_watch, ppatch
+from Termpylus_extern.waterworks import file_io, modules, fittings, var_watch, ppatch
 from Termpylus_extern.fastatine import python_parse
 import proj
 
