@@ -41,15 +41,30 @@ def run_io_loop():
         return ty not in [str, int, float, bool]
     def _repr1(x): # Wrap objects in strings so that evaling the code doesn't syntax error.
         return repr(projects.cwalk(lambda x: repr(x) if _is_obj(x) else x, x, leaf_only=True))
+    def _issym(x): # Is x a symbol?
+        x = x.strip()
+        for ch in '=+-/*%{}()[] \n':
+            if ch in x:
+                return False
+        return True
 
     import time
     time.sleep(SLEEPTIME) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
+    line_bufs = [] # Store up lines for multi-line exec.
     for line in sys.stdin: # Should wait here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
-        try:
-            x = exec(str(line)) # Is line already a str?
-            print(_repr1(x), file=sys.stdout)
-        except Exception as e:
-            print(traceback.format_exc(), file=sys.stderr)
+        line_bufs.append(line)
+        if len(line.lstrip()) == len(line): # No indentation.
+            try:
+                exec('\n'.join(line_bufs))
+            except Exception as e:
+                print(traceback.format_exc(), file=sys.stderr)
+            line_bufs = []
+            # Print out any symbols in the line:
+            if _issym(line):
+                try:
+                    print(eval(line))
+                except Exception as e:
+                    print(traceback.format_exc(), file=sys.stderr)
 
 thread_obj = threading.Thread(target=run_io_loop)
 thread_obj.daemon = True
@@ -124,7 +139,25 @@ class PyProj():
                 break
         self.tubo.close()
 
-############################### Allows querying processes ######################
+def project_lookup(query_txt):
+    # Looks up a project searching by origin, dest folder, etc.
+    # A bit of a heuristic here.
+    best_match = 0
+    best_proj = None
+    for pr in _gl['active_projs']:
+        match = 0.0
+        if query_txt.lower() == pr.origin.lower() or query_txt.lower() == pr.dest.lower():
+            match = 1.0
+        elif query_txt.lower() in pr.origin.lower() or query_txt.lower() in pr.dest.lower():
+            match = 0.5
+        if match>best_match+0.01:
+            best_match = match
+            best_proj = pr
+
+    return best_proj
+
+##### Functions that run on the subprocesses as well as the main process #######
+# TODO: is there a better system than having to mirror all of these functions?
 
 def bcast_run(code_txt):
     # Runs code_txt in each active project, waits for the data dump, and evaluates the output.
@@ -183,23 +216,13 @@ def var_watch_remove_all_with_bcast():
     var_watch.remove_all_watchers()
     bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_all_with_bcast()')
 
+def startup_cache_with_bcast():
+    py_updater.startup_cache_sources()
+    bcast_run(f'from Termpylus_core import projects\nprojects.startup_cache_with_bcast()')
 
-def project_lookup(query_txt):
-    # Looks up a project searching by origin, dest folder, etc.
-    # A bit of a heuristic here.
-    best_match = 0
-    best_proj = None
-    for pr in _gl['active_projs']:
-        match = 0.0
-        if query_txt.lower() == pr.origin.lower() or query_txt.lower() == pr.dest.lower():
-            match = 1.0
-        elif query_txt.lower() in pr.origin.lower() or query_txt.lower() in pr.dest.lower():
-            match = 0.5
-        if match>best_match+0.01:
-            best_match = match
-            best_proj = pr
-
-    return best_proj
+def update_user_changed_modules_with_bcast():
+    py_updater.update_user_changed_modules()
+    bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast()')
 
 def edits_with_bcast(is_filename):
     # Edits to the source code; only includes edits since project startup.
@@ -225,13 +248,13 @@ def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False):
     pythonverse = todict.to_dict(x, output_dict=None, blockset_fn=todict.default_blockset, removeset_fn=todict.module_blockset, d1_override=todict.default_override_to_dict1, level=0)
 
     results =  dquery.pythonverse_find(*bashy_args, pythonverse_verse=None, exclude_Termpylus=avoid_termpylus)
-    resultss = bcast_run(f'from Termpylus_core import projects\nprojects.generic_pythonverse_find_with_bcast({bashy_args}, avoid_termpylus=True)')
+    resultss = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_pythonverse_find_with_bcast({bashy_args}, avoid_termpylus=True)\nx')
     return [results+[results1 for results1 in resultss]]
 
 def generic_source_find_with_bcast(bashy_args):
     from Termpylus_core import dquery
     out =  dquery.source_find(*bashy_args)
-    outs = bcast_run(f'from Termpylus_core import projects\nprojects.generic_source_find_with_bcast({bashy_args})')
+    outs = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_source_find_with_bcast({bashy_args})\nx')
     for outi in outs:
         out = out+outi
     return out

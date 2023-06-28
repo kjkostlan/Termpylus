@@ -126,7 +126,7 @@ class GUI(tk.Frame):
             input_to_shell=self.text_input.get("1.0","end-1c")
             if len(input_to_shell.strip())==0:
                 return None
-            py_updater.update_user_changed_modules() # Update modules.
+            py_updater.update_user_changed_modules() # In case the command
 
             autocorrect_err_prepend = '#Autocorrect error (see the background console for the error)\n'
             try:
@@ -162,7 +162,7 @@ class GUI(tk.Frame):
             self.historybox.see(tk.END)
 
             new_modules = set(sys.modules.keys())-set(mo0.keys())
-            py_updater.startup_cache_sources(new_modules)
+            projects.startup_cache_with_bcast() # Incase new modules were imported by the command.
 
     def maybe_clear_app(self, *args):
         if evt_check.emacs(args[0], 'C+l'): # Bash default clear.
@@ -178,8 +178,7 @@ class GUI(tk.Frame):
 
 if __name__=='__main__':
     print_state_singleton = slowprint.PrinterState()
-    py_updater.startup_cache_sources()
-    #shell = shellnative.Shell()
+    projects.startup_cache_with_bcast() # Cache all loaded modules on startup.
     shell = shellpython.Shell()
     try:
         gui = GUI(shell)
