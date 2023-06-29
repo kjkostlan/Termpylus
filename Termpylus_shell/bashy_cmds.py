@@ -68,9 +68,10 @@ def python(bashy_args, shell_obj):
     from Termpylus_extern.waterworks import file_io
     if len(bashy_args)==0:
         return '''"python path/to/main.py" launches a Subprocess python project, prepending a modification onto main.py file to allow interaction.
-                  "python origin dest_folder/main.py arg1 arg2 arg3" downloads/copies from the origin GitHub URL/folder, and sends args1-3 sys.argv. Dest_folder must be a local folder.
-                   python -q ... quits the project.
-                   python -which ... finds a project and returns it.'''
+                   "python origin dest_folder/main.py arg1 arg2 arg3" downloads/copies from the origin GitHub URL/folder, and sends args1-3 sys.argv. Dest_folder must be a local folder.
+                   "python origin dest_folder main.py arg1 arg2 arg3" Alternative syntax.
+                   "python -q ..." quits the project.
+                   " python -which ..." finds a project and returns it.'''
 
     if bashy_args[0].replace('--', '-') in ['-q','-quit']:
         # Exit out one or more projects.
@@ -81,26 +82,33 @@ def python(bashy_args, shell_obj):
             pr.quit()
         return
     if bashy_args[0].replace('--', '-') in ['-which','-who']:
-        return pr = projects.project_lookup(bashy_args[1])
+        return projects.project_lookup(bashy_args[1])
+    py_arg3 = len(bashy_args)>2 and bashy_args[2].endswith('.py')
 
     # The main purpose: launching a project.
     orig = bashy_args[0]
-    dest = [bashy_args[0]+bashy_args[0]][1]
-    x = [orig, dest]
-    for i in range(len(x)):
-        if 'http' in x[i] or 'ftp' in x[i] or 'ssh' in ph.lower():
-            pass
-        else:
-            x[i] = bash_helpers.path_given_shell(x[i], shell_obj)
-    if x[0].ends_with('.py'):
-        x[0] = file_io.folder_file(x[0])[0]
-    x[1] = file_io.folder_file(x[1])
-    if len(bashy_args)>2:
-        cmd_args = bashy_args[2:]
+    dest = (bashy_args+[bashy_args[0]])[1]
+    dest = bash_helpers.path_given_shell(dest, shell_obj)
+    if not dest.endswith('.py'):
+        raise Exception('The destination must specify the python file to be ran.')
+    if py_arg3:
+        dest_leaf = bashy_args[2]; dest_folder = dest
+    else:
+        dest_folder, dest_leaf = file_io.folder_file(dest)
+
+    if 'http' in orig.lower() or 'ftp' in orig.lower() or 'ssh' in orig.lower():
+        pass
+    else:
+        orig = bash_helpers.path_given_shell(orig, shell_obj)
+    if orig.endswith('.py'):
+        orig, _ = file_io.folder_file(orig)
+
+    if (not py_arg3 and len(bashy_args)>2) or len(bashy_args)>3:
+        cmd_args = bashy_args[(3 if py_arg3 else 2):]
     else:
         cmd_args = []
-    out = projects.PyProj(x[0], x[1][0], x[1][1], mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=cmd_args)
-    out.run()
+    out = projects.PyProj(orig, dest_folder, dest_leaf, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=cmd_args)
+    out.launch()
     return out
 
 def pwatch(bashy_args, shell_obj=None):

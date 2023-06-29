@@ -2,9 +2,9 @@
 import sys, os, time, shutil, re
 import code_in_a_box, proj
 from Termpylus_shell import bashy_cmds, shellpython
-from Termpylus_extern.waterworks import file_io, eye_term
+from Termpylus_extern.waterworks import file_io, eye_term, var_watch, py_updater
 
-_gl = proj.global_get('Termpylus_proj_globlas', {'active_projs':[], 'dead_projs':[] , 'num_cmds_total'=0})
+_gl = proj.global_get('Termpylus_proj_globlas', {'active_projs':[], 'dead_projs':[], 'num_cmds_total':0})
 
 def cwalk(f, x, leaf_only=True):
     # Simple collection walk. Used in the subprocess to wrap objects as strings.
@@ -27,7 +27,7 @@ def cwalk(f, x, leaf_only=True):
 def get_prepend(sleep_time=2):
     # Before the main code runs we need to set up.
     local_ph = os.path.realpath('.').replace('\\','/')
-    txt = '''
+    txt = r'''
 import os, sys, traceback, threading
 
 if "LOCALPH" not in sys.path: # Add access to Termpylus code.
@@ -43,7 +43,7 @@ def run_io_loop():
         return repr(projects.cwalk(lambda x: repr(x) if _is_obj(x) else x, x, leaf_only=True))
     def _issym(x): # Is x a symbol?
         x = x.strip()
-        for ch in '=+-/*%{}()[] \n':
+        for ch in '=+-/*%{}()[]\n':
             if ch in x:
                 return False
         return True
@@ -108,27 +108,35 @@ class PyProj():
         file_io.fsave(run_path, contents1)
         _gl['active_projs'].append(self)
 
-    def run(self):
+    def launch(self, cmd_line_args=None):
         # Launches the program as a subprocess.
         py_path = self.dest+'/'+self.run_file
+        if cmd_line_args is None:
+            cmd_line_args = []
         # The -u means "unbuffered" and thus will not need flush reminders in said project's code.
         self.tubo = eye_term.MessyPipe(proc_type='python', proc_args=['-u', py_path]+cmd_line_args, printouts=self._printouts, binary_mode=False, working_dir=self.dest)
         self.tubo.ensure_init()
 
     # Mirror the MessyPipe API:
     def send(self, txt, include_newline=True, suppress_input_prints=False, add_to_packets=True):
+        if self.tubo is None:
+            self.launch()
         return self.tubo.send(txt, include_newline=include_newline, suppress_input_prints=suppress_input_prints, add_to_packets=add_to_packets)
     def blit(self, include_history=True):
+        if self.tubo is None:
+            self.launch()
         return self.tubo.blit(include_history=include_history)
-    def wait_for(self, txt, include_history=False, timeout=16):
+    def wait_for(self, txt, include_history=False, timeout=8):
         dt = 0.001
         t = time.time()
         while True:
-            if txt in self.tubo.blit(include_history=include_history):
+            recent_blit = self.tubo.blit(include_history=include_history)
+            if txt in recent_blit:
                 break
             dt = min(dt*2, 1.0)
             if time.time()-t>timeout:
-                raise Exception(f'Wait for exceeded {timeout} second time out.')
+                print("TOTAL BLIT:", self.tubo.blit(True)) # Can catch i.e. syntax errros in the project
+                raise Exception(f'Wait for "{txt}" exceeded {timeout} second time out; len of blit: {len(recent_blit)}')
             time.sleep(dt)
 
     def quit(self):

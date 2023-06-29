@@ -5,8 +5,9 @@
 import tkinter as tk
 import traceback, sys
 import proj # Runs the project dependency installation.
+from Termpylus_core import projects
 from Termpylus_shell import shellpython
-from Termpylus_UI import evt_check, layout, slowprint, hotkeys
+from Termpylus_UI import evt_check, layout, hotkeys
 from Termpylus_extern.waterworks import py_updater, file_io
 
 debug_show_keypress = False
@@ -177,7 +178,10 @@ class GUI(tk.Frame):
         layout.place_all(w,h,self.all_widgets)
 
 if __name__=='__main__':
-    print_state_singleton = slowprint.PrinterState()
+    do_slowprint = False # Very niche debugging tool.
+    if do_slowprint:
+        from Termpylus_UI import slowprint
+        print_state_singleton = slowprint.PrinterState()
     projects.startup_cache_with_bcast() # Cache all loaded modules on startup.
     shell = shellpython.Shell()
     try:

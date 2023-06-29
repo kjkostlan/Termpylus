@@ -176,7 +176,7 @@ except:
 def test_run_arkanoid():
     # BIG TEST!
     # Interacts with a process.
-    always_update = False
+    always_update = True
     bashy_mode = True # True and False should do the same thing.
     if always_update:
         print('DEBUG reset project every time next line below this.')
@@ -184,24 +184,30 @@ def test_run_arkanoid():
     folder = outside_folder+'/arkanoid'
     mods = None # TODO: add mods.
     if ark_proj[0] is None or always_update:
-        print('About to download Arkanoid')
+        print('About to download Arkanoid to folder:', folder)
         if bashy_mode:
             shell_obj = shellpython.Shell()
-            bashy_cmds.python([project_urls[0], folder], shell_obj)
+            ark_proj[0] = bashy_cmds.python([project_urls[0], folder+'/'+project_main_files[0]], shell_obj)
         else:
             ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0],
                                           mod_run_file='default', refresh_dt=3600, printouts=True)
+            ark_proj[0].launch()
     the_proj = ark_proj[0]
-    print('About to run Arkanoid')
-    the_proj.run()
+    print("The project tubo is:", the_proj.tubo)
 
     # Test sending a simple command which returns a small nested structure:
+    a = projects.bcast_run('x = 1+3\nx')
+    b = projects.bcast_run('print(8*4)')
+
+    print('Stuff:', a, b)
+    return False
     TODO
 
     # Test a source search with the Arkanoid in addition to Termpylus:
     TODO
 
     # Test edits (there should be no edits, but still not much of a test):
+    projects.update_user_changed_modules_with_bcast()
     TODO
 
     # Test Pythonverse, searching by a particular path; maybe this test will not work well?

@@ -73,7 +73,7 @@ class PrinterState():
         self.slowprint_thread = threading.Thread(target=print_loop, args=())
         self.slowprint_thread.start()
         self.pipe_endA, self.pipe_endB = mp.Pipe()
-        self.sproc = mp.Process(target=subprocess_loop, args=[self.pipe_endB])
+        self.sproc = mp.Process(target=subprocess_loop, args=[self.pipe_endB], daemon=True)
         self.sproc.start()
 
 '''
