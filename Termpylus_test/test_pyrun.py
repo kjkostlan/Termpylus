@@ -184,6 +184,7 @@ def test_run_arkanoid():
     folder = outside_folder+'/arkanoid'
     mods = None # TODO: add mods.
     if ark_proj[0] is None or always_update:
+        projects.quit_all()
         print('About to download Arkanoid to folder:', folder)
         if bashy_mode:
             shell_obj = shellpython.Shell()
@@ -197,7 +198,7 @@ def test_run_arkanoid():
 
     # Test sending a simple command which returns a small nested structure:
     a = projects.bcast_run('x = 1+3\nx')
-    b = projects.bcast_run('print(8*4)')
+    #b = projects.bcast_run('print(8*4)') # TODO: uncomment (debug)
 
     print('Stuff:', a, b)
     return False

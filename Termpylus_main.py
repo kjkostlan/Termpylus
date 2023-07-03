@@ -41,7 +41,7 @@ class GUI(tk.Frame):
         #self.text_input.bind('<<Modified>>', self.text_changed_callback, add='+')
         root.bind("<Configure>", self.resize, add='+')
         self.text_input.pack() #fill=tk.BOTH
-        init_txt = file_io.fload('./user_startup.py')
+        init_txt = file_io.fload('./Termpylus_user_startup.py')
         if init_txt is not None:
             self.text_input.insert(tk.END, init_txt)
 

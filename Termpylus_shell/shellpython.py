@@ -2,7 +2,7 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, importlib, traceback, subprocess
 from . import bashy_cmds, bash2py
-from Termpylus_extern.waterworks import file_io, modules, ppatch
+from Termpylus_extern.waterworks import file_io, modules, ppatch, deep_stack
 from Termpylus_extern.fastatine import bash_parse
 
 def str1(x):
@@ -41,17 +41,20 @@ class Closure():
 
 def exc_to_str(e):
     # Includes stack trace.
-    err = str(repr(e))
-    tr = traceback.format_exc()
-    lines = tr.split('\n')
-    mod_ix = -1
-    for i in range(len(lines)): # Remove the head part of the trace.
-        if 'in <module>' in lines[i]:
-            mod_ix = i
-    if mod_ix>-1:
-        lines = lines[mod_ix:]
-    lines[0] = lines[0].replace('File "<string>"','Commandbox').replace('in <module>','').strip()
-    return (err+'\nTraceback:\n'+'\n'.join(lines)).strip()
+    if type(e) is deep_stack.VerboseError: # These have thier own system since they handle stack traces from other Python programs.
+        return deep_stack.pprint(e)
+    else:
+        err = str(repr(e))
+        tr = traceback.format_exc()
+        lines = tr.split('\n')
+        mod_ix = -1
+        for i in range(len(lines)): # Remove the head part of the trace.
+            if 'in <module>' in lines[i]:
+                mod_ix = i
+        if mod_ix>-1:
+            lines = lines[mod_ix:]
+        lines[0] = lines[0].replace('File "<string>"','Commandbox').replace('in <module>','').strip()
+        return (err+'\nTraceback:\n'+'\n'.join(lines)).strip()
 
 def simple_assigned_vars(txt):
     # Which vars are assigned with an = sign?
@@ -95,7 +98,7 @@ def vdif_report(vars0, vars1, the_input, err):
         if l1.startswith('_') and l1 in vars1:
             rep(l1)
 
-    if len(changed)==0 and len(err)==0:
+    if len(changed)==0 and (not err or len(err)==0):
         report_list = report_list+['Command succeeded, no vars changed']
     var_str = '\n'.join(report_list)
     return var_str
@@ -151,7 +154,7 @@ class Shell:
 
             if len(var_str)>0:
                 self.outputs.append([var_str, False, self.input_ix])
-            if len(err)>0:
+            if err and len(err)>0:
                 self.outputs.append([err, True, self.input_ix])
 
             self.listenerf() #Trigger it manually (since there is no IO stream).
