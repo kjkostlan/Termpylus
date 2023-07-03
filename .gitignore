@@ -159,10 +159,10 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# Software dump for testing:
+# User config and testing folder:
 softwaredump_/
-# User startup:
-user_startup.py
+Termpylus_user_startup.py
+Termpylus_user_paths.py
 
 # External libries go here:
 code_in_a_box.py
