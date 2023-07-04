@@ -59,14 +59,14 @@ def run_io_loop():
             try:
                 exec('\n'.join(line_bufs))
             except Exception as e:
-                print(deep_stack.exc_to_str(e), file=sys.stderr)
+                print(deep_stack.from_exception(e), file=sys.stderr)
             line_bufs = []
-            # Print out any symbols in the line:
+            # Lines which are symbols are printed:
             if _issym(line):
                 try:
-                    print(eval(line))
+                    print(_repr1(eval(line)))
                 except Exception as e:
-                    print(deep_stack.exc_to_str(e), file=sys.stderr)
+                    print(deep_stack.from_exception(e), file=sys.stderr)
         sys.stdin.flush() # Needed?
 
 thread_obj = threading.Thread(target=run_io_loop)
@@ -112,6 +112,16 @@ class PyProj():
         file_io.fsave(run_path, contents1)
         _gl['alive_projs'].append(self)
 
+    def assert_no_exc(self, include_history=True):
+        # Errors in the subprocess should feel like ordinary errors.
+        stdout_blit = self.tubo.blit(include_history=include_history, stdout=True, stderr=False)
+        stderr_blit = self.tubo.blit(include_history=include_history, stdout=False, stderr=True)
+        err_msg = deep_stack.from_stream(stdout_blit, stderr_blit, compress_multible=False, helpful_id=self.name)
+        if err_msg:
+            old_stack = deep_stack.from_cur_stack()
+            err_msg1 = deep_stack.concat(old_stack, err_msg)
+            deep_stack.raise_from_message(err_msg1)
+
     def launch(self, cmd_line_args=None):
         # Launches the program as a subprocess.
         py_path = self.dest+'/'+self.run_file
@@ -141,26 +151,48 @@ class PyProj():
         if self.tubo is None:
             self.launch()
         return self.tubo.blit(include_history=include_history, stdout=stdout, stderr=stderr)
-    def wait_for(self, txt, include_history=False, timeout=8):
+    def wait_for(self, txt, include_history=False, timeout=8): # The world of "expect".
         dt = 0.001
         t = time.time()
         while True:
+            self.assert_no_exc(include_history=True) # True is safer, but will eventually grow.
             recent_blit = self.tubo.blit(include_history=include_history)
             if txt in recent_blit:
                 break
-
-            stdout_blit = self.tubo.blit(include_history=include_history, stdout=True, stderr=False)
-            stderr_blit = self.tubo.blit(include_history=include_history, stdout=False, stderr=True)
-            err_msg = deep_stack.from_stream(stdout_blit, stderr_blit, compress_multible=False, helpful_id=self.name)
-            if err_msg:
-                old_stack = deep_stack.from_cur_stack()
-                err_msg1 = deep_stack.concat(old_stack, err_msg)
-                deep_stack.raise_from_message(err_msg1) # Raises an exception here.
             if time.time()-t>timeout:
                 print("TOTAL BLIT:", colorful.wrapprint(self.tubo.blit(True))) # Can catch i.e. syntax errros in the project
                 raise Exception(f'Wait for "{txt}" exceeded {timeout} second time out; len of blit since last command: {len(recent_blit)}')
             time.sleep(dt)
             dt = min(dt*2, 1.0)
+
+    def exec(self, code_txt, assert_result=True, str_mode=False): # The API is modified slightly from tubo.API
+        unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
+        unique_tok1 = 'T'+unique_tok
+        self.send(f"print('{unique_tok*2}')\n", include_newline=True)
+        self.wait_for(unique_tok*2, include_history=False)
+        self.send(code_txt+'\n'+f"print('{unique_tok1*2}')", include_newline=True)
+        self.wait_for(unique_tok1*2, include_history=False)
+        result_messy = self.blit(include_history=False, stdout=True, stderr=True).strip()
+        result_lines = result_messy.split('\n')
+        if len(result_lines)==2:
+            result_clean = result_lines[0].strip()
+            try:
+                return result_clean if str_mode else eval(result_clean) # Evaluate the txt into a Python data structure (or raise an error if it cant be evaled)
+            except Exception as e:
+                if len(result_clean)<512:
+                    raise Exception('Eval return obj from process error: '+str(e)+' INPUT '+'"'+code_txt+'"'+' OUTPUT '+'"'+result_clean+'"')
+                else:
+                    raise Exception(f'Eval large (n={len(result_clean)}) return obj from process error: '+str(e))
+
+        elif len(result_lines)>2: # Should never happen, so if it does raise even without assert_result.
+            raise Exception('Too many result lines')
+        elif assert_result:
+            self.assert_no_exc(include_history=True)
+            if len(result_lines)==0:
+                raise Exception('No result lines nor the unique token.')
+            raise Exception('Only returned the expect line: '+result_lines[0].strip()+'; disable assert_result if no result is needed')
+        else:
+            return None
 
     def quit(self):
         # Ends the process.
@@ -201,7 +233,7 @@ def quit_all():
 ##### Functions that run on the subprocesses as well as the main process #######
 # TODO: is there a better system than having to mirror all of these functions?
 
-def bcast_run(code_txt):
+def bcast_run(code_txt, wait=True):
     # Runs code_txt in each active project, waits for the data dump, and evaluates the output.
     # Returns a vector of outputs, one for each active project.
     # (projects have a repl loop that runs in it's own Thread).
@@ -214,20 +246,13 @@ def bcast_run(code_txt):
     out = []
     unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
     unique_tok1 = 'T'+unique_tok
+    eval_this = _rm_empty_lines(code_txt)
     for pr in _gl['alive_projs']: # TODO: concurrency.
-        # Before-and-after buffers:
-        helpful_id = pr.name
-
-        pr.send(f"print({unique_tok*2})\n", include_newline=True)
-        pr.wait_for(unique_tok*2, include_history=False)
-        pr.send(_rm_empty_lines(code_txt)+'\n'+f"print({unique_tok1*2})\n", include_newline=True)
-        pr.wait_for(unique_tok1*2, include_history=False)
-        result_messy = pr.blit(include_history=False, stdout=True, stderr=True)
-        stdout_blit = pr.blit(include_history=False, stdout=True, stderr=False)
-        stderr_blit = pr.blit(include_history=False, stdout=False, stderr=True)
-
-        result_clean = result_messy.strip().split('\n')[0]
-        out.append(eval(result_clean)) # Evaluate the txt into a Python data structure
+        if wait:
+            out.append(pr.exec(code_txt))
+        else:
+            pr.send(eval_this, include_newline=True)
+            out.append(None)
 
     _gl['num_cmds_total'] = _gl['num_cmds_total']+1
     return out
@@ -243,7 +268,7 @@ def var_watch_add_with_bcast(x):
     if x in sys.modules:
         var_watch.add_module_watchers(x)
     if not x.startswith('Termpylus'): # Subprocesses do not need to add watchers to Termpylus's code base.
-        bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_add_with_bcast({x})')
+        bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_add_with_bcast({x})', wait=False)
 
 def var_watch_remove_with_bcast(x):
     pieces = x.split('.')
@@ -254,23 +279,23 @@ def var_watch_remove_with_bcast(x):
     if x in sys.modules:
         var_watch.add_module_watchers(x)
     if not x.startswith('Termpylus'): # Subprocesses do not need to add watchers to Termpylus's code base.
-        bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_with_bcast({x})')
+        bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_with_bcast({x})', wait=False)
 
 def var_watch_all_with_bcast():
     var_watch.add_all_watchers_global()
-    bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_all_with_bcast()')
+    bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_all_with_bcast()', wait=False)
 
 def var_watch_remove_all_with_bcast():
     var_watch.remove_all_watchers()
-    bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_all_with_bcast()')
+    bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_all_with_bcast()', wait=False)
 
 def startup_cache_with_bcast():
     py_updater.startup_cache_sources()
-    bcast_run(f'from Termpylus_core import projects\nprojects.startup_cache_with_bcast()')
+    bcast_run(f'from Termpylus_core import projects\nprojects.startup_cache_with_bcast()', wait=False)
 
 def update_user_changed_modules_with_bcast():
     py_updater.update_user_changed_modules()
-    bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast()')
+    bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast()', wait=False)
 
 def edits_with_bcast(is_filename):
     # Edits to the source code; only includes edits since project startup.

@@ -178,6 +178,7 @@ def test_run_arkanoid():
     # Interacts with a process.
     always_update = True
     bashy_mode = True # True and False should do the same thing.
+    debug_printouts = True # False will save on how much stuff is dumped to console.
     if always_update:
         print('DEBUG reset project every time next line below this.')
 
@@ -188,19 +189,21 @@ def test_run_arkanoid():
         print('About to download Arkanoid to folder:', folder)
         if bashy_mode:
             shell_obj = shellpython.Shell()
-            ark_proj[0] = bashy_cmds.python([project_urls[0], folder+'/'+project_main_files[0]], shell_obj)
+            ark_proj[0] = bashy_cmds.python([project_urls[0], folder+'/'+project_main_files[0]], shell_obj, printouts=debug_printouts)
+            ark_proj[0].name = 'Arkanoid'
         else:
             ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0],
-                                          mod_run_file='default', refresh_dt=3600, printouts=True)
+                                          mod_run_file='default', refresh_dt=3600, printouts=debug_printouts)
+            ark_proj[0].name = 'Arkanoid'
             ark_proj[0].launch()
     the_proj = ark_proj[0]
-    print("The project tubo is:", the_proj.tubo)
+    #print("The project tubo is:", the_proj.tubo)
 
     # Test sending a simple command which returns a small nested structure:
-    a = projects.bcast_run('x = 1+3\nx')
-    #b = projects.bcast_run('print(8*4)') # TODO: uncomment (debug)
+    #a = projects.bcast_run('x = 12+36\nx')
+    c = projects.bcast_run('x = os.getcwd()\nx')
 
-    print('Stuff:', a, b)
+    print('STUFF:', c)
     return False
     TODO
 

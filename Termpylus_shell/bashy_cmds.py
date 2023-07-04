@@ -62,8 +62,9 @@ def pfind(bashy_args, shell_obj=None):
         return 'Search through the Pythonverse! Uses most of the options as sfind. Creating the pythonverse is slow, so use -ch to use the previous one.'
     return projects.generic_pythonverse_find_with_bcast(bashy_args)
 
-def python(bashy_args, shell_obj):
+def python(bashy_args, shell_obj, printouts=False):
     # Substantial modifications from the origina Python command.
+    # Note: this function's printouts setting cannot be used if calling this by typing a line of bash code.
     from Termpylus_core import projects
     from Termpylus_extern.waterworks import file_io
     if len(bashy_args)==0:
@@ -107,7 +108,7 @@ def python(bashy_args, shell_obj):
         cmd_args = bashy_args[(3 if py_arg3 else 2):]
     else:
         cmd_args = []
-    out = projects.PyProj(orig, dest_folder, dest_leaf, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=cmd_args)
+    out = projects.PyProj(orig, dest_folder, dest_leaf, mod_run_file='default', refresh_dt=3600, printouts=printouts, sleep_time=2, cmd_line_args=cmd_args)
     out.launch()
     return out
 

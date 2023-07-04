@@ -44,17 +44,9 @@ def exc_to_str(e):
     if type(e) is deep_stack.VerboseError: # These have thier own system since they handle stack traces from other Python programs.
         return deep_stack.pprint(e)
     else:
-        err = str(repr(e))
-        tr = traceback.format_exc()
-        lines = tr.split('\n')
-        mod_ix = -1
-        for i in range(len(lines)): # Remove the head part of the trace.
-            if 'in <module>' in lines[i]:
-                mod_ix = i
-        if mod_ix>-1:
-            lines = lines[mod_ix:]
-        lines[0] = lines[0].replace('File "<string>"','Commandbox').replace('in <module>','').strip()
-        return (err+'\nTraceback:\n'+'\n'.join(lines)).strip()
+        #err = str(repr(e))
+        tr = deep_stack.the_old_way(e)
+        return ('\nVanilla traceback:\n'+tr).strip()
 
 def simple_assigned_vars(txt):
     # Which vars are assigned with an = sign?
