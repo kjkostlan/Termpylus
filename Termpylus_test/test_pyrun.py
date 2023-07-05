@@ -66,7 +66,7 @@ def test_py_update():
 def test_eval():
     # Does eval (actually exec) work in all modules?
     def evl(mname, txt, deletevar=True):
-        return ppatch.eval_here(mname, txt, delete_new_vars=deletevar)
+        return ppatch.exec_here(mname, txt, delete_new_vars=deletevar)
 
     out = True
     x = evl('Termpylus_test.test_pyrun', '_x_ = test_py_update')
@@ -176,6 +176,7 @@ except:
 def test_run_arkanoid():
     # BIG TEST!
     # Interacts with a process.
+    out = True
     always_update = True
     bashy_mode = True # True and False should do the same thing.
     debug_printouts = True # False will save on how much stuff is dumped to console.
@@ -199,12 +200,43 @@ def test_run_arkanoid():
     the_proj = ark_proj[0]
     #print("The project tubo is:", the_proj.tubo)
 
-    # Test sending a simple command which returns a small nested structure:
-    #a = projects.bcast_run('x = 12+36\nx')
-    c = projects.bcast_run('x = os.getcwd()\nx')
 
-    print('STUFF:', c)
+    ######################## SANDBOX ####################
+
+    #detect_collision
+    #var_watch_add_with_bcast
+    code = '''
+from Termpylus_extern.waterworks import ppatch
+#ppatch.set_var('__main__', detect_collision, None) # destroy
+x='destroyed?'
+None
+'''
+    y = projects.bcast_run(code)
+    #var_watch.set_var(modulename, var_name, x)
+    print('STUFFSTUFFSTUFFSTUFFSTUFFSTUFF:', y, out)
     return False
+
+    ####################################################
+
+    # Test sending a simple command which returns a string:
+    a = projects.bcast_run('x = os.getcwd()\nx')
+    out = out and type(a) is list and 'sample_projs/arkanoid' in a[0].replace('\\','/')
+
+    # Test a nested data structure:
+    b = projects.bcast_run('''x = {"foo":"bar", "baz":[1,2,3]}\nx''')
+    out = out and type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1
+
+
+
+    var_watch_add_with_bcast
+    var_watch_remove_with_bcast
+    var_watch_all_with_bcast
+    var_watch_remove_all_with_bcast
+    startup_cache_with_bcast
+    update_user_changed_modules_with_bcast
+    edits_with_bcast
+    generic_pythonverse_find_with_bcast
+    generic_source_find_with_bcast
     TODO
 
     # Test a source search with the Arkanoid in addition to Termpylus:
@@ -217,24 +249,6 @@ def test_run_arkanoid():
     # Test Pythonverse, searching by a particular path; maybe this test will not work well?
     TODO
 
-    # The bashy cmds version
-    TODO
-    #bashy_cmds.pwatch(bashy_args, shell_obj=None) # Bcasts the var_watch command.
-    #bashy_cmds.edits(bashy_args, shell_obj=None)
-    #bashy_cmds.sfind(bashy_args, shell_obj=None)
-    #bashy_cmds.pfind(bashy_args, shell_obj=None)
-
-    #projects.bcast_run(code_txt)
-    #projects.var_watch_with_bcast(fn_name, args)
-    #projects.edits_with_bcast()
-    #projects.generic_pythonverse_find_with_bcast(bashy_args)
-    #projects.generic_source_find_with_bcast(bashy_args)
-
-    #print('Sleep 3 seconds then blit TODO dedebug:')
-    #import time
-    #time.sleep(3)
-    #print('Blitted tubo:', the_proj.blit())
-    #print('Len of blitted tubo:', len(the_proj.blit()))
 
 def prepare_tests():
     ask_for_permiss = False

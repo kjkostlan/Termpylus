@@ -28,46 +28,50 @@ def get_prepend(sleep_time=2):
     # Before the main code runs we need to set up.
     local_ph = os.path.realpath('.').replace('\\','/')
     txt = r'''
-import os, sys, traceback, threading
+import os, sys, traceback, threading, time
 
 if "LOCALPH" not in sys.path: # Add access to Termpylus code.
     sys.path.append("LOCALPH")
 
 def run_io_loop():
     from Termpylus_core import projects
-    from Termpylus_extern.waterworks import deep_stack
+    from Termpylus_extern.waterworks import deep_stack, ppatch
 
     def _is_obj(leaf):
         ty = type(leaf)
         return ty not in [str, int, float, bool]
     def _repr1(x): # Wrap objects in strings so that evaling the code doesn't syntax error.
         return repr(projects.cwalk(lambda x: repr(x) if _is_obj(x) else x, x, leaf_only=True))
-    def _issym(x): # Is x a symbol?
+    def _issym(x): # Is x a (single) symbol?
         x = x.strip()
-        for ch in '=+-/*%{}()[]\n':
+        if len(x)==0 or x=='pass':
+            return False
+        if x.startswith('#'):
+            return False
+        for ch in '=+-/*%{}()[]\n ^@:':
             if ch in x:
                 return False
         return True
 
-    import time
     time.sleep(SLEEPTIME) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
     line_bufs = [] # Store up lines for multi-line exec.
     sys.stdin.flush() # Needed?
     for line in sys.stdin: # Should wait here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
-        line_bufs.append(line)
-        if len(line.lstrip()) == len(line): # No indentation.
+        # Lines which are symbols are sent back out:
+        if _issym(line):
             try:
-                exec('\n'.join(line_bufs))
+                print(_repr1(ppatch.eval_better_report(line)))
             except Exception as e:
                 print(deep_stack.from_exception(e), file=sys.stderr)
-            line_bufs = []
-            # Lines which are symbols are printed:
-            if _issym(line):
+        else:
+            line_bufs.append(line)
+            if len(line.lstrip()) == len(line): # Non-indented lines trigger the exec. TODO: improve with """strings""", etc.
                 try:
-                    print(_repr1(eval(line)))
+                    ppatch.exec_better_report('\n'.join(line_bufs))
                 except Exception as e:
                     print(deep_stack.from_exception(e), file=sys.stderr)
-        sys.stdin.flush() # Needed?
+                line_bufs = []
+            sys.stdin.flush() # Needed?
 
 thread_obj = threading.Thread(target=run_io_loop)
 thread_obj.daemon = True
@@ -229,7 +233,6 @@ def quit_all():
         _gl['dead_projs'].append(ap)
     _gl['alive_projs'] = []
 
-
 ##### Functions that run on the subprocesses as well as the main process #######
 # TODO: is there a better system than having to mirror all of these functions?
 
@@ -238,20 +241,16 @@ def bcast_run(code_txt, wait=True):
     # Returns a vector of outputs, one for each active project.
     # (projects have a repl loop that runs in it's own Thread).
 
-    def _rm_empty_lines(txt):
-        lines = txt.replace('\r\n','\n').split('\n')
-        return '\n'.join(list(filter(lambda l:len(l.strip())>0, lines)))
-
     n = _gl['num_cmds_total']
     out = []
     unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
     unique_tok1 = 'T'+unique_tok
-    eval_this = _rm_empty_lines(code_txt)
+    code_txt = code_txt+'\npass' # A non-indented lines tells the process it is ready to eval the growing block of code.
     for pr in _gl['alive_projs']: # TODO: concurrency.
         if wait:
             out.append(pr.exec(code_txt))
         else:
-            pr.send(eval_this, include_newline=True)
+            pr.send(code_txt, include_newline=True)
             out.append(None)
 
     _gl['num_cmds_total'] = _gl['num_cmds_total']+1
