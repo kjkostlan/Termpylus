@@ -66,7 +66,7 @@ def test_py_update():
 def test_eval():
     # Does eval (actually exec) work in all modules?
     def evl(mname, txt, deletevar=True):
-        return ppatch.exec_here(mname, txt, delete_new_vars=deletevar)
+        return deep_stack.exec_here(mname, txt, delete_new_vars=deletevar)
 
     out = True
     x = evl('Termpylus_test.test_pyrun', '_x_ = test_py_update')
@@ -209,8 +209,12 @@ def test_run_arkanoid():
 from Termpylus_extern.waterworks import ppatch
 #ppatch.set_var('__main__', detect_collision, None) # destroy
 x='destroyed?'
-None
+x
 '''
+    import time
+    print('SLEEPING test pyrun')
+    time.sleep(6)
+    print('ABOUT TO BCAST RUN')
     y = projects.bcast_run(code)
     #var_watch.set_var(modulename, var_name, x)
     print('STUFFSTUFFSTUFFSTUFFSTUFFSTUFF:', y, out)
@@ -226,7 +230,7 @@ None
     b = projects.bcast_run('''x = {"foo":"bar", "baz":[1,2,3]}\nx''')
     out = out and type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1
 
-
+    return False
 
     var_watch_add_with_bcast
     var_watch_remove_with_bcast

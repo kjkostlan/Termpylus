@@ -6,78 +6,33 @@ from Termpylus_extern.waterworks import file_io, eye_term, var_watch, py_updater
 
 _gl = proj.global_get('Termpylus_proj_globlas', {'alive_projs':[], 'dead_projs':[], 'num_cmds_total':0})
 
-def cwalk(f, x, leaf_only=True):
-    # Simple collection walk. Used in the subprocess to wrap objects as strings.
-    ty = type(x)
-    if type(x) is dict:
-        x = x if leaf_only else f(x)
-        return dict(zip([cwalk(f, k, leaf_only) for k in x.keys()], [cwalk(f, v, leaf_only) for v in x.values()]))
-    elif type(x) is list:
-        x = x if leaf_only else f(x)
-        return [cwalk(f, xi, leaf_only) for xi in x]
-    elif type(x) is set:
-        x = x if leaf_only else f(x)
-        return set([cwalk(f, xi, leaf_only) for xi in x])
-    elif type(x) is tuple:
-        x = x if leaf_only else f(x)
-        return tuple([cwalk(f, xi, leaf_only) for xi in x])
-    else:
-        return f(x)
-
 def get_prepend(sleep_time=2):
     # Before the main code runs we need to set up.
     local_ph = os.path.realpath('.').replace('\\','/')
     txt = r'''
-import os, sys, traceback, threading, time
+if __name__ == '__main__':
+    import os, sys, traceback, threading, time
 
-if "LOCALPH" not in sys.path: # Add access to Termpylus code.
-    sys.path.append("LOCALPH")
+    if "LOCALPH" not in sys.path: # Add access to Termpylus code.
+        sys.path.append("LOCALPH")
 
-def run_io_loop():
-    from Termpylus_core import projects
-    from Termpylus_extern.waterworks import deep_stack, ppatch
+    def run_io_loop():
+        from Termpylus_core import projects
+        from Termpylus_extern.waterworks import deep_stack
 
-    def _is_obj(leaf):
-        ty = type(leaf)
-        return ty not in [str, int, float, bool]
-    def _repr1(x): # Wrap objects in strings so that evaling the code doesn't syntax error.
-        return repr(projects.cwalk(lambda x: repr(x) if _is_obj(x) else x, x, leaf_only=True))
-    def _issym(x): # Is x a (single) symbol?
-        x = x.strip()
-        if len(x)==0 or x=='pass':
-            return False
-        if x.startswith('#'):
-            return False
-        for ch in '=+-/*%{}()[]\n ^@:':
-            if ch in x:
-                return False
-        return True
-
-    time.sleep(SLEEPTIME) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
-    line_bufs = [] # Store up lines for multi-line exec.
-    sys.stdin.flush() # Needed?
-    for line in sys.stdin: # Should wait here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
-        # Lines which are symbols are sent back out:
-        if _issym(line):
-            try:
-                print(_repr1(ppatch.eval_better_report(line)))
-            except Exception as e:
-                print(deep_stack.from_exception(e), file=sys.stderr)
-        else:
-            line_bufs.append(line)
-            if len(line.lstrip()) == len(line): # Non-indented lines trigger the exec. TODO: improve with """strings""", etc.
-                try:
-                    ppatch.exec_better_report('\n'.join(line_bufs))
-                except Exception as e:
-                    print(deep_stack.from_exception(e), file=sys.stderr)
-                line_bufs = []
+        time.sleep(SLEEPTIME) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
+        line_bufs = [] # Store up lines for multi-line exec.
+        print("ABOUT TO ENTER WAIT FOR INPUT LOOP")
+        sys.stdin.flush() # Needed?
+        for line in sys.stdin: # Waits here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
+            deep_stack.exec_feed(line_bufs, line, sys.modules[__name__].__dict__)
             sys.stdin.flush() # Needed?
 
-thread_obj = threading.Thread(target=run_io_loop)
-thread_obj.daemon = True
-thread_obj.start()
-print('Started io thread loop, proceeding to main project; cwd:', os.path.realpath('.'))
-#sys.stdout.flush() # One way to flush, but the unbuffered option helps a ton.
+    thread_obj = threading.Thread(target=run_io_loop)
+    thread_obj.daemon = True
+    thread_obj.start()
+    print('Started io thread loop, proceeding to main project; cwd:', os.path.realpath('.'))
+    #sys.stdout.flush() # One way to flush, but the unbuffered option helps a ton.
 
 ############### Termpylus_prepend_END #################
 '''.replace('LOCALPH', local_ph).replace('SLEEPTIME',str(sleep_time))
@@ -116,15 +71,9 @@ class PyProj():
         file_io.fsave(run_path, contents1)
         _gl['alive_projs'].append(self)
 
-    def assert_no_exc(self, include_history=True):
-        # Errors in the subprocess should feel like ordinary errors.
-        stdout_blit = self.tubo.blit(include_history=include_history, stdout=True, stderr=False)
-        stderr_blit = self.tubo.blit(include_history=include_history, stdout=False, stderr=True)
-        err_msg = deep_stack.from_stream(stdout_blit, stderr_blit, compress_multible=False, helpful_id=self.name)
-        if err_msg:
-            old_stack = deep_stack.from_cur_stack()
-            err_msg1 = deep_stack.concat(old_stack, err_msg)
-            deep_stack.raise_from_message(err_msg1)
+    def assert_no_exc(self):
+        self.tubo.machine_id = self.name # A kludge to put self.name into the error reports.
+        self.tubo.bubble_stream_errors()
 
     def launch(self, cmd_line_args=None):
         # Launches the program as a subprocess.
@@ -159,12 +108,11 @@ class PyProj():
         dt = 0.001
         t = time.time()
         while True:
-            self.assert_no_exc(include_history=True) # True is safer, but will eventually grow.
+            self.assert_no_exc()
             recent_blit = self.tubo.blit(include_history=include_history)
             if txt in recent_blit:
                 break
             if time.time()-t>timeout:
-                print("TOTAL BLIT:", colorful.wrapprint(self.tubo.blit(True))) # Can catch i.e. syntax errros in the project
                 raise Exception(f'Wait for "{txt}" exceeded {timeout} second time out; len of blit since last command: {len(recent_blit)}')
             time.sleep(dt)
             dt = min(dt*2, 1.0)
@@ -173,30 +121,41 @@ class PyProj():
         unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
         unique_tok1 = 'T'+unique_tok
         self.send(f"print('{unique_tok*2}')\n", include_newline=True)
-        self.wait_for(unique_tok*2, include_history=False)
-        self.send(code_txt+'\n'+f"print('{unique_tok1*2}')", include_newline=True)
+        self.wait_for(unique_tok*2, include_history=False) # Wait fors have built in asserts that will raise errors if the subprocess raises/prints errors.
+        self.send(code_txt+'\n'+f"print('{unique_tok1*2}')\npass", include_newline=True)
         self.wait_for(unique_tok1*2, include_history=False)
         result_messy = self.blit(include_history=False, stdout=True, stderr=True).strip()
-        result_lines = result_messy.split('\n')
-        if len(result_lines)==2:
-            result_clean = result_lines[0].strip()
-            try:
-                return result_clean if str_mode else eval(result_clean) # Evaluate the txt into a Python data structure (or raise an error if it cant be evaled)
-            except Exception as e:
-                if len(result_clean)<512:
-                    raise Exception('Eval return obj from process error: '+str(e)+' INPUT '+'"'+code_txt+'"'+' OUTPUT '+'"'+result_clean+'"')
-                else:
-                    raise Exception(f'Eval large (n={len(result_clean)}) return obj from process error: '+str(e))
 
-        elif len(result_lines)>2: # Should never happen, so if it does raise even without assert_result.
-            raise Exception('Too many result lines')
-        elif assert_result:
-            self.assert_no_exc(include_history=True)
-            if len(result_lines)==0:
-                raise Exception('No result lines nor the unique token.')
-            raise Exception('Only returned the expect line: '+result_lines[0].strip()+'; disable assert_result if no result is needed')
-        else:
+        messy_pieces = result_messy.split(deep_stack.varval_report_wrappers[0])
+
+        if deep_stack.varval_report_wrappers[0] not in result_messy:
+            if assert_result:
+                raise Exception(f'No output seems to have been created; disable assert_result if no result is needed')
+            else:
+                return None
+
+        clean_pieces = [messy_piece.split(deep_stack.varval_report_wrappers[1])[0] for messy_piece in messy_pieces[1:]]
+
+        out = []
+        for clean_piece in clean_pieces:
+            if len(clean_piece.strip())>0:
+                try:
+                    out.append(clean_piece if str_mode else eval(clean_piece)) # Evaluate the txt into a Python data structure (or raise an error if it cant be evaled)
+                except Exception as e:
+                    if len(clean_piece)<1024:
+                        raise Exception('Eval return obj from process error: '+str(e)+' INPUT '+'"'+code_txt+'"'+' OUTPUT '+'"'+clean_piece+'"')
+                    else:
+                        raise Exception(f'Eval large (n={len(clean_piece)}) return obj from process error: '+str(e))
+
+        if assert_result and len(out)==0: # Each result is in between deep_stack.varval_report_wrapper tokens
+            self.assert_no_exc()
+            _txt = '(non-empty)' if len(clean_pieces)>0 else ''
+            raise Exception(f'No{_txt} output seems to have been created; disable assert_result if no result is needed')
+
+        # 0 outputs = None, 1 = the output, 2+ = a list of each output:
+        if len(out)==0:
             return None
+        return out if len(out)>1 else out[0]
 
     def quit(self):
         # Ends the process.
