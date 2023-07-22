@@ -6,6 +6,7 @@
 # https://ss64.com/bash/
 # Most of the vanilla bash commands don't seem to have libraries available thus the need to write them.
 import sys, os, subprocess, operator
+from Termpylus_core import projects
 from . import bash_helpers
 
 ############################### Custom commands ################################
@@ -54,7 +55,7 @@ def utest(bashy_args, shell_obj):
     return len(failures)==0
 
 def sfind(bashy_args, shell_obj=None):
-    return projects.generic_source_find_with_bcast(*bashy_args)
+    return projects.generic_source_find_with_bcast(bashy_args)
 
 def pfind(bashy_args, shell_obj=None):
     from Termpylus_core import dquery
@@ -72,9 +73,12 @@ def python(bashy_args, shell_obj, printouts=False):
                    "python origin dest_folder/main.py arg1 arg2 arg3" downloads/copies from the origin GitHub URL/folder, and sends args1-3 sys.argv. Dest_folder must be a local folder.
                    "python origin dest_folder main.py arg1 arg2 arg3" Alternative syntax.
                    "python -q ..." quits the project.
+                   "python -b origin ..." specifies a GitHub branch; origin should be a GitHub URL in this case.
                    " python -which ..." finds a project and returns it.'''
 
-    if bashy_args[0].replace('--', '-') in ['-q','-quit']:
+    # Mutually exclusive first argument switches:
+    arg0 = bashy_args[0].replace('--', '-').lower()
+    if arg0 in ['-q','-quit']:
         # Exit out one or more projects.
         for qu in bashy_args[1:]:
             pr = projects.project_lookup(qu)
@@ -82,8 +86,13 @@ def python(bashy_args, shell_obj, printouts=False):
                 raise Exception('Cannot find active project given query: '+qu)
             pr.quit()
         return
-    if bashy_args[0].replace('--', '-') in ['-which','-who']:
+    if arg0 in ['-which','-who']:
         return projects.project_lookup(bashy_args[1])
+    git_branch = None
+    if arg0 in ['-branch', '-gitbranch', '-git-branch', '-git_branch']:
+        git_branch = arg1
+        bashy_args = bashy_args[2:]
+
     py_arg3 = len(bashy_args)>2 and bashy_args[2].endswith('.py')
 
     # The main purpose: launching a project.
@@ -108,7 +117,7 @@ def python(bashy_args, shell_obj, printouts=False):
         cmd_args = bashy_args[(3 if py_arg3 else 2):]
     else:
         cmd_args = []
-    out = projects.PyProj(orig, dest_folder, dest_leaf, mod_run_file='default', refresh_dt=3600, printouts=printouts, sleep_time=2, cmd_line_args=cmd_args)
+    out = projects.PyProj(orig, dest_folder, dest_leaf, mod_run_file='default', refresh_dt=3600, printouts=printouts, sleep_time=2, cmd_line_args=cmd_args, github_branch=git_branch)
     out.launch()
     return out
 

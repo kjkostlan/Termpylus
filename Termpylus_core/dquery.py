@@ -98,7 +98,10 @@ class Sourcevar:
             try:
                 self.signature = inspect.signature(f)
             except Exception as e:
-                raise Exception(f'signature error on {modulename}.{varname}: {e}')
+                if 'is not a callable object' in str(e) or 'no signature found for builtin type' in str(e):
+                    pass # For these it's fine to keep signature as None.
+                else:
+                    raise Exception(f'Strange signature error on {modulename}.{varname}: {e}')
 
     def __str__(self):
         log_score = self.is_ppatched*8+len(self.logs)

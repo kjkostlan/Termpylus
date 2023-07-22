@@ -1,7 +1,6 @@
 # Handles projects.
 import sys, os, time, shutil, re
 import code_in_a_box, proj
-from Termpylus_shell import bashy_cmds, shellpython
 from Termpylus_extern.waterworks import file_io, eye_term, var_watch, py_updater, colorful, deep_stack
 
 _gl = proj.global_get('Termpylus_proj_globlas', {'alive_projs':[], 'dead_projs':[], 'num_cmds_total':0})
@@ -39,7 +38,7 @@ if __name__ == '__main__':
     return txt
 
 class PyProj():
-    def __init__(self, origin, dest, run_file, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=None, name='PyProj'):
+    def __init__(self, origin, dest, run_file, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=None, name='PyProj', github_branch=None):
         # A non-None github_URL will replace the contents of the folder!
         self.origin = origin # Folder or URL.
         self.dest = dest # Must be a folder.
@@ -54,13 +53,15 @@ class PyProj():
             cmd_line_args = []
 
         if self.origin != self.dest:
-            code_in_a_box.download(self.origin, self.dest, clear_folder=False)
+            code_in_a_box.download(self.origin, self.dest, clear_folder=False, branch=github_branch)
 
         # Prepend the runfile with a loop which in turn handles I/O-as-code on a seperate thread.
         if not mod_run_file:
             return
         run_path = self.dest+'/'+run_file
         contents = file_io.fload(run_path)
+        if contents is None:
+            raise Exception('Cannot find file: '+self.dest+'/'+run_file)
         if mod_run_file == 'default':
             if 'Termpylus_prepend_END' not in contents:
                 contents1 = get_prepend(sleep_time=sleep_time)+'\n'+contents
@@ -125,7 +126,6 @@ class PyProj():
         self.send(code_txt+'\n'+f"print('{unique_tok1*2}')\npass", include_newline=True)
         self.wait_for(unique_tok1*2, include_history=False)
         result_messy = self.blit(include_history=False, stdout=True, stderr=True).strip()
-
         messy_pieces = result_messy.split(deep_stack.varval_report_wrappers[0])
 
         if deep_stack.varval_report_wrappers[0] not in result_messy:
@@ -215,31 +215,31 @@ def bcast_run(code_txt, wait=True):
     _gl['num_cmds_total'] = _gl['num_cmds_total']+1
     return out
 
-def var_watch_add_with_bcast(x):
+def var_watch_add_with_bcast(var_or_modulename):
     # Adds watchers to x (unless already added); x can be a module or var name.
     # Will add to Termpylus as well as all active projects.
-    pieces = x.split('.')
+    pieces = var_or_modulename.split('.')
     if len(pieces)>1:
         mod_name = '.'.join(pieces[0:-1])
         if mod_name in sys['modules']:
             var_watch.add_fn_watcher(mod_name, pieces[-1], f_code=None)
     if x in sys.modules:
-        var_watch.add_module_watchers(x)
+        var_watch.add_module_watchers(var_or_modulename)
     if not x.startswith('Termpylus'): # Subprocesses do not need to add watchers to Termpylus's code base.
         bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_add_with_bcast({x})', wait=False)
 
-def var_watch_remove_with_bcast(x):
-    pieces = x.split('.')
+def var_watch_remove_with_bcast(var_or_modulename):
+    pieces = var_or_modulename.split('.')
     if len(pieces)>1:
         mod_name = '.'.join(pieces[0:-1])
         if mod_name in sys['modules']:
             var_watch.rm_fn_watcher(mod_name, pieces[-1], f_code=None)
     if x in sys.modules:
-        var_watch.add_module_watchers(x)
+        var_watch.add_module_watchers(var_or_modulename)
     if not x.startswith('Termpylus'): # Subprocesses do not need to add watchers to Termpylus's code base.
         bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_with_bcast({x})', wait=False)
 
-def var_watch_all_with_bcast():
+def var_watch_add_all_with_bcast():
     var_watch.add_all_watchers_global()
     bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_all_with_bcast()', wait=False)
 
@@ -255,22 +255,23 @@ def update_user_changed_modules_with_bcast():
     py_updater.update_user_changed_modules()
     bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast()', wait=False)
 
-def edits_with_bcast(is_filename):
+def edits_with_bcast(is_filename, depth_first=True):
     # Edits to the source code; only includes edits since project startup.
-    eds = var_watch.get_txt_edits() # Each is [mname, fname]+the_edit+[t_now]
+    # depth_first is a lot less important than it is on the generic finds.
+    eds = var_watch.get_txt_edits() # Each is [mname OR fname]+the_edit+[t_now]
     ix = 1 if is_filename else 0
 
     out = {}
     for ed in eds:
         out[ed[ix]] = out.get(ed[ix], [])
         out[ed[ix]].append(ed[2:])
-    outs = bcast_run(f'from Termpylus_core import projects\nprojects.edits_with_bcast({is_filename})')
+    outs = bcast_run(f'from Termpylus_core import projects\nx=projects.edits_with_bcast({is_filename}, depth_first={depth_first})\nx')
     for out1 in outs:
-        for k in set(out.keys()+out1.keys()):
-            out[k] = out.get(k,[])+out1.get(k, [])
+        for k in list(out.keys())+list(out1.keys()):
+            out[k] = out1.get(k,[])+out.get(k, []) if depth_first else out.get(k,[])+out1.get(k, [])
     return out
 
-def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False):
+def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False, depth_first=True):
     # Don't move the huge pythonverse directly; instead just send the results.
     x = {}
     for ky in sys.modules.keys():
@@ -279,13 +280,14 @@ def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False):
     pythonverse = todict.to_dict(x, output_dict=None, blockset_fn=todict.default_blockset, removeset_fn=todict.module_blockset, d1_override=todict.default_override_to_dict1, level=0)
 
     results =  dquery.pythonverse_find(*bashy_args, pythonverse_verse=None, exclude_Termpylus=avoid_termpylus)
-    resultss = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_pythonverse_find_with_bcast({bashy_args}, avoid_termpylus=True)\nx')
-    return [results+[results1 for results1 in resultss]]
+    # Set avoid_termpylus to True to avoid redundent calls:
+    resultss = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_pythonverse_find_with_bcast({bashy_args}, avoid_termpylus=True, depth_first={depth_first})\nx')
 
-def generic_source_find_with_bcast(bashy_args):
+    return sum(resultss+[results] if depth_first else [results]+resultss, [])
+
+def generic_source_find_with_bcast(bashy_args, depth_first=True):
     from Termpylus_core import dquery
-    out =  dquery.source_find(*bashy_args)
-    outs = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_source_find_with_bcast({bashy_args})\nx')
-    for outi in outs:
-        out = out+outi
-    return out
+    results =  dquery.source_find(*bashy_args)
+    resultss = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_source_find_with_bcast({bashy_args}, depth_first={depth_first})\nx')
+
+    return sum(resultss+[results] if depth_first else [results]+resultss, [])
