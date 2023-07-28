@@ -10,7 +10,7 @@ project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/oustt
 project_main_files = ['/main.py', '/bench.py']
 outside_folder = file_io.abs_path('../__softwaredump__/Termpylus/sample_projs', True)
 
-def _fetch_sample_githubs():
+def _fetch_sample_githubs(): # TODO: drepecated by code_in_a_box.py
     # Fetch sample githubs into an external softwaredump folder.
     print('Fetching GIT samples into', outside_folder)
     ask_for_permiss = False
@@ -184,6 +184,11 @@ def test_run_arkanoid():
         print('DEBUG reset project every time next line below this.')
 
     folder = outside_folder+'/arkanoid'
+    txt = file_io.fload(folder+'/brick_loader.py')
+    if txt: # Reset an old change, in case we made it.
+        txt1 = txt.replace('brick_images', 'brick_dict') # Reset.
+        file_io.fsave(folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
+
     mods = None # TODO: add mods.
     if ark_proj[0] is None or always_update:
         projects.quit_all()
@@ -200,25 +205,57 @@ def test_run_arkanoid():
     the_proj = ark_proj[0]
     #print("The project tubo is:", the_proj.tubo)
 
-
     ######################## SANDBOX ####################
+    _do_sandbox = True
+    if _do_sandbox:
 
-    #detect_collision
-    #var_watch_add_with_bcast
-    code = '''
+        # Test edits (there should be no edits, but still not much of a test):
+        print('RUNNING SANDBOX')
+        _ = projects.bcast_run('x = 2*3\nx') # Run some code to make sure we are up-to-date.
+        txt = file_io.fload(folder+'/brick_loader.py')
+        if not txt:
+            raise Exception('Cannot load the test arkanoid project brick_loader.py, tried to do so from: '+folder)
+        txt1 = txt.replace('brick_dict', 'brick_images')
+        if txt1==txt:
+            raise Exception('No change in the txt arkanoid project brick_loader.py minor change attempt failed.')
+        file_io.fsave(folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
+        projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
+
+        print('Modified brick_loader.py, but can the program detect these mods?')
+        eds1 = projects.edits_with_bcast(True)
+        print('Which has been edited:', eds1.keys())
+
+        return False
+
+        #detect_collision
+        #var_watch_add_with_bcast
+        code = '''
 from Termpylus_extern.waterworks import ppatch
-#ppatch.set_var('__main__', detect_collision, None) # destroy
+ppatch.set_var('__main__', 'detect_collision', None) # destroy
 x='destroyed?'
 x
-'''
-    import time
-    print('SLEEPING test pyrun')
-    time.sleep(6)
-    print('ABOUT TO BCAST RUN')
-    y = projects.bcast_run(code)
-    #var_watch.set_var(modulename, var_name, x)
-    print('STUFFSTUFFSTUFFSTUFFSTUFFSTUFF:', y, out)
-    return False
+    '''
+        import time
+        print('SLEEPING test pyrun')
+        time.sleep(6)
+        print('ABOUT TO BCAST RUN')
+        y = projects.bcast_run(code)
+        print('test_pyrun sandbox STUFFSTUFFSTUFFSTUFFSTUFFSTUFF:', y, out)
+        return False
+
+        #projects.var_watch_add_with_bcast(var_or_modulename)
+        #projects.var_watch_remove_with_bcast(var_or_modulename)
+        ###Wont test: projects.var_watch_all_with_bcast()
+        #projects.var_watch_remove_all_with_bcast()
+        #projects.startup_cache_with_bcast()
+        #update_user_changed_modules_with_bcast
+        #edits_with_bcast
+        #generic_pythonverse_find_with_bcast
+        #generic_source_find_with_bcast
+        TODO
+
+        # Test Pythonverse, searching by a particular path; maybe this test will not work well?
+        TODO
 
     ####################################################
 
@@ -230,28 +267,11 @@ x
     b = projects.bcast_run('''x = {"foo":"bar", "baz":[1,2,3]}\nx''')
     out = out and type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1
 
+    # Test a source query: TODO: more of these queries.
+    x = bashy_cmds.sfind(['-n', 'detect_collision'], shell_obj=None)
+    out = out and 'detect_collision' in x[0] and '__main__.Platform.collide_with_platform' in str(x) and len(x)<64 and len(x)>4
+
     return False
-
-    var_watch_add_with_bcast
-    var_watch_remove_with_bcast
-    var_watch_all_with_bcast
-    var_watch_remove_all_with_bcast
-    startup_cache_with_bcast
-    update_user_changed_modules_with_bcast
-    edits_with_bcast
-    generic_pythonverse_find_with_bcast
-    generic_source_find_with_bcast
-    TODO
-
-    # Test a source search with the Arkanoid in addition to Termpylus:
-    TODO
-
-    # Test edits (there should be no edits, but still not much of a test):
-    projects.update_user_changed_modules_with_bcast()
-    TODO
-
-    # Test Pythonverse, searching by a particular path; maybe this test will not work well?
-    TODO
 
 
 def prepare_tests():

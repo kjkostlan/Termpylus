@@ -4,7 +4,7 @@
 #https://stackoverflow.com/questions/58417529/how-do-i-get-the-tkinter-event-listener-to-work
 import tkinter as tk
 import traceback, sys
-import proj # Runs the project dependency installation.
+import proj; proj.install_once()
 from Termpylus_core import projects
 from Termpylus_shell import shellpython
 from Termpylus_UI import evt_check, layout, hotkeys

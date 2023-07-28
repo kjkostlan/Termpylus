@@ -16,6 +16,8 @@ Reclur inspired this project. This project is a prelude to TuringCreate: it's fe
 
 **Hotkeys for everything:** Since when does a shell require a mouse? Can be fully keyboard controlled (this includes resizing the windows).
 
+**Xonsh is a similar tool. It supports a more complete bash syntax but does not show the auto-convert to Python and doesn't take multible line commands at once. Link: https://xon.sh/*
+
 ## Python features
 
 **Launching a project:** The python command launches a Python project, in the same thread, a separate thread, or a separate process. Any modules loaded by the project's main file (directly or indirectly) are available to work with.

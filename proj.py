@@ -1,7 +1,13 @@
 # Sample proj.py file which should go into the top level of the project folder (and remove this comment).
 import os
 
-def _install_gitpacks(): # Runs once on "import proj"
+try:
+    did_this_run_yet0
+except:
+    did_this_run_yet0 = True
+    dataset = {} # Store per-session variables here.
+
+def _install_gitpacks(code_in_a_box): # Runs once on "import proj"
     # Installs stream-handling and code-processing external packages.
     packs = {}
     packs['./Termpylus_extern/fastatine'] = 'https://github.com/kjkostlan/fastatine'
@@ -41,16 +47,17 @@ def global_get(name, initial_value):
         dataset[name] = initial_value
     return dataset[name]
 
-try:
-    did_this_run_yet1
-except:
-    did_this_run_yet1 = True
-    dataset = {} # Store per-session variables here.
+def install_once():
+    try:
+        did_this_run_yet1
+    except:
+        did_this_run_yet1 = True
+        dataset = {} # Store per-session variables here.
 
-    leaf = '/code_in_a_box.py'
-    if not os.path.exists('./'+leaf):
-        url = f'https://raw.githubusercontent.com/kjkostlan/Code-in-a-Box/main{leaf}'
-        os.system(f'curl "{url}" -o "{"./"+leaf}"')
-    import code_in_a_box
-    _install_gitpacks()
-    #os.unlink('./'+leaf) # Optional delete step.
+        leaf = '/code_in_a_box.py'
+        if not os.path.exists('./'+leaf):
+            url = f'https://raw.githubusercontent.com/kjkostlan/Code-in-a-Box/main{leaf}'
+            os.system(f'curl "{url}" -o "{"./"+leaf}"')
+        import code_in_a_box
+        _install_gitpacks(code_in_a_box)
+        #os.unlink('./'+leaf) # Optional delete step.

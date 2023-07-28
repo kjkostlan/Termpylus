@@ -14,12 +14,17 @@ if __name__ == '__main__':
 
     if "LOCALPH" not in sys.path: # Add access to Termpylus code.
         sys.path.append("LOCALPH")
+    from Termpylus_extern.waterworks import py_updater
+    print('ENCODING FUN DELUXE:', sys.stdout.encoding)
+    #sys.stdout.reconfigure(encoding='utf-8')
 
     def run_io_loop():
         from Termpylus_core import projects
         from Termpylus_extern.waterworks import deep_stack
 
         time.sleep(SLEEPTIME) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
+        py_updater.startup_cache_sources() # After initial sleep time.
+
         line_bufs = [] # Store up lines for multi-line exec.
         print("ABOUT TO ENTER WAIT FOR INPUT LOOP")
         sys.stdin.flush() # Needed?
@@ -251,9 +256,9 @@ def startup_cache_with_bcast():
     py_updater.startup_cache_sources()
     bcast_run(f'from Termpylus_core import projects\nprojects.startup_cache_with_bcast()', wait=False)
 
-def update_user_changed_modules_with_bcast():
-    py_updater.update_user_changed_modules()
-    bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast()', wait=False)
+def update_user_changed_modules_with_bcast(update_on_first_see=True):
+    py_updater.update_user_changed_modules(update_on_first_see=update_on_first_see)
+    bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast(update_on_first_see={update_on_first_see})', wait=False)
 
 def edits_with_bcast(is_filename, depth_first=True):
     # Edits to the source code; only includes edits since project startup.

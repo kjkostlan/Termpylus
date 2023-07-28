@@ -12,10 +12,10 @@ from . import bash_helpers
 ############################### Custom commands ################################
 
 def rextern(bashy_args, shell_obj):
-    print('Refreshing Termpylus_extern.')
-    import proj
+    print('Refreshing Termpylus_extern (this is mainly a debug tool during development of those packages)')
+    import proj, code_in_a_box
     from Termpylus_extern.waterworks import py_updater
-    proj._install_gitpacks()
+    proj._install_gitpacks(code_in_a_box)
     return py_updater.update_user_changed_modules()
 
 def test1(bashy_args, shell_obj):
