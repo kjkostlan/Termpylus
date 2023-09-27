@@ -1,9 +1,58 @@
 # Handles projects.
-import sys, os, time, shutil, re
+import os, time, shutil, re
 import code_in_a_box, proj
 from Termpylus_extern.waterworks import file_io, eye_term, var_watch, py_updater, colorful, deep_stack
 
 _gl = proj.global_get('Termpylus_proj_globlas', {'alive_projs':[], 'dead_projs':[], 'num_cmds_total':0})
+varval_report_wrappers = ['...Termpylus'+'subproc (starts here) Exec result...', '...of Termpylus'+'subproc (ends here) Exec...']
+
+def inner_app_loop(startup_sleep_time=2):
+    # Run this from the inner app.
+    destroy_unicode_in = False; destroy_unicode_out = False # Unicode should work, these are emergency measures otherwise.
+    import sys, traceback
+    from Termpylus_extern.waterworks import fittings, global_vars
+
+    # https://stackoverflow.com/questions/16549332/python-3-how-to-specify-stdin-encoding
+    # line in sys.stdin is a blocking string of *strings*. But processes generally send bytes to eachother.
+    enc = sys.stdin.encoding
+    if enc.lower() != 'utf-8':
+        sys.stdin.reconfigure(encoding='utf-8')
+        print(f'Reconfigured encoding from {enc} to utf-8. Because UTF-8 is that good.')
+
+    def _is_obj(leaf):
+        ty = type(leaf)
+        return ty not in [str, int, float, bool]
+    def _repr1(x): # Wrap objects in strings so that evaling the code doesn't syntax error.
+        return repr(fittings.cwalk(lambda x: repr(x) if _is_obj(x) else x, x, leaf_only=True))
+    def _nounicode(x):
+        # https://stackoverflow.com/questions/20078816/replace-non-ascii-characters-with-a-single-space
+        #   (why didn't I think of this!)
+        return ''.join([i if ord(i) < 128 else '?U?' for i in x])
+
+    time.sleep(startup_sleep_time) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
+    py_updater.startup_cache_sources() # After initial sleep time.
+
+    line_bufs = [] # Store up lines for multi-line exec.
+    sys.stdin.flush() # Needed?
+    for line in sys.stdin: # Waits here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
+        # Lines are type "string".
+        #print('Line bytes:', line, [hex(b) for b in line.encode()]) # Debug.
+        # No need for global_vars.tprint b/c this is all inside the app.
+        if destroy_unicode_in:
+            line = _nounicode(line)
+        try:
+            x = deep_stack.exec_feed(line_bufs, line, sys.modules[__name__].__dict__)
+            if x:
+                x_txt = _repr1(x)
+                output = varval_report_wrappers[0]+x_txt+varval_report_wrappers[1]
+                output = _nounicode(output) if destroy_unicode_out else output
+                out_bytes = output.encode('utf-8')
+                global_vars.bprint(out_bytes)
+        except Exception as e:
+            err_report = traceback.format_exc()
+            err_report = _nounicode(err_report) if destroy_unicode_out else err_report
+            global_vars.bprint(err_report)
+        sys.stdin.flush() # Needed?
 
 def get_prepend(sleep_time=2):
     # Before the main code runs we need to set up.
@@ -15,24 +64,10 @@ if __name__ == '__main__':
     if "LOCALPH" not in sys.path: # Add access to Termpylus code.
         sys.path.append("LOCALPH")
     from Termpylus_extern.waterworks import py_updater
-    print('ENCODING FUN DELUXE:', sys.stdout.encoding)
     #sys.stdout.reconfigure(encoding='utf-8')
+    from Termpylus_core import projects
 
-    def run_io_loop():
-        from Termpylus_core import projects
-        from Termpylus_extern.waterworks import deep_stack
-
-        time.sleep(SLEEPTIME) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
-        py_updater.startup_cache_sources() # After initial sleep time.
-
-        line_bufs = [] # Store up lines for multi-line exec.
-        print("ABOUT TO ENTER WAIT FOR INPUT LOOP")
-        sys.stdin.flush() # Needed?
-        for line in sys.stdin: # Waits here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
-            deep_stack.exec_feed(line_bufs, line, sys.modules[__name__].__dict__)
-            sys.stdin.flush() # Needed?
-
-    thread_obj = threading.Thread(target=run_io_loop)
+    thread_obj = threading.Thread(target=lambda: projects.inner_app_loop(startup_sleep_time=SLEEPTIME))
     thread_obj.daemon = True
     thread_obj.start()
     print('Started io thread loop, proceeding to main project; cwd:', os.path.realpath('.'))
@@ -79,6 +114,11 @@ class PyProj():
 
     def assert_no_exc(self):
         self.tubo.machine_id = self.name # A kludge to put self.name into the error reports.
+        debug_test_error = True
+        if debug_test_error:
+            stdout_blit = self.blit(include_history=True, stdout=True, stderr=False)
+            stderr_blit = self.blit(include_history=True, stdout=False, stderr=True)
+            err_msg = deep_stack.from_stream(stdout_blit, stderr_blit, compress_multible=False, helpful_id=self.tubo.machine_id)
         self.tubo.bubble_stream_errors()
 
     def launch(self, cmd_line_args=None):
@@ -87,7 +127,8 @@ class PyProj():
         if cmd_line_args is None:
             cmd_line_args = []
         # The -u means "unbuffered" and thus will not need flush reminders in said project's code.
-        self.tubo = eye_term.MessyPipe(proc_type='python', proc_args=['-u', py_path]+cmd_line_args, printouts=self._printouts, binary_mode=False, working_dir=self.dest)
+        use_bin = True # Not sure which is better.
+        self.tubo = eye_term.MessyPipe(proc_type='python', proc_args=['-u', py_path]+cmd_line_args, printouts=self._printouts, binary_mode=use_bin, working_dir=self.dest)
         self.tubo.flush_stdin = True
         self.tubo.ensure_init()
 
@@ -95,6 +136,9 @@ class PyProj():
     def send(self, txt, include_newline=True, suppress_input_prints=False, add_to_packets=True):
         if self.tubo is None:
             self.launch()
+        if type(txt) is str:
+            txt = txt.encode('utf-8')
+            deebygg = txt.decode('utf-8') # Raise errors in case there is a strange bug.
         out = self.tubo.send(txt, include_newline=include_newline, suppress_input_prints=suppress_input_prints, add_to_packets=add_to_packets)
         for i in range(8):
             try:
@@ -110,37 +154,53 @@ class PyProj():
         if self.tubo is None:
             self.launch()
         return self.tubo.blit(include_history=include_history, stdout=stdout, stderr=stderr)
-    def wait_for(self, txt, include_history=False, timeout=8): # The world of "expect".
+    def wait_for(self, txt, include_history=False, assert_no_exc=False, timeout=8): # The world of "expect".
         dt = 0.001
         t = time.time()
         while True:
-            self.assert_no_exc()
-            recent_blit = self.tubo.blit(include_history=include_history)
-            if txt in recent_blit:
+            if assert_no_exc:
+                self.assert_no_exc()
+            bl = self.tubo.blit(include_history=include_history)
+            if type(bl) is bytes:
+                bl = bl.decode('utf-8')
+            if txt in bl:
                 break
             if time.time()-t>timeout:
-                raise Exception(f'Wait for "{txt}" exceeded {timeout} second time out; len of blit since last command: {len(recent_blit)}')
+                blit_lengths = [len(self.tubo.blit(include_history=b)) for b in [False, True]]
+                raise Exception(f'Wait for "{txt}" exceeded {timeout} second time out; len of blits: {blit_lengths}')
             time.sleep(dt)
             dt = min(dt*2, 1.0)
 
     def exec(self, code_txt, assert_result=True, str_mode=False): # The API is modified slightly from tubo.API
+        from Termpylus_extern.waterworks import global_vars; tprint = global_vars.tprint
+        debug_tprint = False
+        if debug_tprint:
+            tprint('>>>Exec-ing this code:', _gl['num_cmds_total'], code_txt.replace('\n','⏎'), 'error horizion:', self.tubo.error_horizons)
         unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
-        unique_tok1 = 'T'+unique_tok
-        self.send(f"print('{unique_tok*2}')\n", include_newline=True)
-        self.wait_for(unique_tok*2, include_history=False) # Wait fors have built in asserts that will raise errors if the subprocess raises/prints errors.
-        self.send(code_txt+'\n'+f"print('{unique_tok1*2}')\npass", include_newline=True)
-        self.wait_for(unique_tok1*2, include_history=False)
-        result_messy = self.blit(include_history=False, stdout=True, stderr=True).strip()
-        messy_pieces = result_messy.split(deep_stack.varval_report_wrappers[0])
+        unique_tok1 = 'Unique_Termpylus'+str(_gl['num_cmds_total'])
+        _gl['num_cmds_total'] = _gl['num_cmds_total']+1
+        self.send(f"\nprint('{unique_tok}'+'{unique_tok}')\n", include_newline=False)
+        self.wait_for(unique_tok*2, include_history=False, assert_no_exc=True) # Wait fors have built in asserts that will raise errors if the subprocess raises/prints errors.
+        if debug_tprint:
+            tprint('000Waited for:', unique_tok*2)
+        self.send(code_txt+'\n'+f"print('{unique_tok1}'+'{unique_tok1}')\npass\n", include_newline=False)
+        self.wait_for(unique_tok1*2, include_history=False, assert_no_exc=False)
+        if debug_tprint:
+            tprint('999Waited for:', unique_tok1*2)
+        self.assert_no_exc() # Finds and raises an error if exec fails.
 
-        if deep_stack.varval_report_wrappers[0] not in result_messy:
+        result_messy = self.blit(include_history=False, stdout=True, stderr=True)
+        if type(result_messy) is bytes:
+            result_messy = result_messy.decode('utf-8')
+        messy_pieces = result_messy.strip().split(varval_report_wrappers[0])
+
+        if varval_report_wrappers[0] not in result_messy:
             if assert_result:
                 raise Exception(f'No output seems to have been created; disable assert_result if no result is needed')
             else:
                 return None
 
-        clean_pieces = [messy_piece.split(deep_stack.varval_report_wrappers[1])[0] for messy_piece in messy_pieces[1:]]
-
+        clean_pieces = [messy_piece.split(varval_report_wrappers[1])[0] for messy_piece in messy_pieces[1:]]
         out = []
         for clean_piece in clean_pieces:
             if len(clean_piece.strip())>0:
@@ -167,7 +227,10 @@ class PyProj():
         for i in range(len(_gl['alive_projs'])):
             if _gl['alive_projs'][i] is self:
                 _gl['dead_projs'].append(_gl['alive_projs'][i])
+                _gl['alive_projs'][i] = None
                 break
+        _gl['alive_projs'] = list(filter(lambda x:x, _gl['alive_projs']))
+        self.send('\nsys.exit()\n\n\n')
         if self.tubo is not None:
             self.tubo.close()
 
@@ -192,10 +255,10 @@ def project_lookup(query_txt):
 
 def quit_all():
     # Quits all projects, removing them from 'active' to 'dead'
-    for ap in _gl['alive_projs']:
+    quit_these = _gl['alive_projs'].copy()
+    for ap in quit_these:
         ap.quit()
-        _gl['dead_projs'].append(ap)
-    _gl['alive_projs'] = []
+    return len(quit_these)
 
 ##### Functions that run on the subprocesses as well as the main process #######
 # TODO: is there a better system than having to mirror all of these functions?
@@ -205,10 +268,7 @@ def bcast_run(code_txt, wait=True):
     # Returns a vector of outputs, one for each active project.
     # (projects have a repl loop that runs in it's own Thread).
 
-    n = _gl['num_cmds_total']
     out = []
-    unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
-    unique_tok1 = 'T'+unique_tok
     code_txt = code_txt+'\npass' # A non-indented lines tells the process it is ready to eval the growing block of code.
     for pr in _gl['alive_projs']: # TODO: concurrency.
         if wait:
@@ -217,7 +277,6 @@ def bcast_run(code_txt, wait=True):
             pr.send(code_txt, include_newline=True)
             out.append(None)
 
-    _gl['num_cmds_total'] = _gl['num_cmds_total']+1
     return out
 
 def var_watch_add_with_bcast(var_or_modulename):

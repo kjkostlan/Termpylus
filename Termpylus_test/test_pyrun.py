@@ -176,6 +176,7 @@ except:
 def test_run_arkanoid():
     # BIG TEST!
     # Interacts with a process.
+    projects.quit_all()
     out = True
     always_update = True
     bashy_mode = True # True and False should do the same thing.
@@ -191,8 +192,7 @@ def test_run_arkanoid():
 
     mods = None # TODO: add mods.
     if ark_proj[0] is None or always_update:
-        projects.quit_all()
-        print('About to download Arkanoid to folder:', folder)
+        print('About to download Arkanoid to folder: (NOTE: Changes to the repo may break this test)', folder)
         if bashy_mode:
             shell_obj = shellpython.Shell()
             ark_proj[0] = bashy_cmds.python([project_urls[0], folder+'/'+project_main_files[0]], shell_obj, printouts=debug_printouts)
@@ -210,23 +210,46 @@ def test_run_arkanoid():
     if _do_sandbox:
 
         # Test edits (there should be no edits, but still not much of a test):
-        print('RUNNING SANDBOX')
-        _ = projects.bcast_run('x = 2*3\nx') # Run some code to make sure we are up-to-date.
-        txt = file_io.fload(folder+'/brick_loader.py')
-        if not txt:
+        test_ez_run = projects.bcast_run('x = 2*3\nx') # Run some code to make sure we are up-to-date.
+        out = out and test_ez_run == [6] # bcast_run returns a list, one element per project.
+
+        test_ez_run1 = projects.bcast_run('y = 20*13\ny') # Run some code to make sure we are up-to-date.
+        out = out and test_ez_run1 == [20*13]
+
+        unicody = 'z="ຝ"+"ᱝ"\nz'
+        test_unicode_run = projects.bcast_run(unicody)
+        out = out and test_unicode_run == [unicody[3]+unicody[7]]
+
+        try:
+            test_ez_run_err = projects.bcast_run('y = "foo"+1')
+            out = False
+        except Exception as e:
+            out = out and 'can only concatenate str' in str(e)
+
+        txt0 = file_io.fload(folder+'/brick_loader.py')
+        if not txt0:
             raise Exception('Cannot load the test arkanoid project brick_loader.py, tried to do so from: '+folder)
         txt1 = txt.replace('brick_dict', 'brick_images')
-        if txt1==txt:
+        if txt1==txt0:
             raise Exception('No change in the txt arkanoid project brick_loader.py minor change attempt failed.')
         file_io.fsave(folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
+
+        # This causes the other process to diff the old files with the new files:
         projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
 
         print('Modified brick_loader.py, but can the program detect these mods?')
-        eds1 = projects.edits_with_bcast(True)
-        print('Which has been edited:', eds1.keys())
-
+        all_edits = projects.edits_with_bcast(True)
+        kb = list(filter(lambda fname: fname.endswith('/brick_loader.py'), all_edits.keys()))
+        out = out and len(kb)==1
+        eds_to_brick = all_edits[kb[0]]
+        out = out and len(eds_to_brick)==3
+        txt1_green = txt0
+        for ed in eds_to_brick:
+            txt1_green = txt1_green[0:ed[0]]+ed[2]+txt1_green[ed[1]:]
+        out = out and txt1_green==txt1
         return False
 
+        # TODO: More fancy stuff below.
         #detect_collision
         #var_watch_add_with_bcast
         code = '''
@@ -241,7 +264,7 @@ x
         print('ABOUT TO BCAST RUN')
         y = projects.bcast_run(code)
         print('test_pyrun sandbox STUFFSTUFFSTUFFSTUFFSTUFFSTUFF:', y, out)
-        return False
+        return False # DEBUG
 
         #projects.var_watch_add_with_bcast(var_or_modulename)
         #projects.var_watch_remove_with_bcast(var_or_modulename)
