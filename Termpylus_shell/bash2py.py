@@ -4,16 +4,17 @@ import re, copy
 import numpy as np
 from Termpylus_extern.fastatine import bash_parse, python_parse
 from . import bashy_cmds
+Symbol = bash_parse.Symbol # A string that we can differentiate from a string.
 
 class ParsedStr():
+    # Strings where each character is labelled with token, paren, and quote.
     def __init__(self, txt, python=False):
-        x = np.frombuffer(txt.encode('UTF-32-LE'), dtype=np.uint32)
         self.txt = txt
         if python:
             self.token, self.paren, _ = python_parse.fsm_parse(txt)
             self.quote = -1*np.ones_like(self.token) # Not calculated.
         else:
-            self.token, self.paren, self.quote = _fsm_core_bash(x)
+            self.token, self.paren, self.quote = bash_parse.fsm_parse(txt)
 
     def closing_paren_ix(self, ix):
         lev = self.paren[ix]
@@ -98,6 +99,8 @@ def semicolon_split(ptxt:ParsedStr):
     # (only does the outer level)
     ptxt = ptxt.strip()
     ixs0 = []; ixs1 = []; N = len(ptxt.txt)
+    if N==0: # Nothing to split!
+        return [ptxt]
     lev0 = ptxt.paren[0]-(ptxt.token[0]==4)
     for i in range(0, N):
         levi = ptxt.paren[i]-(ptxt.token[i]==4)-(ptxt.token[i]==5)
@@ -304,6 +307,8 @@ def ast2py(ast_obj):
 
 def bash2py(txt, prepend_spaces=0):
     tree = ast_bash(txt)
+    if not tree or tree==[]: # Empty line.
+        return txt
     tree1 = add_varset(tree)
     out = ast2py(tree1)
     if prepend_spaces>0:
@@ -311,6 +316,23 @@ def bash2py(txt, prepend_spaces=0):
     return out
 
 ################################### BASH vs python ########################
+
+def bashy_heuristic(line):
+    # For lines for which is_bash is None, are they more likly to be bash?
+    line = line.strip()
+    if line.split(' ')[0] in dir(bashy_cmds): # ls, grep, etc are likely bash lines.
+        return True
+    return False
+
+def lines_vs_python(code):
+    # Per line parsing, returns Ptxt array; it makes plines.
+    code = code.replace('\r\n','\n')
+    lines = code.split('\n'); N = len(lines)
+    st_ixs = python_parse.line_start_ixs(code)
+    en_ixs = [st_ixs[i]+len(lines[i]) for i in range(N)] #en_ix[i]+1=start_ix[i+1]
+
+    plines = ParsedStr(code, python=True).substrings(st_ixs, en_ixs)
+    return plines
 
 def blob(pline):
     # Blob over strings and comments. And also nested parens.
@@ -322,16 +344,6 @@ def blob(pline):
     line_ord[paren_py>0] = ord('A') # Inclusive of the () themselves.
     blob_string_paren_comments = ''.join([chr(c) for c in line_ord])
     return blob_string_comments, blob_string_paren_comments
-
-def lines_vs_python(code):
-    # Per line parsing, returns Ptxt array.
-    code = code.replace('\r\n','\n')
-    lines = code.split('\n'); N = len(lines)
-    st_ixs = python_parse.line_start_ixs(code)
-    en_ixs = [st_ixs[i]+len(lines[i]) for i in range(N)] #en_ix[i]+1=start_ix[i+1]
-
-    plines = ParsedStr(code, python=True).substrings(st_ixs, en_ixs)
-    return plines
 
 def is_line_bash(pline_py, assert_decision=True):
     # Decide between bash and python, for a single line. None means a judgement neither as as True or False.
@@ -379,13 +391,6 @@ def is_line_bash(pline_py, assert_decision=True):
         raise SyntaxError('Couldnt classify this line as bash or python (ambigious or this fn is incomplete): '+line)
     else:
         return None # Neither True nor False. Maybe better to treat as Python?
-
-def bashy_heuristic(line):
-    # For lines for which is_bash is None, are they more likly to be bash?
-    line = line.strip()
-    if line.split(' ')[0] in dir(bashy_cmds): # ls, grep, etc are likely bash lines.
-        return True
-    return False
 
 strict_mode = False
 def maybe_bash2py_console_input(txt):
@@ -562,4 +567,6 @@ def ast_bash(txt):
     #https://stackoverflow.com/questions/5163144/what-are-the-special-dollar-sign-shell-variables
     ptxt = ParsedStr(txt)
     pieces = standard_split(ptxt)
+    if len(pieces)==0:
+        return []
     return _ast_core(pieces)
