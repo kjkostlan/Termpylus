@@ -87,7 +87,7 @@ def test_eval():
     return out
 
 def test_file_caches():
-    py_updater.startup_cache_sources()
+    py_updater.cache_module_code()
     mglob = py_updater.uglobals
     fnamemap = modules.module_fnames(True)
     t0 = len(mglob['filecontents'])>8
@@ -222,11 +222,11 @@ def test_run_arkanoid():
         return False
 
     # All these options should be True to ensure a thorough test, False for debugging:
-    test_basic_run = False
-    test_curveballs = False
+    test_basic_run = True
+    test_curveballs = True
     test_silent_file_edits = True
-    test_collision_fn_mod = False
-    test_queries = False # These don't involve changing the source code, so cant query changed variables.
+    test_collision_fn_mod = True
+    test_queries = True # These don't involve changing the source code, so cant query changed variables.
 
     if test_basic_run:
         test_ez_run = projects.bcast_run('x = 2*3\nx') # Runing some code also? makes sure we are up-to-date.
@@ -288,9 +288,10 @@ l'''
     if test_collision_fn_mod:
         # This test has to be inspected visually.
         code1 = '''
+_old_id_detect = id(detect_collision)
 def detect_collision(dx, dy, ball, rect):
     # Modified to bounce the ball in a more interesting way.
-    print('DETECT COLLISION CALLED')
+    #print('DETECT COLLISION CALLED')
     if dx > 0:
         delta_x = ball.right - rect.left
     else:
@@ -307,8 +308,14 @@ def detect_collision(dx, dy, ball, rect):
         dx = -0.5*dx # Modification.
     elif delta_y > delta_x:
         dx = -dx
-        dy = -0.5*dy # Modification.
+        dy = -2.0*dy # Modification.
     return dx, dy
+import sys
+setattr(sys.modules[__name__], 'detect_collision', detect_collision) # Why doesn't def do anything!?
+hex_ids = [hex(_old_id_detect), hex(id(detect_collision)), hex(id(getattr(sys.modules[__name__], 'detect_collision')))]
+print('detect collision should now been changed:', hex_ids, 'module:', __name__)
+
+
 '''
         code = f'''
 from Termpylus_extern.waterworks import ppatch
@@ -320,8 +327,10 @@ ppatch.temp_exec(modulename, None, code)
 v1 = ppatch.get_var(modulename, var_name)
 #ppatch.set_var(modulename, var_name, None) # This destroys the function and causes the whole game to crash.
 x=v0 is v1
+print('Old and new var ids:', hex(id(v0)), hex(id(v1)))
 x'''
-        y = projects.bcast_run(code) # Should alter collision detection (can't easily be auto-tested, but can see the effect manually)
+        vars_not_changed = projects.bcast_run(code) # Should alter collision detection (can't easily be auto-tested, but can see the effect manually)
+        print('ARE VARS CHANGED:', not vars_not_changed)
 
         # Test sending a simple command which returns a string:
         a = projects.bcast_run('x = os.getcwd()\nx')

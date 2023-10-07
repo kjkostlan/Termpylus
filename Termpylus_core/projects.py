@@ -31,7 +31,7 @@ def inner_app_loop(startup_sleep_time=2):
         return ''.join([i if ord(i) < 128 else '?U?' for i in x])
 
     time.sleep(startup_sleep_time) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
-    py_updater.startup_cache_sources() # After initial sleep time.
+    py_updater.cache_module_code() # After initial sleep time.
 
     debug_line_IO = False
     line_bufs = [] # Store up lines for multi-line exec.
@@ -321,7 +321,7 @@ def var_watch_remove_all_with_bcast():
     bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_all_with_bcast()', wait=False)
 
 def startup_cache_with_bcast():
-    py_updater.startup_cache_sources()
+    py_updater.cache_module_code()
     bcast_run(f'from Termpylus_core import projects\nprojects.startup_cache_with_bcast()', wait=False)
 
 def update_user_changed_modules_with_bcast(update_on_first_see=True):
