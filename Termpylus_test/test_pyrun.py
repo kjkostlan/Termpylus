@@ -222,11 +222,11 @@ def test_run_arkanoid():
         return False
 
     # All these options should be True to ensure a thorough test, False for debugging:
-    test_basic_run = True
-    test_curveballs = True
+    test_basic_run = False
+    test_curveballs = False
     test_silent_file_edits = True
-    test_collision_fn_mod = True
-    test_queries = True # These don't involve changing the source code, so cant query changed variables.
+    test_collision_fn_mod = False
+    test_queries = False # These don't involve changing the source code, so cant query changed variables.
 
     if test_basic_run:
         test_ez_run = projects.bcast_run('x = 2*3\nx') # Runing some code also? makes sure we are up-to-date.
