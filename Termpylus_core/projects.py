@@ -1,7 +1,8 @@
 # Handles projects.
 import os, time, shutil, re
-import code_in_a_box, proj
 from Termpylus_extern.waterworks import file_io, eye_term, var_watch, py_updater, colorful, deep_stack
+import code_in_a_box, proj
+from Termpylus_search import var_metrics
 
 _gl = proj.global_get('Termpylus_proj_globlas', {'alive_projs':[], 'dead_projs':[], 'num_cmds_total':0})
 varval_report_wrappers = ['...Termpylus'+'subproc (starts here) Exec result...', '...of Termpylus'+'subproc (ends here) Exec...']
@@ -32,6 +33,7 @@ def inner_app_loop(startup_sleep_time=2):
     time.sleep(startup_sleep_time) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
     py_updater.startup_cache_sources() # After initial sleep time.
 
+    debug_line_IO = False
     line_bufs = [] # Store up lines for multi-line exec.
     sys.stdin.flush() # Needed?
     for line in sys.stdin: # Waits here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
@@ -42,12 +44,16 @@ def inner_app_loop(startup_sleep_time=2):
             line = _nounicode(line)
         try:
             x = deep_stack.exec_feed(line_bufs, line, sys.modules[__name__].__dict__)
-            if x:
-                x_txt = _repr1(x)
+            if x is not None:
+                x_txt = _repr1(None if x=='<None>' else x)
                 output = varval_report_wrappers[0]+x_txt+varval_report_wrappers[1]
                 output = _nounicode(output) if destroy_unicode_out else output
                 out_bytes = output.encode('utf-8')
+                if debug_line_IO:
+                    print('WE HAVE OUTPUT after this line:', line.encode('utf-8'), out_bytes)
                 global_vars.bprint(out_bytes)
+            elif debug_line_IO:
+                print('NO output from this line:', line.encode('utf-8'))
         except Exception as e:
             err_report = traceback.format_exc()
             err_report = _nounicode(err_report) if destroy_unicode_out else err_report
@@ -139,7 +145,9 @@ class PyProj():
         if type(txt) is str:
             txt = txt.encode('utf-8')
             deebygg = txt.decode('utf-8') # Raise errors in case there is a strange bug.
-        out = self.tubo.send(txt, include_newline=include_newline, suppress_input_prints=suppress_input_prints, add_to_packets=add_to_packets)
+        if include_newline:
+            txt = txt+('\n'.encode('utf-8'))
+        out = self.tubo.send(txt, include_newline=False, suppress_input_prints=suppress_input_prints, add_to_packets=add_to_packets)
         for i in range(8):
             try:
                 self.tubo.proc_obj.stdin.flush() # Seems to be needed.
@@ -174,6 +182,8 @@ class PyProj():
     def exec(self, code_txt, assert_result=True, str_mode=False): # The API is modified slightly from tubo.API
         from Termpylus_extern.waterworks import global_vars; tprint = global_vars.tprint
         debug_tprint = False
+        if not code_txt.endswith('\n'):
+            code_txt = code_txt+'\n'
         if debug_tprint:
             tprint('>>>Exec-ing this code:', _gl['num_cmds_total'], code_txt.replace('\n','⏎'), 'error horizion:', self.tubo.error_horizons)
         unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
@@ -263,16 +273,15 @@ def quit_all():
 ##### Functions that run on the subprocesses as well as the main process #######
 # TODO: is there a better system than having to mirror all of these functions?
 
-def bcast_run(code_txt, wait=True):
+def bcast_run(code_txt, wait=True, assert_result=True):
     # Runs code_txt in each active project, waits for the data dump, and evaluates the output.
     # Returns a vector of outputs, one for each active project.
     # (projects have a repl loop that runs in it's own Thread).
 
     out = []
-    code_txt = code_txt+'\npass' # A non-indented lines tells the process it is ready to eval the growing block of code.
-    for pr in _gl['alive_projs']: # TODO: concurrency.
+    for pr in _gl['alive_projs']: # TODO: concurrency even if "wait" is True.
         if wait:
-            out.append(pr.exec(code_txt))
+            out.append(pr.exec(code_txt, assert_result=assert_result))
         else:
             pr.send(code_txt, include_newline=True)
             out.append(None)
@@ -317,7 +326,7 @@ def startup_cache_with_bcast():
 
 def update_user_changed_modules_with_bcast(update_on_first_see=True):
     py_updater.update_user_changed_modules(update_on_first_see=update_on_first_see)
-    bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast(update_on_first_see={update_on_first_see})', wait=False)
+    bcast_run(f'from Termpylus_core import projects\nprojects.update_user_changed_modules_with_bcast(update_on_first_see={update_on_first_see})\nTrue', wait=True)
 
 def edits_with_bcast(is_filename, depth_first=True):
     # Edits to the source code; only includes edits since project startup.
@@ -329,7 +338,7 @@ def edits_with_bcast(is_filename, depth_first=True):
     for ed in eds:
         out[ed[ix]] = out.get(ed[ix], [])
         out[ed[ix]].append(ed[2:])
-    outs = bcast_run(f'from Termpylus_core import projects\nx=projects.edits_with_bcast({is_filename}, depth_first={depth_first})\nx')
+    outs = bcast_run(f'from Termpylus_core import projects\nedits_this_proj=projects.edits_with_bcast({is_filename}, depth_first={depth_first})\nedits_this_proj')
     for out1 in outs:
         for k in list(out.keys())+list(out1.keys()):
             out[k] = out1.get(k,[])+out.get(k, []) if depth_first else out.get(k,[])+out1.get(k, [])
@@ -343,7 +352,7 @@ def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False, depth
             x[ky] = sys.modules[ky]
     pythonverse = todict.to_dict(x, output_dict=None, blockset_fn=todict.default_blockset, removeset_fn=todict.module_blockset, d1_override=todict.default_override_to_dict1, level=0)
 
-    results =  dquery.pythonverse_find(*bashy_args, pythonverse_verse=None, exclude_Termpylus=avoid_termpylus)
+    results =  var_metrics.pythonverse_find(*bashy_args, pythonverse_verse=None, exclude_Termpylus=avoid_termpylus)
     # Set avoid_termpylus to True to avoid redundent calls:
     resultss = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_pythonverse_find_with_bcast({bashy_args}, avoid_termpylus=True, depth_first={depth_first})\nx')
 
@@ -351,7 +360,7 @@ def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False, depth
 
 def generic_source_find_with_bcast(bashy_args, depth_first=True):
     from Termpylus_core import dquery
-    results =  dquery.source_find(*bashy_args)
+    results =  var_metrics.source_find(*bashy_args)
     resultss = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_source_find_with_bcast({bashy_args}, depth_first={depth_first})\nx')
 
     return sum(resultss+[results] if depth_first else [results]+resultss, [])

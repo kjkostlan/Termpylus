@@ -206,25 +206,61 @@ def test_run_arkanoid():
     #print("The project tubo is:", the_proj.tubo)
 
     ######################## SANDBOX ####################
-    _do_sandbox = True
+    _do_sandbox = False
     if _do_sandbox:
+        txt0 = file_io.fload(folder+'/brick_loader.py')
+        if not txt0:
+            raise Exception('Cannot load the test arkanoid project brick_loader.py, tried to do so from: '+folder)
+        txt1 = txt.replace('brick_dict', 'brick_images')
+        if txt1==txt0:
+            raise Exception('No change in the txt arkanoid project brick_loader.py minor change attempt failed.')
+        file_io.fsave(folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
 
-        # Test edits (there should be no edits, but still not much of a test):
-        test_ez_run = projects.bcast_run('x = 2*3\nx') # Run some code to make sure we are up-to-date.
+        # This causes the other process to diff the old files with the new files:
+        projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
+        print('Sandbox mode, tests are in development...')
+        return False
+
+    # All these options should be True to ensure a thorough test, False for debugging:
+    test_basic_run = True
+    test_curveballs = True
+    test_silent_file_edits = True
+    test_collision_fn_mod = True
+    test_queries = True # These don't involve changing the source code, so cant query changed variables.
+
+    if test_basic_run:
+        test_ez_run = projects.bcast_run('x = 2*3\nx') # Runing some code also? makes sure we are up-to-date.
         out = out and test_ez_run == [6] # bcast_run returns a list, one element per project.
-
-        test_ez_run1 = projects.bcast_run('y = 20*13\ny') # Run some code to make sure we are up-to-date.
+        test_ez_run1 = projects.bcast_run('y = 20*13\ny')
         out = out and test_ez_run1 == [20*13]
+        xtxt = """Foo
+bar
+baz""".replace('\r\n','\n')
+        xtxt = "'''"+xtxt+"'''"
+        tq_code = f'''
+x = {xtxt}.strip()
+lines = x.split('\\n')
+l = len(lines)
+l'''
+        test_tq_run = projects.bcast_run(tq_code)
+        out = out and test_tq_run == [3]
 
+        # Test a nested data structure:
+        b = projects.bcast_run('''x = {"foo":"bar", "baz":[1,2,3]}\nx''')
+        out = out and type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1
+
+    if test_curveballs:
         unicody = 'z="ຝ"+"ᱝ"\nz'
         test_unicode_run = projects.bcast_run(unicody)
         out = out and test_unicode_run == [unicody[3]+unicody[7]]
-
         try:
             test_ez_run_err = projects.bcast_run('y = "foo"+1')
             out = False
         except Exception as e:
             out = out and 'can only concatenate str' in str(e)
+
+    if test_silent_file_edits:
+        projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
 
         txt0 = file_io.fload(folder+'/brick_loader.py')
         if not txt0:
@@ -241,60 +277,62 @@ def test_run_arkanoid():
         all_edits = projects.edits_with_bcast(True)
         kb = list(filter(lambda fname: fname.endswith('/brick_loader.py'), all_edits.keys()))
         out = out and len(kb)==1
+        print('All edits keys:', all_edits.keys(), kb)
         eds_to_brick = all_edits[kb[0]]
         out = out and len(eds_to_brick)==3
         txt1_green = txt0
         for ed in eds_to_brick:
             txt1_green = txt1_green[0:ed[0]]+ed[2]+txt1_green[ed[1]:]
         out = out and txt1_green==txt1
-        return False
 
-        # TODO: More fancy stuff below.
-        #detect_collision
-        #var_watch_add_with_bcast
-        code = '''
+    if test_collision_fn_mod:
+        # This test has to be inspected visually.
+        code1 = '''
+def detect_collision(dx, dy, ball, rect):
+    # Modified to bounce the ball in a more interesting way.
+    print('DETECT COLLISION CALLED')
+    if dx > 0:
+        delta_x = ball.right - rect.left
+    else:
+        delta_x = rect.right - ball.left
+    if dy > 0:
+        delta_y = ball.bottom - rect.top
+    else:
+        delta_y = rect.bottom - ball.top
+
+    if abs(delta_x - delta_y) < 10:
+        dx, dy = -dx, -dy
+    elif delta_x > delta_y:
+        dy = -dy
+        dx = -0.5*dx # Modification.
+    elif delta_y > delta_x:
+        dx = -dx
+        dy = -0.5*dy # Modification.
+    return dx, dy
+'''
+        code = f'''
 from Termpylus_extern.waterworks import ppatch
-ppatch.set_var('__main__', 'detect_collision', None) # destroy
-x='destroyed?'
-x
-    '''
-        import time
-        print('SLEEPING test pyrun')
-        time.sleep(6)
-        print('ABOUT TO BCAST RUN')
-        y = projects.bcast_run(code)
-        print('test_pyrun sandbox STUFFSTUFFSTUFFSTUFFSTUFFSTUFF:', y, out)
-        return False # DEBUG
+code = """{code1}"""
+modulename = '__main__'
+var_name = "detect_collision"
+v0 = ppatch.get_var(modulename, var_name)
+ppatch.temp_exec(modulename, None, code)
+v1 = ppatch.get_var(modulename, var_name)
+#ppatch.set_var(modulename, var_name, None) # This destroys the function and causes the whole game to crash.
+x=v0 is v1
+x'''
+        y = projects.bcast_run(code) # Should alter collision detection (can't easily be auto-tested, but can see the effect manually)
 
-        #projects.var_watch_add_with_bcast(var_or_modulename)
-        #projects.var_watch_remove_with_bcast(var_or_modulename)
-        ###Wont test: projects.var_watch_all_with_bcast()
-        #projects.var_watch_remove_all_with_bcast()
-        #projects.startup_cache_with_bcast()
-        #update_user_changed_modules_with_bcast
-        #edits_with_bcast
-        #generic_pythonverse_find_with_bcast
-        #generic_source_find_with_bcast
-        TODO
+        # Test sending a simple command which returns a string:
+        a = projects.bcast_run('x = os.getcwd()\nx')
+        out = out and type(a) is list and 'sample_projs/arkanoid' in a[0].replace('\\','/')
 
-        # Test Pythonverse, searching by a particular path; maybe this test will not work well?
-        TODO
+    if test_queries:
+        # Test a source query: TODO: more of these queries.
+        x = bashy_cmds.sfind(['-n', 'detect_collision'], shell_obj=None)
+        out = out and 'detect_collision' in x[0] and '__main__.Platform.collide_with_platform' in str(x) and len(x)<64 and len(x)>4
 
-    ####################################################
-
-    # Test sending a simple command which returns a string:
-    a = projects.bcast_run('x = os.getcwd()\nx')
-    out = out and type(a) is list and 'sample_projs/arkanoid' in a[0].replace('\\','/')
-
-    # Test a nested data structure:
-    b = projects.bcast_run('''x = {"foo":"bar", "baz":[1,2,3]}\nx''')
-    out = out and type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1
-
-    # Test a source query: TODO: more of these queries.
-    x = bashy_cmds.sfind(['-n', 'detect_collision'], shell_obj=None)
-    out = out and 'detect_collision' in x[0] and '__main__.Platform.collide_with_platform' in str(x) and len(x)<64 and len(x)>4
-
-    return False
+    return out
 
 
 def prepare_tests():

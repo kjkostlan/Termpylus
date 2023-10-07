@@ -75,6 +75,3 @@ def search_source_test():
     if not out:
         print('This test is subject to breaking since it makes assumptions about the code.')
     return out
-
-def run_tests():
-    return ttools.run_tests(__name__)
