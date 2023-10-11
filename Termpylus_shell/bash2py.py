@@ -304,7 +304,6 @@ def ast2py(ast_obj):
     else: # Symbols, numbers, etc.
         return str(ast_obj)
 
-
 def bash2py(txt, prepend_spaces=0):
     tree = ast_bash(txt)
     if not tree or tree==[]: # Empty line.
