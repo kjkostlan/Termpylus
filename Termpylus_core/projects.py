@@ -31,7 +31,7 @@ def inner_app_loop(startup_sleep_time=2):
         return ''.join([i if ord(i) < 128 else '?U?' for i in x])
 
     time.sleep(startup_sleep_time) # Very difficult to understand bug where reading from stdin too early can break pygame when stdin is set to subprocess.PIPE.
-    py_updater.cache_module_code() # After initial sleep time.
+    py_updater.update_user_changed_modules(update_on_first_see=True, use_date=False)
 
     debug_line_IO = False
     line_bufs = [] # Store up lines for multi-line exec.
@@ -321,7 +321,7 @@ def var_watch_remove_all_with_bcast():
     bcast_run(f'from Termpylus_core import projects\nprojects.var_watch_remove_all_with_bcast()', wait=False)
 
 def startup_cache_with_bcast():
-    py_updater.cache_module_code()
+    py_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)
     bcast_run(f'from Termpylus_core import projects\nprojects.startup_cache_with_bcast()', wait=False)
 
 def update_user_changed_modules_with_bcast(update_on_first_see=True):
@@ -331,18 +331,13 @@ def update_user_changed_modules_with_bcast(update_on_first_see=True):
 def edits_with_bcast(is_filename, depth_first=True):
     # Edits to the source code; only includes edits since project startup.
     # depth_first is a lot less important than it is on the generic finds.
-    eds = var_watch.get_txt_edits() # Each is [mname OR fname]+the_edit+[t_now]
+    eds = file_io.get_txt_edits() # Each is [mname OR fname]+the_edit+[t_now]
     ix = 1 if is_filename else 0
 
-    out = {}
-    for ed in eds:
-        out[ed[ix]] = out.get(ed[ix], [])
-        out[ed[ix]].append(ed[2:])
     outs = bcast_run(f'from Termpylus_core import projects\nedits_this_proj=projects.edits_with_bcast({is_filename}, depth_first={depth_first})\nedits_this_proj')
     for out1 in outs:
-        for k in list(out.keys())+list(out1.keys()):
-            out[k] = out1.get(k,[])+out.get(k, []) if depth_first else out.get(k,[])+out1.get(k, [])
-    return out
+        eds.extend(out1)
+    return eds
 
 def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False, depth_first=True):
     # Don't move the huge pythonverse directly; instead just send the results.
@@ -360,7 +355,6 @@ def generic_pythonverse_find_with_bcast(bashy_args, avoid_termpylus=False, depth
 
 def generic_source_find_with_bcast(bashy_args, depth_first=True):
     from Termpylus_core import dquery
-    results =  var_metrics.source_find(*bashy_args)
+    results = var_metrics.source_find(*bashy_args)
     resultss = bcast_run(f'from Termpylus_core import projects\nx=projects.generic_source_find_with_bcast({bashy_args}, depth_first={depth_first})\nx')
-
     return sum(resultss+[results] if depth_first else [results]+resultss, [])

@@ -1,7 +1,7 @@
 #Helpers for implementing bash functions. Not the funcions themselves (they are in bashy_cmds).
 import os, fnmatch, re, pathlib, operator
 from tkinter import messagebox
-from Termpylus_extern.waterworks import file_io
+from Termpylus_extern.waterworks import paths
 
 def option_parse(args, paired_opts):
     # Bash-like handling of arguments.
@@ -64,10 +64,10 @@ def flex_match(pattern, txt, gradation=False, spellcheck=False):
 
 def path_given_shell(fname, the_shell):
     # Absolute and relative paths behave differently.
-    if file_io.is_path_absolute(fname):
-        return file_io.abs_path(fname, True)
+    if paths.is_path_absolute(fname):
+        return paths.abs_path(fname, True)
     else:
-        return file_io.abs_path(('.' if the_shell is None else the_shell.cur_dir)+'/'+fname, True)
+        return paths.abs_path(('.' if the_shell is None else the_shell.cur_dir)+'/'+fname, True)
 
 def bashy_file_info(fname):
     #https://flaviocopes.com/python-get-file-details/
@@ -77,13 +77,36 @@ def bashy_file_info(fname):
            'size':os.path.getsize(fname), 'permiss':permiss, 'name':fname,'ext':(fname+'.').split('.')[1]}
     return out
 
+def recursive_files(fname, include_folders=False, filter_fn=None, max_folder_depth=65536):
+    # Does this belong in file_io?
+    fname = paths.abs_path(fname)
+    if os.path.isdir(fname):
+        files1 = files_in_folder1(fname)
+        out = []
+        for f in files1:
+            if filter_fn is not None and not filter_fn(f):
+                continue
+            if os.path.isdir(f):
+                if include_folders:
+                    out.append(f)
+                if len(fname.split('/'))<max_folder_depth:
+                    out = out+recursive_files(f, include_folders, filter_fn, max_folder_depth)
+            else:
+                out.append(f)
+        return out
+    else:
+        if filter_fn(fname):
+            return [fname]
+        else:
+            return []
+
 def filelist_wildcard(wildcard, is_recursive, include_folders=False):
     # Wildcard and regexp matching. wildcard should reperesent an absolute path.
     # is_recursive = False:
     #   If wildcard ends in a folder, all files inside will be choosen.
     #   If wildcard ends in a filename, the filename and any others that match will be choosen.
 
-    wildcard = file_io.abs_path(wildcard, True)
+    wildcard = paths.abs_path(wildcard, True)
 
     def filter_fn(fname_global):
         pieces = fname_global.split('/') #regexs allowed if they dont have *forward* slash.
@@ -105,4 +128,4 @@ def filelist_wildcard(wildcard, is_recursive, include_folders=False):
         if '*' in p:
             break
         pieces1.append(p)
-    return file_io.recursive_files('/'.join(pieces1), include_folders=include_folders, filter_fn=filter_fn, max_folder_depth=65536*is_recursive+max_nonrecur_depth)
+    return recursive_files('/'.join(pieces1), include_folders=include_folders, filter_fn=filter_fn, max_folder_depth=65536*is_recursive+max_nonrecur_depth)

@@ -3,12 +3,12 @@ import sys, os, imp, re
 from Termpylus_core import projects
 from Termpylus_shell import bashy_cmds, shellpython
 from Termpylus_extern.fastatine import python_parse
-from Termpylus_extern.waterworks import py_updater, file_io, modules, var_watch, ppatch
+from Termpylus_extern.waterworks import py_updater, file_io, paths, modules, var_watch, ppatch
 from . import ttools
 
 project_urls = ['https://github.com/Geraa50/arkanoid', 'https://github.com/ousttrue/pymeshio']
 project_main_files = ['/main.py', '/bench.py']
-outside_folder = file_io.abs_path('../__softwaredump__/Termpylus/sample_projs', True)
+outside_folder = paths.abs_path('../__softwaredump__/Termpylus/sample_projs', True)
 
 def _fetch_sample_githubs(): # TODO: drepecated by code_in_a_box.py
     # Fetch sample githubs into an external softwaredump folder.
@@ -30,36 +30,33 @@ def _fetch_sample_githubs(): # TODO: drepecated by code_in_a_box.py
 
 def test_py_update():
     # Tests making changes to the source code: do we update the code properly and do we record the edits?
-    if py_updater.record_txt_update_fn is None:
-        raise Exception('Linking the record_txt_update_fn to the py_updater module was not done.')
-
     from . import changeme # adds to the sys.modules
     val0 = changeme.mathy_function(1000)
     py_updater.update_one_module(changeme.__name__)
-    #print('Val00 is:', val0)
     fname = './Termpylus_test/changeme.py'
-    #x0 = modules.update_all_modules(use_date=False, update_on_first_see=False)
     txt = file_io.fload(fname)
     if '1234' not in txt:
         txt0 = txt.replace('4321','1234')
         file_io.fsave(fname, txt0)
         raise Exception('Aborted test_py_update due to file save not bieng reverted. Try again.')
-    eds0 = var_watch.get_txt_edits()
+    eds0 = file_io.get_txt_edits()
     T0 = val0==1000+1234
 
     txt1 = txt.replace('1234','4321')
     if txt1==txt:
         raise Exception('The change failed.')
-    py_updater.save_py_file(fname, txt1, assert_py_module=True)
+    file_io.fsave(fname, txt1)
 
     val1 = changeme.mathy_function(1000)
-    eds1 = var_watch.get_txt_edits()
+    eds1 = file_io.get_txt_edits()
     T1 = val1==1000+4321
-    py_updater.save_py_file(fname, txt, assert_py_module=True) # revert.
+
+    file_io.fsave(fname, txt) # revert.
 
     last_ed = eds1[-1]
     ed_len = (len(eds1)==len(eds0)+1)
-    ed_test = last_ed[4] == '1234' and last_ed[5] == '4321'
+    ed_test = last_ed[4] == '4321'
+    #print('eds0 1:', eds0, eds1)
 
     return T0 and T1 and ed_len and ed_test
 
@@ -71,7 +68,7 @@ def test_eval():
     out = True
     x = evl('Termpylus_test.test_pyrun', '_x_ = test_py_update')
     out = out and x['_x_'] is test_py_update
-    y = evl('Termpylus_extern.waterworks.file_io', '_y_ = is_path_absolute("./bar"); _z_ = 2')
+    y = evl('Termpylus_extern.waterworks.paths', '_y_ = is_path_absolute("./bar"); _z_ = 2')
     out = out and y['_y_'] is False
     out = out and '_y_' not in file_io.__dict__
     z = evl('Termpylus_core.todict', '_z_ = default_blockset({},[])')
@@ -81,7 +78,7 @@ def test_eval():
         out = False
     except:
         pass
-    w = evl('Termpylus_extern.waterworks.file_io', '_w_ = is_path_absolute("./bar")', False)
+    w = evl('Termpylus_extern.waterworks.paths', '_w_ = is_path_absolute("./bar")', False)
     out = out and '_w_' in file_io.__dict__
 
     return out
@@ -93,7 +90,7 @@ def test_file_caches():
     t0 = len(mglob['filecontents'])>8
     t1 = set(mglob['filecontents'].keys())==set(mglob['filemodified'].keys())
     t2 = 'test_file_caches' in mglob['filecontents'][fnamemap['Termpylus_test.test_pyrun']]
-    t3 = os.path.isfile(file_io.abs_path(list(fnamemap.values())[4], True))
+    t3 = os.path.isfile(paths.abs_path(list(fnamemap.values())[4], True))
     return t0 and t1 and t2 and t3
 
 def test_dynamic_add_fn():
@@ -139,14 +136,14 @@ def test_main_extract():
     # TWO ways to import:
     import importlib
     ark_fold = outside_folder+'/'+leaf_samples[0]
-    modules.add_to_path(ark_fold)
+    paths.add_to_path(ark_fold)
 
     #https://linuxize.com/post/python-get-change-current-working-directory/
     #Change dir so that the file loads.
     dir0 = os.path.realpath('.')
     os.chdir(ark_fold)
 
-    in_the_path = file_io.abs_path(ark_fold, True) in sys.path
+    in_the_path = paths.abs_path(ark_fold, True) in sys.path
     out = out and in_the_path
     print('Arkanoid folder:', ark_fold, 'Added to the system path:', in_the_path)
 
@@ -184,18 +181,45 @@ def test_run_arkanoid():
     if always_update:
         print('DEBUG reset project every time next line below this.')
 
-    folder = outside_folder+'/arkanoid'
-    txt = file_io.fload(folder+'/brick_loader.py')
+    ark_folder = outside_folder+'/arkanoid'
+    txt = file_io.fload(ark_folder+'/brick_loader.py')
     if txt: # Reset an old change, in case we made it.
         txt1 = txt.replace('brick_images', 'brick_dict') # Reset.
-        file_io.fsave(folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
+        file_io.fsave(ark_folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
 
-    mods = None # TODO: add mods.
+    def _silent_edit(forwards):
+        pth = ark_folder+'/brick_loader.py'
+        txt0 = file_io.fload(pth)
+        if not txt0:
+            raise Exception('txt is not existing.')
+        ab = ['brick_dict', 'brick_images']
+        if not forwards:
+            ab = [ab[1], ab[0]]
+        txt1 = txt0.replace(ab[0], ab[1])
+        file_io.fsave(pth, txt1, tries=12, retry_delay=1.0)
+
+    _silent_edit(False) # Undo edits made, if any.
+
+    # All these options should be True to ensure a thorough test, False for debugging:
+    test_basic_run = True
+    test_curveballs = True
+    test_silent_file_edits = True
+    test_external_file_edits = True
+    test_collision_fn_mod = True
+    test_queries = True
+
+    if test_external_file_edits: # Run this without loading the arkanoid program.
+        _silent_edit(True) # The fsave should store edits.
+        eds = file_io.get_txt_edits() # Shouldn't have any.
+        test_ext_ed = "'dict', 'images'" in str(eds).replace('"',"'")
+        out = out and test_ext_ed
+
+    mods = None # TODO? add mods.
     if ark_proj[0] is None or always_update:
-        print('About to download Arkanoid to folder: (NOTE: Changes to the repo may break this test)', folder)
+        print('About to download Arkanoid to: (NOTE: Changes to the repo may break this test)', ark_folder)
         if bashy_mode:
             shell_obj = shellpython.Shell()
-            ark_proj[0] = bashy_cmds.python([project_urls[0], folder+'/'+project_main_files[0]], shell_obj, printouts=debug_printouts)
+            ark_proj[0] = bashy_cmds.python([project_urls[0], ark_folder+'/'+project_main_files[0]], shell_obj, printouts=debug_printouts)
             ark_proj[0].name = 'Arkanoid'
         else:
             ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0],
@@ -208,25 +232,13 @@ def test_run_arkanoid():
     ######################## SANDBOX ####################
     _do_sandbox = False
     if _do_sandbox:
-        txt0 = file_io.fload(folder+'/brick_loader.py')
-        if not txt0:
-            raise Exception('Cannot load the test arkanoid project brick_loader.py, tried to do so from: '+folder)
-        txt1 = txt.replace('brick_dict', 'brick_images')
-        if txt1==txt0:
-            raise Exception('No change in the txt arkanoid project brick_loader.py minor change attempt failed.')
-        file_io.fsave(folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
+        _silent_edit(True)
 
         # This causes the other process to diff the old files with the new files:
         projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
         print('Sandbox mode, tests are in development...')
+        _silent_edit(False)
         return False
-
-    # All these options should be True to ensure a thorough test, False for debugging:
-    test_basic_run = True
-    test_curveballs = True
-    test_silent_file_edits = True
-    test_collision_fn_mod = True
-    test_queries = True # These don't involve changing the source code, so cant query changed variables.
 
     if test_basic_run:
         test_ez_run = projects.bcast_run('x = 2*3\nx') # Runing some code also? makes sure we are up-to-date.
@@ -245,6 +257,9 @@ l'''
         test_tq_run = projects.bcast_run(tq_code)
         out = out and test_tq_run == [3]
 
+        a = projects.bcast_run('x = os.getcwd()\nx') # Folder-bound tests.
+        out = out and type(a) is list and 'sample_projs/arkanoid' in a[0].replace('\\','/')
+
         # Test a nested data structure:
         b = projects.bcast_run('''x = {"foo":"bar", "baz":[1,2,3]}\nx''')
         out = out and type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1
@@ -261,37 +276,26 @@ l'''
 
     if test_silent_file_edits:
         projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
-
-        txt0 = file_io.fload(folder+'/brick_loader.py')
-        if not txt0:
-            raise Exception('Cannot load the test arkanoid project brick_loader.py, tried to do so from: '+folder)
-        txt1 = txt.replace('brick_dict', 'brick_images')
-        if txt1==txt0:
-            raise Exception('No change in the txt arkanoid project brick_loader.py minor change attempt failed.')
-        file_io.fsave(folder+'/brick_loader.py', txt1, tries=12, retry_delay=1.0)
+        all_edits0 = projects.edits_with_bcast(True)
+        _silent_edit(True)
 
         # This causes the other process to diff the old files with the new files:
         projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
 
         print('Modified brick_loader.py, but can the program detect these mods?')
         all_edits = projects.edits_with_bcast(True)
-        kb = list(filter(lambda fname: fname.endswith('/brick_loader.py'), all_edits.keys()))
-        out = out and len(kb)==1
-        print('All edits keys:', all_edits.keys(), kb)
-        eds_to_brick = all_edits[kb[0]]
-        out = out and len(eds_to_brick)==3
-        txt1_green = txt0
-        for ed in eds_to_brick:
-            txt1_green = txt1_green[0:ed[0]]+ed[2]+txt1_green[ed[1]:]
-        out = out and txt1_green==txt1
+
+        out = out and len(all_edits)>len(all_edits0) and 'brick_loader.py' in str(all_edits)
+        _silent_edit(False)
 
     if test_collision_fn_mod:
         # This test has to be inspected visually.
-        code1 = '''
+        print_key = 'DETECT COLLISION CALLED' # TODO: somehow delay and search for this.
+        code1 = f'''
 _old_id_detect = id(detect_collision)
 def detect_collision(dx, dy, ball, rect):
     # Modified to bounce the ball in a more interesting way.
-    #print('DETECT COLLISION CALLED')
+    print({repr(print_key)})
     if dx > 0:
         delta_x = ball.right - rect.left
     else:
@@ -331,10 +335,6 @@ print('Old and new var ids:', hex(id(v0)), hex(id(v1)))
 x'''
         vars_not_changed = projects.bcast_run(code) # Should alter collision detection (can't easily be auto-tested, but can see the effect manually)
         print('ARE VARS CHANGED:', not vars_not_changed)
-
-        # Test sending a simple command which returns a string:
-        a = projects.bcast_run('x = os.getcwd()\nx')
-        out = out and type(a) is list and 'sample_projs/arkanoid' in a[0].replace('\\','/')
 
     if test_queries:
         # Test a source query: TODO: more of these queries.

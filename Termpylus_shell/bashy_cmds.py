@@ -67,7 +67,7 @@ def python(bashy_args, shell_obj, printouts=False):
     # Substantial modifications from the origina Python command.
     # Note: this function's printouts setting cannot be used if calling this by typing a line of bash code.
     from Termpylus_core import projects
-    from Termpylus_extern.waterworks import file_io
+    from Termpylus_extern.waterworks import paths
     if len(bashy_args)==0:
         return '''"python path/to/main.py" launches a Subprocess python project, prepending a modification onto main.py file to allow interaction.
                    "python origin dest_folder/main.py arg1 arg2 arg3" downloads/copies from the origin GitHub URL/folder, and sends args1-3 sys.argv. Dest_folder must be a local folder.
@@ -104,14 +104,14 @@ def python(bashy_args, shell_obj, printouts=False):
     if py_arg3:
         dest_leaf = bashy_args[2]; dest_folder = dest
     else:
-        dest_folder, dest_leaf = file_io.folder_file(dest)
+        dest_folder, dest_leaf = paths.folder_file(dest)
 
     if 'http' in orig.lower() or 'ftp' in orig.lower() or 'ssh' in orig.lower():
         pass
     else:
         orig = bash_helpers.path_given_shell(orig, shell_obj)
     if orig.endswith('.py'):
-        orig, _ = file_io.folder_file(orig)
+        orig, _ = paths.folder_file(orig)
 
     if (not py_arg3 and len(bashy_args)>2) or len(bashy_args)>3:
         cmd_args = bashy_args[(3 if py_arg3 else 2):]

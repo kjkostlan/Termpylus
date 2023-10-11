@@ -2,7 +2,7 @@
 # It holds a current working directory to feel shell-like.
 import sys, re, importlib, traceback, subprocess
 from . import bashy_cmds, bash2py
-from Termpylus_extern.waterworks import file_io, modules, ppatch, deep_stack
+from Termpylus_extern.waterworks import paths, modules, ppatch, deep_stack
 from Termpylus_extern.fastatine import bash_parse
 
 def str1(x):
@@ -127,7 +127,7 @@ class Shell:
             setattr(us, fn_name, c.get_f())
 
     def send(self, the_input, include_newline=True):
-        self.cur_dir = file_io.abs_path(self.cur_dir).replace('\\','/')
+        self.cur_dir = paths.abs_path(self.cur_dir).replace('\\','/')
         the_input = the_input.strip()
         if len(the_input)>0:
             self.make_module_closures()

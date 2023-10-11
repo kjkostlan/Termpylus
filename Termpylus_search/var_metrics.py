@@ -1,18 +1,19 @@
 # Metrics to determine how much a variable matches a field.
-import re, inspect
+import re, inspect, time
 from Termpylus_extern.fastatine import python_parse
-from Termpylus_extern.waterworks import file_io, modules, fittings, var_watch, ppatch
+from Termpylus_extern.waterworks import file_io, modules, fittings, var_watch, ppatch, py_updater
 from Termpylus_core import dquery
 from Termpylus_shell import bash_helpers
 import proj
 
 class Sourcevar:
     # A fair amount of information about a source's variable.
-    def __init__(self, modulename, varname, src_txt0, src_txt1, src_datemod):
-        self.is_ppatched = ppatch.is_modified(modulename, varname)
-        self.logs = var_watch.get_logs(modulename, varname)
+    def __init__(self, filename, modulename, varname, src_txt0, src_txt1, src_datemod):
+        self.is_ppatched = ppatch.is_modified(modulename, varname) if modulename else None
+        self.logs = var_watch.get_logs(modulename, varname) if modulename else []
+        self.filename = filename
         self.modulename = modulename
-        self.varname = varname
+        self.varname_leaf = varname
         self.src_txt_old = src_txt0
         self.src_txt = src_txt1 # Txt of the function body.
         self.src_edits = fittings.txt_edits(src_txt0, src_txt1) # Edit on the fn body since program startup.
@@ -20,9 +21,10 @@ class Sourcevar:
         self.signature = None
         self.score = None
         try:
-            f = ppatch.get_var(modulename, varname)
+            f = ppatch.get_var(modulename, varname) if modulename else None
         except AttributeError:
             f = None
+        # TODO: Use the src code to deduce the function signature, so it works both with and without modules.
         if f is not None:
             try:
                 self.signature = inspect.signature(f)
@@ -32,6 +34,12 @@ class Sourcevar:
                 else:
                     raise Exception(f'Strange signature error on {modulename}.{varname}: {e}')
 
+    def vname_full(self):
+        # Variable name.
+        if self.modulename:
+            return self.modulename+'.'+self.varname_leaf
+        return 'FILE.'+self.filename.replace('/','.')+'.'+self.varname_leaf
+
     def __str__(self):
         log_score = self.is_ppatched*8+len(self.logs)
         log_txt = ''
@@ -39,7 +47,7 @@ class Sourcevar:
             log_txt = ' 👁'
         if len(self.logs)>0:
             log_txt = log_txt+' '+str(len(self.logs))
-        return 'Ͼ'+self.modulename+'.'+self.varname+log_txt+'Ͽ'
+        return 'Ͼ'+self.vname_full()+log_txt+'Ͽ'
 
     def __repr__(self):
         return 'Sourcevar('+str(self)+')'
@@ -54,7 +62,7 @@ def _peak(target, val):
 
 def fnname_metric(sourcevar, query):
     # Matches the function to the qualified name of the symbol.
-    return bash_helpers.flex_match(query, sourcevar.modulename+sourcevar.varname)
+    return bash_helpers.flex_match(query, sourcevar.vname_full())
 
 def fn_arity_metric(sourcevar, query):
     # Includes optional args.
@@ -122,8 +130,9 @@ def fcallcount_metric(sourcevar, query):
 
 def usecount_metric(sourcevar, query, sourcevars_precompute=None):
     if sourcevars_precompute is None:
+        print('Usecount metric precomputing...')
         sourcevars_precompute, _ = get_all_sourcevars()
-    leaf = sourcevar.varname.split('.')[-1] # TODO: Not just use leafs.
+    leaf = sourcevar.varname_leaf.split('.')[-1] # TODO: Not just use leafs.
     n = 0
     for sv in sourcevars_precompute:
         if leaf in sv.src_txt:
@@ -135,19 +144,35 @@ def usecount_metric(sourcevar, query, sourcevars_precompute=None):
 
 def get_all_sourcevars():
     # List of sourcevars and tokens in the source.
+    t0 = time.time()
     out = []
-    fnames = modules.module_fnames(user_only=True)
+    use_modules = False
+    if use_modules:
+        fnames = modules.module_fnames(user_only=True)
+    else:
+        fnames = py_updater.walk_all_user_paths(relative_paths=False)
     src_token_counts = {}
-    for k in fnames.keys():
-        contents = file_io.fload(fnames[k]); date_mod = file_io.date_mod(fnames[k])
-        contents0 = file_io.contents_on_first_call(fnames[k])
+
+    mod2fl = modules.module_fnames(user_only=False)
+    file2mod = {}
+    for m in mod2fl.keys():
+        file2mod[mod2fl[m]] = m
+
+    for fname in fnames:
+        contents = file_io.fload(fname); date_mod = file_io.date_mod(fname)
+        contents0 = file_io.contents_on_first_call(fname)
         src_pieces = python_parse.simple_tokens(contents)
         for p in src_pieces:
             src_token_counts[p] = src_token_counts.get(p,0)+1
         defs = python_parse.sourcecode_defs(contents, nest=True)
-        defs0 = python_parse.sourcecode_defs(contents0, nest=True)
+        defs0 = defs if contents==contents0 else python_parse.sourcecode_defs(contents0, nest=True)
+        mname = file2mod.get(fname, None) # Source files that have noy yet been imported do not have a modulename.
         for dk in defs.keys():
-            out.append(Sourcevar(k, dk, defs0.get(dk,''), defs[dk], date_mod))
+            out.append(Sourcevar(filename=fname, modulename=mname, varname=dk, src_txt0=defs0.get(dk,''), src_txt1=defs[dk], src_datemod=date_mod))
+    t1 = time.time()
+    print_elapsed_time = False
+    if print_elapsed_time: # Is this function slow?
+        print('get_all_sourcevars elapsed time:', t1-t0)
     return out, src_token_counts
 
 def source_find(*bashy_args):
@@ -230,7 +255,7 @@ def source_find(*bashy_args):
     n_return = min(len(src_vars_hi2low), verbose) # How many results to show.
     if return_sv:
         return src_vars_hi2low[0:n_return]
-    return [x.modulename+'.'+x.varname for x in src_vars_hi2low[0:n_return]]
+    return [x.vname_full() for x in src_vars_hi2low[0:n_return]]
 
 def pythonverse_find(*bashy_args, pythonverse_verse=None, exclude_Termpylus=False):
     # Similar to source find, but over the Pythonverse.

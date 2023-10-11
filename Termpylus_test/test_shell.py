@@ -4,7 +4,7 @@ import os
 import tkinter.messagebox
 from Termpylus_shell import shellpython, bashy_cmds
 from Termpylus_UI import hotkeys
-from Termpylus_extern.waterworks import file_io
+from Termpylus_extern.waterworks import file_io, paths
 
 from . import ttools
 
@@ -19,7 +19,7 @@ def _setup_tfiles():
     shell_obj = shellpython.Shell()
 
     shell_obj.cur_dir = './softwaredump_'
-    test_folder = os.path.abspath(file_io.abs_path(shell_obj.cur_dir, True))
+    test_folder = os.path.abspath(paths.abs_path(shell_obj.cur_dir, True))
     file_io.debug_restrict_disk_modifications_to_these = [test_folder]
     file_io.guarded_delete(test_folder, allow_folders=True, powerful=True)
 
