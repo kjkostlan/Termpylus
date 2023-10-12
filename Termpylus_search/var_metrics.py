@@ -18,21 +18,29 @@ class Sourcevar:
         self.src_txt = src_txt1 # Txt of the function body.
         self.src_edits = fittings.txt_edits(src_txt0, src_txt1) # Edit on the fn body since program startup.
         self.src_datemod = src_datemod
-        self.signature = None
+        self.arglist = None # Similar to a signature, but simply an array of string appearing as-is.
         self.score = None
-        try:
-            f = ppatch.get_var(modulename, varname) if modulename else None
-        except AttributeError:
-            f = None
-        # TODO: Use the src code to deduce the function signature, so it works both with and without modules.
-        if f is not None:
+
+        only_use_python_parse = True
+        if not only_use_python_parse: # Option to use inspect, but it will not work if the
+            sig = None
             try:
-                self.signature = inspect.signature(f)
-            except Exception as e:
-                if 'is not a callable object' in str(e) or 'no signature found for builtin type' in str(e):
-                    pass # For these it's fine to keep signature as None.
-                else:
-                    raise Exception(f'Strange signature error on {modulename}.{varname}: {e}')
+                f = ppatch.get_var(modulename, varname) if modulename else None
+            except AttributeError:
+                f = None
+            if f is not None:
+                try:
+                    sig = str(inspect.signature(f))
+                except Exception as e:
+                    if 'is not a callable object' in str(e) or 'no signature found for builtin type' in str(e):
+                        pass # For these it's fine to keep signature as None.
+                    else:
+                        raise Exception(f'Strange signature error on {modulename}.{varname}: {e}')
+            if sig:
+                self.arglist = [a.strip().replace('"',"'") for a in sig.replace('(','').replace(')','').strip()]
+        if not self.arglist: # Fallback or if only_use_python_parse.
+            self.arglist = python_parse.list_args(self.src_txt)
+            #print('ARGLIST:', self.arglist)
 
     def vname_full(self):
         # Variable name.
@@ -66,9 +74,7 @@ def fnname_metric(sourcevar, query):
 
 def fn_arity_metric(sourcevar, query):
     # Includes optional args.
-    if sourcevar.signature is None:
-        return False
-    arity = len(str(sourcevar.signature).split(','))
+    arity = len(selg.arglist) if self.arglist else 0
     return _peak(int(query), arity)
 
 def source_metric(sourcevar, query):
