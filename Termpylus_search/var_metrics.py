@@ -49,7 +49,7 @@ class Sourcevar:
         return 'FILE.'+self.filename.replace('/','.')+'.'+self.varname_leaf
 
     def __str__(self):
-        log_score = self.is_ppatched*8+len(self.logs)
+        #log_score = int(self.is_ppatched)*8+len(self.logs) # Not used.
         log_txt = ''
         if self.is_ppatched:
             log_txt = ' 👁'
@@ -234,31 +234,33 @@ def source_find(*bashy_args):
     for sv in all_src_vars:
         sv.score = 0.0
     while i<len(bashy_args):
-        ky = str(bashy_args[i]).lower(); query = bashy_args[i+1]
+        ky = str(bashy_args[i]).lower(); val = bashy_args[i+1]
         wt = re.sub(r"\D", '', ky)
         wt = 1 if wt=='' else int(wt)
         if ky.startswith('--'):
             wt = -wt
         ky = re.sub(r"\d", '', ky.replace('--','-'))
         if ky==shall:
-            verbose = int(query)
+            verbose = int(val)
         elif ky==k_return_sv:
-            return_sv = bool(query)
+            return_sv = bool(val)
         elif ky=='-f':
             for sv in all_src_vars:
-                sv.score = sv.score+query(sv)
+                sv.score = sv.score+val(sv)
         elif ky not in fns and ky not in opts:
             raise Exception('Unrecognized option:'+ky)
         elif ky in fns:
             f = fns[ky][1]
             for sv in all_src_vars:
-                add_score = f(sv, query)*wt
+                add_score = f(sv, val)*wt
                 sv.score = sv.score+add_score
         i = i+2
 
     src_vars_hi2low = dquery.sort_by(all_src_vars, [-sv.score for sv in all_src_vars])
-
     n_return = min(len(src_vars_hi2low), verbose) # How many results to show.
+    for i in range(n_return):
+        if src_vars_hi2low[i].score<0.001:
+            n_return = i; break
     if return_sv:
         return src_vars_hi2low[0:n_return]
     return [x.vname_full() for x in src_vars_hi2low[0:n_return]]

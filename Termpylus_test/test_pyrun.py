@@ -174,12 +174,23 @@ def test_run_arkanoid():
     # BIG TEST!
     # Interacts with a process.
     projects.quit_all()
-    out = True
+    out = [True]
     always_update = True
     bashy_mode = True # True and False should do the same thing.
-    debug_printouts = True # False will save on how much stuff is dumped to console.
-    if always_update:
-        print('DEBUG reset project every time next line below this.')
+    stream_printouts = True # False will save on how much stuff is dumped to console.
+    out_status_printouts = True;
+    # All these options should be True to ensure a thorough test, False for debugging:
+    test_basic_run = True
+    test_curveballs = True
+    test_silent_file_edits = True
+    test_external_file_edits = True
+    test_collision_fn_mod = True
+    test_queries = True
+
+    def _outset(x, name):
+        if out_status_printouts:
+            print('test_run_arkanoid sub-test:',name, str(bool(x)), str(out[0])+'=>'+str(out and bool(x)))
+        out[0] = out[0] and bool(x)
 
     ark_folder = outside_folder+'/arkanoid'
     txt = file_io.fload(ark_folder+'/brick_loader.py')
@@ -200,30 +211,24 @@ def test_run_arkanoid():
 
     _silent_edit(False) # Undo edits made, if any.
 
-    # All these options should be True to ensure a thorough test, False for debugging:
-    test_basic_run = True
-    test_curveballs = True
-    test_silent_file_edits = True
-    test_external_file_edits = True
-    test_collision_fn_mod = True
-    test_queries = True
-
     if test_external_file_edits: # Run this without loading the arkanoid program.
         _silent_edit(True) # The fsave should store edits.
         eds = file_io.get_txt_edits() # Shouldn't have any.
         test_ext_ed = "'dict', 'images'" in str(eds).replace('"',"'")
-        out = out and test_ext_ed
+        _outset(test_ext_ed, 'test_ext_ed')
 
     mods = None # TODO? add mods.
+    if always_update:
+        print('DEBUG reset project every time next line below this.')
     if ark_proj[0] is None or always_update:
         print('About to download Arkanoid to: (NOTE: Changes to the repo may break this test)', ark_folder)
         if bashy_mode:
             shell_obj = shellpython.Shell()
-            ark_proj[0] = bashy_cmds.python([project_urls[0], ark_folder+'/'+project_main_files[0]], shell_obj, printouts=debug_printouts)
+            ark_proj[0] = bashy_cmds.python([project_urls[0], ark_folder+'/'+project_main_files[0]], shell_obj, printouts=stream_printouts)
             ark_proj[0].name = 'Arkanoid'
         else:
             ark_proj[0] = projects.PyProj(origin=project_urls[0], dest=folder, run_file=project_main_files[0],
-                                          mod_run_file='default', refresh_dt=3600, printouts=debug_printouts)
+                                          mod_run_file='default', refresh_dt=3600, printouts=stream_printouts)
             ark_proj[0].name = 'Arkanoid'
             ark_proj[0].launch()
     the_proj = ark_proj[0]
@@ -242,9 +247,9 @@ def test_run_arkanoid():
 
     if test_basic_run:
         test_ez_run = projects.bcast_run('x = 2*3\nx') # Runing some code also? makes sure we are up-to-date.
-        out = out and test_ez_run == [6] # bcast_run returns a list, one element per project.
+        _outset(test_ez_run == [6], 'test_ez_run') # bcast_run returns a list, one element per project.
         test_ez_run1 = projects.bcast_run('y = 20*13\ny')
-        out = out and test_ez_run1 == [20*13]
+        _outset(test_ez_run1 == [20*13], 'test_ez_run1')
         xtxt = """Foo
 bar
 baz""".replace('\r\n','\n')
@@ -255,24 +260,26 @@ lines = x.split('\\n')
 l = len(lines)
 l'''
         test_tq_run = projects.bcast_run(tq_code)
-        out = out and test_tq_run == [3]
+        _outset(test_tq_run == [3], 'test_tq_run')
 
         a = projects.bcast_run('x = os.getcwd()\nx') # Folder-bound tests.
-        out = out and type(a) is list and 'sample_projs/arkanoid' in a[0].replace('\\','/')
+        _outset(type(a) is list and 'sample_projs/arkanoid' in a[0].replace('\\','/'), 'bcast getcwd')
 
         # Test a nested data structure:
         b = projects.bcast_run('''x = {"foo":"bar", "baz":[1,2,3]}\nx''')
-        out = out and type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1
+        _outset(type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1, 'test nested run')
 
     if test_curveballs:
         unicody = 'z="ຝ"+"ᱝ"\nz'
         test_unicode_run = projects.bcast_run(unicody)
-        out = out and test_unicode_run == [unicody[3]+unicody[7]]
+        _outset(test_unicode_run == [unicody[3]+unicody[7]], 'test unicode run')
+
         try:
             test_ez_run_err = projects.bcast_run('y = "foo"+1')
+            _outset(False, 'bcast strincat error not thrown autofail.')
             out = False
         except Exception as e:
-            out = out and 'can only concatenate str' in str(e)
+            _outset('can only concatenate str' in str(e), 'bcast strincat error correct message.')
 
     if test_silent_file_edits:
         projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
@@ -285,7 +292,7 @@ l'''
         print('Modified brick_loader.py, but can the program detect these mods?')
         all_edits = projects.edits_with_bcast(True)
 
-        out = out and len(all_edits)>len(all_edits0) and 'brick_loader.py' in str(all_edits)
+        _outset(len(all_edits)>len(all_edits0) and 'brick_loader.py' in str(all_edits), 'Local silent edits.')
         _silent_edit(False)
 
     if test_collision_fn_mod:
@@ -338,8 +345,9 @@ x'''
 
     if test_queries:
         # Test a source query: TODO: more of these queries.
-        x = bashy_cmds.sfind(['-n', 'detect_collision'], shell_obj=None)
-        out = out and 'detect_collision' in x[0] and '__main__.Platform.collide_with_platform' in str(x) and len(x)<64 and len(x)>4
+        x = bashy_cmds.sfind(['-n', 'coll'], shell_obj=None)
+        true_false = 'main__.Platform.collide_with_platform' in str(x) and len(x)<64 and len(x)>4
+        _outset(true_false, 'test queries.')
 
     return out
 
