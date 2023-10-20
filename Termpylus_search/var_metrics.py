@@ -8,12 +8,12 @@ import proj
 
 class Sourcevar:
     # A fair amount of information about a source's variable.
-    def __init__(self, filename, modulename, varname, src_txt0, src_txt1, src_datemod):
-        self.is_ppatched = ppatch.is_modified(modulename, varname) if modulename else None
-        self.logs = var_watch.get_logs(modulename, varname) if modulename else []
+    def __init__(self, filename, varname_full, src_txt0, src_txt1, src_datemod):
+        self.has_module = not varname_full.startswith('FILE:')
+        self.is_ppatched = ppatch.is_modified(varname_full) if self.has_module else None
+        self.logs = var_watch.get_logs(varname_full) if self.has_module else []
         self.filename = filename
-        self.modulename = modulename
-        self.varname_leaf = varname
+        self.varname_full = varname_full
         self.src_txt_old = src_txt0
         self.src_txt = src_txt1 # Txt of the function body.
         self.src_edits = fittings.txt_edits(src_txt0, src_txt1) # Edit on the fn body since program startup.
@@ -25,7 +25,7 @@ class Sourcevar:
         if not only_use_python_parse: # Option to use inspect, but it will not work if the
             sig = None
             try:
-                f = ppatch.get_var(modulename, varname) if modulename else None
+                f = ppatch.get_var(varname_full) if self.has_module else None
             except AttributeError:
                 f = None
             if f is not None:
@@ -42,12 +42,6 @@ class Sourcevar:
             self.arglist = python_parse.list_args(self.src_txt)
             #print('ARGLIST:', self.arglist)
 
-    def vname_full(self):
-        # Variable name.
-        if self.modulename:
-            return self.modulename+'.'+self.varname_leaf
-        return 'FILE.'+self.filename.replace('/','.')+'.'+self.varname_leaf
-
     def __str__(self):
         #log_score = int(self.is_ppatched)*8+len(self.logs) # Not used.
         log_txt = ''
@@ -55,7 +49,7 @@ class Sourcevar:
             log_txt = ' 👁'
         if len(self.logs)>0:
             log_txt = log_txt+' '+str(len(self.logs))
-        return 'Ͼ'+self.vname_full()+log_txt+'Ͽ'
+        return 'Ͼ'+self.varname_full+log_txt+'Ͽ'
 
     def __repr__(self):
         return 'Sourcevar('+str(self)+')'
@@ -70,7 +64,7 @@ def _peak(target, val):
 
 def fnname_metric(sourcevar, query):
     # Matches the function to the qualified name of the symbol.
-    return bash_helpers.flex_match(query, sourcevar.vname_full())
+    return bash_helpers.flex_match(query, sourcevar.varname_full)
 
 def fn_arity_metric(sourcevar, query):
     # Includes optional args.
@@ -138,7 +132,7 @@ def usecount_metric(sourcevar, query, sourcevars_precompute=None):
     if sourcevars_precompute is None:
         print('Usecount metric precomputing...')
         sourcevars_precompute, _ = get_all_sourcevars()
-    leaf = sourcevar.varname_leaf.split('.')[-1] # TODO: Not just use leafs.
+    leaf = sourcevar.varname_full.split('.')[-1] # TODO: Not just use leafs.
     n = 0
     for sv in sourcevars_precompute:
         if leaf in sv.src_txt:
@@ -174,7 +168,8 @@ def get_all_sourcevars():
         defs0 = defs if contents==contents0 else python_parse.sourcecode_defs(contents0, nest=True)
         mname = file2mod.get(fname, None) # Source files that have noy yet been imported do not have a modulename.
         for dk in defs.keys():
-            out.append(Sourcevar(filename=fname, modulename=mname, varname=dk, src_txt0=defs0.get(dk,''), src_txt1=defs[dk], src_datemod=date_mod))
+            prepend = mname if mname else 'FILE:'+fname.replace('\\','/').split('/','.')
+            out.append(Sourcevar(filename=fname, varname_full=prepend+'.'+dk, src_txt0=defs0.get(dk,''), src_txt1=defs[dk], src_datemod=date_mod))
     t1 = time.time()
     print_elapsed_time = False
     if print_elapsed_time: # Is this function slow?
@@ -263,8 +258,8 @@ def source_find(*bashy_args):
             n_return = i; break
     if return_sv:
         return src_vars_hi2low[0:n_return]
-    return [x.vname_full() for x in src_vars_hi2low[0:n_return]]
+    return [x.varname_full for x in src_vars_hi2low[0:n_return]]
 
-def pythonverse_find(*bashy_args, pythonverse_verse=None, exclude_Termpylus=False):
+def pythonverse_find(*bashy_args):
     # Similar to source find, but over the Pythonverse.
     TODO

@@ -163,7 +163,9 @@ class GUI(tk.Frame):
             self.historybox.see(tk.END)
 
             new_modules = set(sys.modules.keys())-set(mo0.keys())
-            projects.startup_cache_with_bcast() # Incase new modules were imported by the command.
+
+            code_txt = 'from Termpylus_extern.waterworks import py_updater\npy_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)'
+            projects.run_and_bcast_run(code_txt, wait=True, assert_result=True) # Incase new modules were imported by the command.
 
     def maybe_clear_app(self, *args):
         if evt_check.emacs(args[0], 'C+l'): # Bash default clear.
@@ -182,7 +184,7 @@ if __name__=='__main__':
     if do_slowprint:
         from Termpylus_UI import slowprint
         print_state_singleton = slowprint.PrinterState()
-    projects.startup_cache_with_bcast() # Cache all loaded modules on startup.
+    py_updater.update_user_changed_modules(update_on_first_see=False, use_date=False) #Cache all loaded modules on startup.
     shell = shellpython.Shell()
     try:
         gui = GUI(shell)

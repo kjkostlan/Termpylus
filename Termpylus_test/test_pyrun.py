@@ -240,7 +240,8 @@ def test_run_arkanoid():
         _silent_edit(True)
 
         # This causes the other process to diff the old files with the new files:
-        projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
+        code_txt = 'py_updater.update_user_changed_modules(update_on_first_see=False)'
+        projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
         print('Sandbox mode, tests are in development...')
         _silent_edit(False)
         return False
@@ -270,6 +271,22 @@ l'''
         _outset(type(b[0]) is dict and 'baz' in b[0] and b[0]['baz'][0]==1, 'test nested run')
 
     if test_curveballs:
+        null_result = 'x=None\nx'
+        test_null = projects.bcast_run(null_result)
+        _outset(test_null[0] is None, 'test return None')
+
+        null_result = 'x=1>2\nx'
+        test_null = projects.bcast_run(null_result)
+        _outset(test_null[0] is False, 'test return False')
+
+        try:
+            no_return = 'y=123\nz=456'
+            test_null = projects.bcast_run(no_return, assert_result=True)
+            _outset(False, 'Non result code does not raise error when assert_result is not thrown.')
+        except Exception as e:
+            print('---->>>>>', str(e), '<<<------')
+            TODO
+
         unicody = 'z="ຝ"+"ᱝ"\nz'
         test_unicode_run = projects.bcast_run(unicody)
         _outset(test_unicode_run == [unicody[3]+unicody[7]], 'test unicode run')
@@ -277,22 +294,27 @@ l'''
         try:
             test_ez_run_err = projects.bcast_run('y = "foo"+1')
             _outset(False, 'bcast strincat error not thrown autofail.')
-            out = False
         except Exception as e:
             _outset('can only concatenate str' in str(e), 'bcast strincat error correct message.')
 
     if test_silent_file_edits:
-        projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
-        all_edits0 = projects.edits_with_bcast(True)
+        code_txt = 'py_updater.update_user_changed_modules(update_on_first_see=False)'
+        projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
+
+        all_editss0 = projects.run_and_bcast_run('from Termpylus_extern.waterworks import file_io\nfile_io.get_txt_edits()', wait=True, assert_result=True)
+        all_edits0 = []; [all_edits0.extend(elem) for elem in all_editss0]
+
         _silent_edit(True)
 
         # This causes the other process to diff the old files with the new files:
-        projects.update_user_changed_modules_with_bcast(update_on_first_see=False)
+        code_txt = 'py_updater.update_user_changed_modules(update_on_first_see=False)'
+        projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
 
         print('Modified brick_loader.py, but can the program detect these mods?')
-        all_edits = projects.edits_with_bcast(True)
+        all_editss1 = projects.run_and_bcast_run('from Termpylus_extern.waterworks import file_io\nfile_io.get_txt_edits()', wait=True, assert_result=True)
+        all_edits1 = []; [all_edits1.extend(elem) for elem in all_editss1]
 
-        _outset(len(all_edits)>len(all_edits0) and 'brick_loader.py' in str(all_edits), 'Local silent edits.')
+        _outset(len(all_edits1)>len(all_edits0) and 'brick_loader.py' in str(all_edits1), 'Local silent edits.')
         _silent_edit(False)
 
     if test_collision_fn_mod:
@@ -333,10 +355,10 @@ from Termpylus_extern.waterworks import ppatch
 code = """{code1}"""
 modulename = '__main__'
 var_name = "detect_collision"
-v0 = ppatch.get_var(modulename, var_name)
+v0 = ppatch.get_var(var_name_full)
 ppatch.temp_exec(modulename, None, code)
-v1 = ppatch.get_var(modulename, var_name)
-#ppatch.set_var(modulename, var_name, None) # This destroys the function and causes the whole game to crash.
+v1 = ppatch.get_var(var_name_full)
+#ppatch.set_var(var_name_full, None) # This destroys the function and causes the whole game to crash.
 x=v0 is v1
 print('Old and new var ids:', hex(id(v0)), hex(id(v1)))
 x'''

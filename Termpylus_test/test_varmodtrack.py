@@ -20,32 +20,32 @@ def test_var_get():
 
 def test_var_set():
     from Termpylus_core import dquery # make sure its loaded.
-    modulevarname = ['Termpylus_core.dquery', 'leaf_match']
-    v0 = ppatch.get_var(*modulevarname)
-    test0 = not ppatch.is_modified(*modulevarname)
-    otest0 = ppatch.original_var(*modulevarname) is v0
+    varname_full = 'Termpylus_core.dquery.leaf_match'
+    v0 = ppatch.get_var(varname_full)
+    test0 = not ppatch.is_modified(varname_full)
+    otest0 = ppatch.original_var(varname_full) is v0
     x = [0]
     def new_value(y):
         x[0] = 2*y
-    ppatch.set_var(*(modulevarname+[new_value]))
-    v1 = ppatch.get_var(*modulevarname)
+    ppatch.set_var(varname_full, new_value)
+    v1 = ppatch.get_var(varname_full)
     v1(12)
     test1 = x[0]==24
     test2 = v1 is not v0
-    otest1 = ppatch.original_var(*modulevarname) is v0
-    test3 = ppatch.is_modified(*modulevarname)
+    otest1 = ppatch.original_var(varname_full) is v0
+    test3 = ppatch.is_modified(varname_full)
 
-    ppatch.reset_var(*modulevarname)
-    v0_1 = ppatch.get_var(*modulevarname)
+    ppatch.reset_var(varname_full)
+    v0_1 = ppatch.get_var(varname_full)
     test4 = v0 is v0_1
-    otest2 = ppatch.original_var(*modulevarname) is v0
+    otest2 = ppatch.original_var(varname_full) is v0
 
     return test0 and test1 and test2 and test3 and test4 and otest0 and otest1 and otest2
 
 def test_get_vars():
     # Tests module-level and global getting all vars.
-    v_with_nest = ppatch.get_vars('Termpylus_shell.shellpython', nest_inside_classes=True)
-    v_without_nest = ppatch.get_vars('Termpylus_shell.shellpython', nest_inside_classes=False)
+    v_with_nest = ppatch.module_vars('Termpylus_shell.shellpython', nest_inside_classes=True)
+    v_without_nest = ppatch.module_vars('Termpylus_shell.shellpython', nest_inside_classes=False)
     test0 = 'Shell.clear_printouts' in v_with_nest and 'Shell' in v_with_nest and 'sys' not in v_with_nest
     test1 = 'Shell.clear_printouts' not in v_without_nest
     test2 = len(set(v_without_nest.keys())-set(v_with_nest.keys())) == 0
@@ -55,9 +55,9 @@ def test_vars_from_module():
     # TODO: merge this with test_get_vars?
     modulename = '__main__'
     x = sys.modules[modulename]
-    vmap = ppatch.get_vars(modulename, nest_inside_classes=True)
+    vmap = ppatch.module_vars(modulename, nest_inside_classes=True)
 
-    vmap0 = ppatch.get_vars(modulename, nest_inside_classes=False)
+    vmap0 = ppatch.module_vars(modulename, nest_inside_classes=False)
     t0 = vmap['GUI'] is vmap0['GUI']
     t1 = 'GUI.resize' in vmap and 'GUI.resize' not in vmap0
     t2 = vmap['GUI'] is x.GUI
@@ -96,7 +96,7 @@ def test_logging_var():
     modname = 'Termpylus_extern.waterworks.fittings'
     import importlib
     importlib.import_module(modname)
-    var_watch.add_fn_watcher(modname, 'txt_edit') #ed = txt_edit(old_txt, new_txt)
+    var_watch.add_fn_watcher(modname+'.txt_edit') #ed = txt_edit(old_txt, new_txt)
     ed0 = fittings.txt_edit('What is this world around the orange dwarf?', 'What is this planet around the orange dwarf?')
     ed1 = fittings.txt_edit('Foo', new_txt='Bar')
     logs1 = var_watch.get_logs()[modname+'.txt_edit']

@@ -170,7 +170,7 @@ class Shell:
         add_bash_syntax_fns(__name__)
         us = sys.modules[__name__]
         mname = 'Termpylus_shell.bashy_cmds'; m = sys.modules[mname]
-        kys = ppatch.get_vars(mname)
+        kys = ppatch.module_vars(mname)
 
         def g(f, shell):
             def f1(*args):

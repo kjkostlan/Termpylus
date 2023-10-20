@@ -54,14 +54,33 @@ def utest(bashy_args, shell_obj):
     print('# failed:', len(failures))
     return len(failures)==0
 
-def sfind(bashy_args, shell_obj=None):
-    return projects.generic_source_find_with_bcast(bashy_args)
+def sfind(bashy_args, shell_obj=None): # Source compile or runtime search.
+    code_text = 'from Termpylus_search import *\nvar_metrics.source_find(*bashy_args)'
+    outs = projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
+    if len(bashy_args)==0: # Var_watch will return the help.
+        return outs[0]
+    out = []; [out.extend(ot) for ot in out]
+    return out
 
 def pfind(bashy_args, shell_obj=None):
     from Termpylus_core import dquery
-    if len(bashy_args)==0:
-        return 'Search through the Pythonverse! Uses most of the options as sfind. Creating the pythonverse is slow, so use -ch to use the previous one.'
-    return projects.generic_pythonverse_find_with_bcast(bashy_args)
+
+    code_text = f'''
+import sys
+from Termpylus_core import todict
+for ky in sys.modules.keys():
+    if not avoid_termpylus or not k.startswith('Termpylus'):
+        x[ky] = sys.modules[ky]
+pythonverse = todict.to_dict(x, output_dict=None, blockset_fn=todict.default_blockset, removeset_fn=todict.module_blockset, d1_override=todict.default_override_to_dict1, level=0)
+
+results = var_metrics.pythonverse_find(*{bashy_args})
+results
+    '''
+    outs = projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
+    if len(bashy_args)==0: # Var_watch will return the help.
+        return outs[0]
+    out = []; [out.extend(ot) for ot in out]
+    return out
 
 def python(bashy_args, shell_obj, printouts=False):
     # Substantial modifications from the origina Python command.
@@ -129,26 +148,32 @@ def pwatch(bashy_args, shell_obj=None):
 Adds or removes watchers to a given module. Watchers can be later queried using the -i and -o options of sfind.
 Watchers are also added to all subprocesses.
 "pwatch foo bar.baz" adds watchers to module foo and to "bar.baz" (which may be a module or a function within a module).
-"pwatch --all": Adds ALL watchers. This may cause a significant performance hit and memory consumption.
 "pwatch --rm foo bar" removes watchers from foo bar. It's possible to both add and remove watchers within one command.
+"pwatch --rm --all": Removes ALL watchers.
 '''
         return txt
 
-    rm_mode = False
+    def make_code_txt(stub, is_remove): # Exec this here and in all sub-processes.
+        fn = "remove_fn_watcher" if is_remove else "add_fn_watcher"
+        line = f'var_watch.{fn}(varname_full, f_code=None)'
+        code_txt = f'''
+from Termpylus_extern.waterworks import *
+vars = ppatch.get_vars_recursive({stub}, nest_inside_classes=True) # Empty stub equivalent to add/remove all vars.
+for varname_full in vars:
+    {line}
+num_vars_watched = len(vars)
+num_vars_watched
+'''.strip()
+        return code_txt
     for arg in bashy_args:
         if arg.replace('--','-') in ['-rm','-remove', '-delete', '-del']:
             rm_mode = True
             continue
         if arg.replace('--','-') in ['-a', '-all']:
-            if rm_mode:
-                projects.var_watch_remove_all_with_bcast()
-            else:
-                projects.var_watch_all_with_bcast()
+            code_txt = make_code_txt(stub, rm_mode)
         else:
-            if rm_mode:
-                projects.var_watch_remove_with_bcast(arg)
-            else:
-                projects.var_watch_add_with_bcast(arg)
+            code_txt = make_code_txt(stub, rm_mode)
+        projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
 
 def edits(bashy_args, shell_obj=None):
     if len(bashy_args)==0:
@@ -156,11 +181,15 @@ def edits(bashy_args, shell_obj=None):
     bashy_args = [arg.replace('--','-') for arg in bashy_args]
     is_fname = '-f' in args or 'f' in args or '-file' in args or 'file' in args
     is_mname = '-m' in args or 'm' in args or '-module' in args or 'module' in args
+    err_msg = 'Must specify whether to return filenames (-f) or modulenames (-m).'
     if is_fname and is_mname:
-        raise Exception('Either a filename (-f) or modulename (-m) option must be choosen, but not both.')
+        raise Exception(f'{err_msg}. But must not specify both.')
     if not is_fname and not is_mname:
-        raise Exception('Either a filename (-f) or modulename (-m) option must be choosen.')
-    return projects.edits_with_bcast(is_fname)
+        raise Exception(err_msg)
+    code_txt = 'file_io.get_txt_edits()'
+    outs = projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
+    out = []; [out.extend(ot) for ot in out]
+    return out
 
 ############################### Vanilla commands ###############################
 
