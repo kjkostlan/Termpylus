@@ -55,17 +55,17 @@ def utest(bashy_args, shell_obj):
     return len(failures)==0
 
 def sfind(bashy_args, shell_obj=None): # Source compile or runtime search.
-    code_text = 'from Termpylus_search import *\nvar_metrics.source_find(*bashy_args)'
+    code_txt = f'from Termpylus_search import *\ntop_matches = var_metrics.source_find(*{bashy_args})\ntop_matches'
     outs = projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
     if len(bashy_args)==0: # Var_watch will return the help.
         return outs[0]
-    out = []; [out.extend(ot) for ot in out]
+    out = []; [out.extend(ot) for ot in outs]
     return out
 
 def pfind(bashy_args, shell_obj=None):
     from Termpylus_core import dquery
 
-    code_text = f'''
+    code_txt = f'''
 import sys
 from Termpylus_core import todict
 for ky in sys.modules.keys():
@@ -79,7 +79,7 @@ results
     outs = projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
     if len(bashy_args)==0: # Var_watch will return the help.
         return outs[0]
-    out = []; [out.extend(ot) for ot in out]
+    out = []; [out.extend(ot) for ot in outs]
     return out
 
 def python(bashy_args, shell_obj, printouts=False):
@@ -186,9 +186,9 @@ def edits(bashy_args, shell_obj=None):
         raise Exception(f'{err_msg}. But must not specify both.')
     if not is_fname and not is_mname:
         raise Exception(err_msg)
-    code_txt = 'file_io.get_txt_edits()'
+    code_txt = 'all_edits=file_io.get_txt_edits()\nall_edits'
     outs = projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
-    out = []; [out.extend(ot) for ot in out]
+    out = []; [out.extend(ot) for ot in outs]
     return out
 
 ############################### Vanilla commands ###############################

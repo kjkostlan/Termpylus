@@ -189,7 +189,7 @@ def test_run_arkanoid():
 
     def _outset(x, name):
         if out_status_printouts:
-            print('test_run_arkanoid sub-test:',name, str(bool(x)), str(out[0])+'=>'+str(out and bool(x)))
+            print('test_run_arkanoid sub-test:',name, str(bool(x)), str(out[0])+'=>'+str(out[0] and bool(x)))
         out[0] = out[0] and bool(x)
 
     ark_folder = outside_folder+'/arkanoid'
@@ -279,13 +279,32 @@ l'''
         test_null = projects.bcast_run(null_result)
         _outset(test_null[0] is False, 'test return False')
 
+        xtxt = '''
+foo = 1
+# bar = 2
+baz = foo+3
+baz
+'''
+        test_comment_run = projects.bcast_run(xtxt)
+        _outset(test_comment_run == [4], 'test_comment_run')
+
+        xtxt = '''
+foo = 1
+bar_never_got_a_chance = foo + baz_no_exist # Uh ho there is no baz variable!
+y_if_only = bar_never_got_a_chance+1
+y_if_only
+'''    # Unfortunatly, the error will be in the y=bar+1 line because of the nature of exec feed.
+        try:
+            projects.bcast_run(xtxt)
+            _outset(False, 'Variable not found error failed to error.')
+        except Exception as e:
+            _outset("name 'baz_no_exist' is not defined" in str(e).replace('"',"'"), 'Variable not found error trigger other errors but the first error must be reported.')
         try:
             no_return = 'y=123\nz=456'
             test_null = projects.bcast_run(no_return, assert_result=True)
             _outset(False, 'Non result code does not raise error when assert_result is not thrown.')
         except Exception as e:
-            print('---->>>>>', str(e), '<<<------')
-            TODO
+            _outset('No output seems to have been created' in str(e), 'Non result code raises correct error with assert_result.')
 
         unicody = 'z="ຝ"+"ᱝ"\nz'
         test_unicode_run = projects.bcast_run(unicody)
@@ -299,19 +318,19 @@ l'''
 
     if test_silent_file_edits:
         code_txt = 'py_updater.update_user_changed_modules(update_on_first_see=False)'
-        projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
+        projects.run_and_bcast_run(code_txt, wait=True, assert_result=False)
 
-        all_editss0 = projects.run_and_bcast_run('from Termpylus_extern.waterworks import file_io\nfile_io.get_txt_edits()', wait=True, assert_result=True)
+        all_editss0 = projects.run_and_bcast_run('from Termpylus_extern.waterworks import file_io\neds=file_io.get_txt_edits()\neds', wait=True, assert_result=True)
         all_edits0 = []; [all_edits0.extend(elem) for elem in all_editss0]
 
         _silent_edit(True)
 
         # This causes the other process to diff the old files with the new files:
         code_txt = 'py_updater.update_user_changed_modules(update_on_first_see=False)'
-        projects.run_and_bcast_run(code_txt, wait=True, assert_result=True)
+        projects.run_and_bcast_run(code_txt, wait=True, assert_result=False)
 
         print('Modified brick_loader.py, but can the program detect these mods?')
-        all_editss1 = projects.run_and_bcast_run('from Termpylus_extern.waterworks import file_io\nfile_io.get_txt_edits()', wait=True, assert_result=True)
+        all_editss1 = projects.run_and_bcast_run('from Termpylus_extern.waterworks import file_io\neds=file_io.get_txt_edits()\neds', wait=True, assert_result=True)
         all_edits1 = []; [all_edits1.extend(elem) for elem in all_editss1]
 
         _outset(len(all_edits1)>len(all_edits0) and 'brick_loader.py' in str(all_edits1), 'Local silent edits.')
@@ -355,6 +374,7 @@ from Termpylus_extern.waterworks import ppatch
 code = """{code1}"""
 modulename = '__main__'
 var_name = "detect_collision"
+var_name_full = modulename+'.'+var_name
 v0 = ppatch.get_var(var_name_full)
 ppatch.temp_exec(modulename, None, code)
 v1 = ppatch.get_var(var_name_full)

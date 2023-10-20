@@ -168,7 +168,7 @@ def get_all_sourcevars():
         defs0 = defs if contents==contents0 else python_parse.sourcecode_defs(contents0, nest=True)
         mname = file2mod.get(fname, None) # Source files that have noy yet been imported do not have a modulename.
         for dk in defs.keys():
-            prepend = mname if mname else 'FILE:'+fname.replace('\\','/').split('/','.')
+            prepend = mname if mname else 'FILE:'+fname.replace('\\','/').replace('/','.')
             out.append(Sourcevar(filename=fname, varname_full=prepend+'.'+dk, src_txt0=defs0.get(dk,''), src_txt1=defs[dk], src_datemod=date_mod))
     t1 = time.time()
     print_elapsed_time = False

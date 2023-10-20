@@ -6,12 +6,13 @@ from Termpylus_search import var_metrics
 
 _gl = proj.global_get('Termpylus_proj_globlas', {'alive_projs':[], 'dead_projs':[], 'num_cmds_total':0})
 varval_report_wrappers = ['...Termpylus'+'subproc (starts here) Exec result...', '...of Termpylus'+'subproc (ends here) Exec...']
+end_of_input_block_cue = '#END_ofTHE'+'_CODE'
 
 def inner_app_loop(startup_sleep_time=2):
     # Run this from the inner app.
     destroy_unicode_in = False; destroy_unicode_out = False # Unicode should work, these are emergency measures otherwise.
     import sys, traceback
-    from Termpylus_extern.waterworks import fittings, global_vars
+    from Termpylus_extern.waterworks import fittings, global_vars, deep_stack
 
     # https://stackoverflow.com/questions/16549332/python-3-how-to-specify-stdin-encoding
     # line in sys.stdin is a blocking string of *strings*. But processes generally send bytes to eachother.
@@ -21,6 +22,8 @@ def inner_app_loop(startup_sleep_time=2):
         print(f'Reconfigured encoding from {enc} to utf-8. Because UTF-8 is that good.')
 
     def _is_obj(leaf):
+        if not leaf:
+            return False
         ty = type(leaf)
         return ty not in [str, int, float, bool]
     def _repr1(x): # Wrap objects in strings so that evaling the code doesn't syntax error.
@@ -34,18 +37,22 @@ def inner_app_loop(startup_sleep_time=2):
     py_updater.update_user_changed_modules(update_on_first_see=True, use_date=False)
 
     debug_line_IO = False
+    errors_this_block = 0
     line_bufs = [] # Store up lines for multi-line exec.
     sys.stdin.flush() # Needed?
     for line in sys.stdin: # Waits here if there is no stdin. See: https://stackoverflow.com/questions/7056306/python-wait-until-data-is-in-sys-stdin
         # Lines are type "string".
         #print('Line bytes:', line, [hex(b) for b in line.encode()]) # Debug.
         # No need for global_vars.tprint b/c this is all inside the app.
+        if line.strip()==end_of_input_block_cue:
+            errors_this_block = 0
         if destroy_unicode_in:
             line = _nounicode(line)
         try:
             x = deep_stack.exec_feed(line_bufs, line, sys.modules[__name__].__dict__)
             if x is not None:
-                x_txt = _repr1(None if x=='<None>' else x)
+                x1 = None if x is deep_stack.Null else x
+                x_txt = _repr1(x1)
                 output = varval_report_wrappers[0]+x_txt+varval_report_wrappers[1]
                 output = _nounicode(output) if destroy_unicode_out else output
                 out_bytes = output.encode('utf-8')
@@ -55,9 +62,13 @@ def inner_app_loop(startup_sleep_time=2):
             elif debug_line_IO:
                 print('NO output from this line:', line.encode('utf-8'))
         except Exception as e:
-            err_report = traceback.format_exc()
-            err_report = _nounicode(err_report) if destroy_unicode_out else err_report
-            global_vars.bprint(err_report)
+            if errors_this_block>0:
+                print(f'(this block of code previously errored out {errors_this_block} times and now we have {str(e)})')
+            else:
+                err_report = traceback.format_exc()
+                err_report = _nounicode(err_report) if destroy_unicode_out else err_report
+                global_vars.bprint(err_report)
+            errors_this_block +=1
         sys.stdin.flush() # Needed?
 
 def get_prepend(sleep_time=2):
@@ -180,10 +191,14 @@ class PyProj():
             dt = min(dt*2, 1.0)
 
     def exec(self, code_txt, assert_result=True, str_mode=False): # The API is modified slightly from tubo.API
+        # Run code_txt. If code_txt has a line that is only a symbol it will return the value of the symbol:
+        #   i.e. "foo=bar+baz\nfoo" => returns foo.
+        # If there are multible such lines in code_txt it will return them as a vector.
         from Termpylus_extern.waterworks import global_vars; tprint = global_vars.tprint
         debug_tprint = False
         if not code_txt.endswith('\n'):
             code_txt = code_txt+'\n'
+        code_txt = code_txt+'\n'+end_of_input_block_cue+'\n'
         if debug_tprint:
             tprint('>>>Exec-ing this code:', _gl['num_cmds_total'], code_txt.replace('\n','⏎'), 'error horizion:', self.tubo.error_horizons)
         unique_tok = 'Termpylus_unique'+str(_gl['num_cmds_total'])
@@ -294,7 +309,7 @@ def run_and_bcast_run(code_txt, wait=True, assert_result=True):
         exec(code_txt)
     except Exception as e:
         raise e
-    last_line = code_txt.strip().replace('\r\n','\n').split('\n')
+    last_line = code_txt.strip().replace('\r\n','\n').split('\n')[-1]
     set_out = False; out0 = None
     if deep_stack.issym(last_line):
         out0 = eval(last_line); set_out = True
