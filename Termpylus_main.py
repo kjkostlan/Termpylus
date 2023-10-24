@@ -165,7 +165,7 @@ class GUI(tk.Frame):
             new_modules = set(sys.modules.keys())-set(mo0.keys())
 
             code_txt = 'from Termpylus_extern.waterworks import py_updater\npy_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)'
-            projects.run_and_bcast_run(code_txt, wait=True, assert_result=True) # Incase new modules were imported by the command.
+            projects.run_and_bcast_run(code_txt, wait=True, assert_result=False) # Incase new modules were imported by the command.
 
     def maybe_clear_app(self, *args):
         if evt_check.emacs(args[0], 'C+l'): # Bash default clear.

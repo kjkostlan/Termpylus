@@ -8,8 +8,7 @@ _gl = proj.global_get('Termpylus_proj_globlas', {'alive_projs':[], 'dead_projs':
 varval_report_wrappers = ['...Termpylus'+'subproc (starts here) Exec result...', '...of Termpylus'+'subproc (ends here) Exec...']
 end_of_input_block_cue = '#END_ofTHE'+'_CODE'
 
-def inner_app_loop(startup_sleep_time=2):
-    # Run this from the inner app.
+def inner_app_loop(calling_modulename, startup_sleep_time=2):
     destroy_unicode_in = False; destroy_unicode_out = False # Unicode should work, these are emergency measures otherwise.
     import sys, traceback
     from Termpylus_extern.waterworks import fittings, global_vars, deep_stack
@@ -49,7 +48,7 @@ def inner_app_loop(startup_sleep_time=2):
         if destroy_unicode_in:
             line = _nounicode(line)
         try:
-            x = deep_stack.exec_feed(line_bufs, line, sys.modules[__name__].__dict__)
+            x = deep_stack.exec_feed(line_bufs, line, sys.modules[calling_modulename].__dict__)
             if x is not None:
                 x1 = None if x is deep_stack.Null else x
                 x_txt = _repr1(x1)
@@ -84,7 +83,7 @@ if __name__ == '__main__':
     #sys.stdout.reconfigure(encoding='utf-8')
     from Termpylus_core import projects
 
-    thread_obj = threading.Thread(target=lambda: projects.inner_app_loop(startup_sleep_time=SLEEPTIME))
+    thread_obj = threading.Thread(target=lambda: projects.inner_app_loop(__name__, startup_sleep_time=SLEEPTIME))
     thread_obj.daemon = True
     thread_obj.start()
     print('Started io thread loop, proceeding to main project; cwd:', os.path.realpath('.'))
@@ -98,6 +97,8 @@ class PyProj():
     def __init__(self, origin, dest, run_file, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=None, name='PyProj', github_branch=None):
         # A non-None github_URL will replace the contents of the folder!
         self.origin = origin # Folder or URL.
+        if not dest:
+            self.dest = origin
         self.dest = dest # Must be a folder.
         self.run_file = run_file
         self.refresh_dt = refresh_dt
@@ -259,7 +260,17 @@ class PyProj():
         if self.tubo is not None:
             self.tubo.close()
 
-################################################################################
+#########################Portfolio managment ###################################
+
+def launch_once(origin, dest, run_file='main.py', mod_run_file='default', refresh_dt=3600, printouts=True, sleep_time=2, cmd_line_args=None, name='PyProj', github_branch=None):
+    # Does not launch if the dest matches any project.
+    # Returns the project object.
+    for pr in _gl['alive_projs']:
+        if pr.dest==dest:
+            return pr
+    out = PyProj(origin, dest, run_file, mod_run_file, refresh_dt, printouts, sleep_time, cmd_line_args, name, github_branch)
+    out.launch()
+    return out
 
 def project_lookup(query_txt):
     # Looks up a project searching by origin, dest folder, etc.
@@ -286,7 +297,6 @@ def quit_all():
     return len(quit_these)
 
 ##### Functions that run on the subprocesses as well as the main process #######
-# TODO: is there a better system than having to mirror all of these functions?
 
 def bcast_run(code_txt, wait=True, assert_result=True):
     # Runs code_txt in each active project, waits for the data dump, and evaluates the output.
