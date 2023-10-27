@@ -122,6 +122,8 @@ class GUI(tk.Frame):
         char = evt.char; char = (char+' ')[0]
 
         if evt_check.emacs(evt, hotkeys.kys['run_cmd']): # Shift enter = send command.
+            refresh_txt = 'from Termpylus_extern.waterworks import py_updater\npy_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)'
+            projects.run_and_bcast_run(refresh_txt, wait=True, assert_result=False) # In case files were edited before the command.
 
             mo0 = sys.modules.copy()
             input_to_shell=self.text_input.get("1.0","end-1c")
@@ -164,8 +166,8 @@ class GUI(tk.Frame):
 
             new_modules = set(sys.modules.keys())-set(mo0.keys())
 
-            code_txt = 'from Termpylus_extern.waterworks import py_updater\npy_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)'
-            projects.run_and_bcast_run(code_txt, wait=True, assert_result=False) # Incase new modules were imported by the command.
+            refresh_txt = 'from Termpylus_extern.waterworks import py_updater\npy_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)'
+            projects.run_and_bcast_run(refresh_txt, wait=True, assert_result=False) # Incase new modules were imported by the command.
 
     def maybe_clear_app(self, *args):
         if evt_check.emacs(args[0], 'C+l'): # Bash default clear.
