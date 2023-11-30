@@ -1,5 +1,5 @@
 # Handles projects.
-import os, time, shutil, re
+import os, time, shutil, re, sys, traceback
 from Termpylus_extern.waterworks import file_io, eye_term, var_watch, py_updater, colorful, deep_stack
 import code_in_a_box, proj
 from Termpylus_search import var_metrics
@@ -8,9 +8,14 @@ _gl = proj.global_get('Termpylus_proj_globlas', {'alive_projs':[], 'dead_projs':
 varval_report_wrappers = ['...Termpylus'+'subproc (starts here) Exec result...', '...of Termpylus'+'subproc (ends here) Exec...']
 end_of_input_block_cue = '#END_ofTHE'+'_CODE'
 
+def last_error_report(destroy_unicode_out=False): # Can be called directly from any thread in the project's main.py
+    from Termpylus_extern.waterworks import global_vars
+    err_report = traceback.format_exc()
+    err_report = _nounicode(err_report) if destroy_unicode_out else err_report
+    global_vars.bprint(err_report)
+
 def inner_app_loop(calling_modulename, startup_sleep_time=2):
     destroy_unicode_in = False; destroy_unicode_out = False # Unicode should work, these are emergency measures otherwise.
-    import sys, traceback
     from Termpylus_extern.waterworks import fittings, global_vars, deep_stack
 
     # https://stackoverflow.com/questions/16549332/python-3-how-to-specify-stdin-encoding
@@ -64,13 +69,11 @@ def inner_app_loop(calling_modulename, startup_sleep_time=2):
             if errors_this_block>0:
                 print(f'(this block of code previously errored out {errors_this_block} times and now we have {str(e)})')
             else:
-                err_report = traceback.format_exc()
-                err_report = _nounicode(err_report) if destroy_unicode_out else err_report
-                global_vars.bprint(err_report)
+                last_error_report(destroy_unicode_out=destroy_unicode_out)
             errors_this_block +=1
         sys.stdin.flush() # Needed?
 
-def get_prepend(sleep_time=2):
+def get_prepend(dest, sleep_time=2, wait_mode=False, package_mode=False):
     # Before the main code runs we need to set up.
     local_ph = os.path.realpath('.').replace('\\','/')
     txt = r'''
@@ -82,19 +85,43 @@ if __name__ == '__main__':
     from Termpylus_extern.waterworks import py_updater
     #sys.stdout.reconfigure(encoding='utf-8')
     from Termpylus_core import projects
+    from Termpylus_core.projects import last_error_report # Allows reporting errors to be called from any thread.
 
+    PKGCODE
     thread_obj = threading.Thread(target=lambda: projects.inner_app_loop(__name__, startup_sleep_time=SLEEPTIME))
     thread_obj.daemon = True
     thread_obj.start()
     print('Started io thread loop, proceeding to main project; cwd:', os.path.realpath('.'))
     #sys.stdout.flush() # One way to flush, but the unbuffered option helps a ton.
 
+
 ############### Termpylus_prepend_END #################
 '''.replace('LOCALPH', local_ph).replace('SLEEPTIME',str(sleep_time))
+
+    wait_txt = '''
+    quit_process = False # Uncomment these lines if the process quits on its own, but keep them commented if the process does not quit.
+    while not quit_process:
+        time.sleep(0.25)'''
+
+    if wait_mode:
+        txt = txt+wait_txt
+
+    if package_mode:
+        dest = os.path.realpath(dest).replace('\\','/')
+        leaf_folder = dest.split('/')[-1]
+        path_folder = '/'.join(dest.split('/')[0:-1])
+        pack_txt = '''
+    sys.path.append("PATHFOLDER")
+    __package__ = "PACKNAME"'''.replace('PACKNAME', leaf_folder).replace('PATHFOLDER', path_folder)+'\n'
+
+        txt = txt.replace('PKGCODE\n',pack_txt)
+    else:
+        txt = txt.replace('PKGCODE\n','')
+
     return txt
 
 class PyProj():
-    def __init__(self, origin, dest, run_file, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=None, name='PyProj', github_branch=None):
+    def __init__(self, origin, dest, run_file, mod_run_file='default', refresh_dt=3600, printouts=False, sleep_time=2, cmd_line_args=None, name='PyProj', github_branch=None, wait_mode=False, package_mode=False):
         # A non-None github_URL will replace the contents of the folder!
         self.origin = origin # Folder or URL.
         if not dest:
@@ -122,7 +149,7 @@ class PyProj():
             raise Exception('Cannot find file: '+self.dest+'/'+run_file)
         if mod_run_file == 'default':
             if 'Termpylus_prepend_END' not in contents:
-                contents1 = get_prepend(sleep_time=sleep_time)+'\n'+contents
+                contents1 = get_prepend(sleep_time=sleep_time, wait_mode=wait_mode, package_mode=package_mode, dest=dest)+'\n'+contents
             else:
                 contents1 = contents
         else:
@@ -262,13 +289,13 @@ class PyProj():
 
 #########################Portfolio managment ###################################
 
-def launch_once(origin, dest, run_file='main.py', mod_run_file='default', refresh_dt=3600, printouts=True, sleep_time=2, cmd_line_args=None, name='PyProj', github_branch=None):
+def launch_once(origin, dest, run_file='main.py', mod_run_file='default', refresh_dt=3600, printouts=True, sleep_time=2, cmd_line_args=None, name='PyProj', github_branch=None, wait_mode=False, package_mode=False):
     # Does not launch if the dest matches any project.
     # Returns the project object.
     for pr in _gl['alive_projs']:
         if pr.dest==dest:
             return pr
-    out = PyProj(origin, dest, run_file, mod_run_file, refresh_dt, printouts, sleep_time, cmd_line_args, name, github_branch)
+    out = PyProj(origin, dest, run_file, mod_run_file, refresh_dt, printouts, sleep_time, cmd_line_args, name, github_branch, wait_mode, package_mode)
     out.launch()
     return out
 
@@ -314,11 +341,11 @@ def bcast_run(code_txt, wait=True, assert_result=True):
 
 def run_and_bcast_run(code_txt, wait=True, assert_result=True):
     # Runs all projects as well as code locally which it puts at the beginning of the list it returns.
-    out = bcast_run(code_txt, wait=assert_result, assert_result=assert_result)
     try:
         exec(code_txt)
     except Exception as e:
         raise e
+    out = bcast_run(code_txt, wait=assert_result, assert_result=assert_result)
     last_line = code_txt.strip().replace('\r\n','\n').split('\n')[-1]
     set_out = False; out0 = None
     if deep_stack.issym(last_line):
