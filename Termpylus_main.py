@@ -123,8 +123,10 @@ class GUI(tk.Frame):
 
         if evt_check.emacs(evt, hotkeys.kys['run_cmd']): # Shift enter = send command.
             refresh_txt = 'from Termpylus_extern.waterworks import py_updater\npy_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)'
-            projects.run_and_bcast_run(refresh_txt, wait=True, assert_result=False) # In case files were edited before the command.
-
+            try:
+                projects.run_and_bcast_run(refresh_txt, wait=True, assert_result=False) # In case files were edited before the command.
+            except Exception as e:
+                print('***Warning***: updating before running cmd failed with:', e)
             mo0 = sys.modules.copy()
             input_to_shell=self.text_input.get("1.0","end-1c")
             if len(input_to_shell.strip())==0:
@@ -165,9 +167,10 @@ class GUI(tk.Frame):
             self.historybox.see(tk.END)
 
             new_modules = set(sys.modules.keys())-set(mo0.keys())
-
-            refresh_txt = 'from Termpylus_extern.waterworks import py_updater\npy_updater.update_user_changed_modules(update_on_first_see=False, use_date=False)'
-            projects.run_and_bcast_run(refresh_txt, wait=True, assert_result=False) # Incase new modules were imported by the command.
+            try:
+                projects.run_and_bcast_run(refresh_txt, wait=True, assert_result=False) # Incase new modules were imported by the command.
+            except Exception as e:
+                print('***Warning***: updating after running cmd failed with:', e)
 
     def maybe_clear_app(self, *args):
         if evt_check.emacs(args[0], 'C+l'): # Bash default clear.
